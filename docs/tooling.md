@@ -65,3 +65,9 @@ font CDN. The generated CSS's self-referencing font variable was corrected.
 The SWC test plugin emits an advisory recommending the Babel plugin for performance.
 It is not an error; the compatible SWC setup passes locally and in the container.
 Revisit the Babel plugin when its peer dependencies coexist cleanly with shadcn.
+
+## Phase 1 compatibility correction
+
+Added `json ~> 2.0`, locked at 2.21.2. Rails 8.1.3.1's JSON decoder passes positional
+options incompatible with JSON 3; real request specs exposed the mismatch. No
+runtime or frontend version was changed. See engineering-journal.md for diagnosis.

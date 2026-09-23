@@ -5,8 +5,9 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Current scope: Phase 0 — repository foundation.** There is no auction domain or
-auction interface yet. [masterprompt.md](masterprompt.md) is the authoritative
+**Current scope: Phase 1 — core auction domain.** Users, auctions, bids, explicit
+lifecycle operations, and a versioned API work for sequential requests. Concurrent
+bid serialization and the real auction frontend are not implemented. [masterprompt.md](masterprompt.md) is the authoritative
 engineering specification; [progress](docs/progress.md) records verified work.
 
 ## Run locally
@@ -34,15 +35,19 @@ port overrides, dependency updates, and shutdown.
 
 ## Correctness and architecture
 
-No auction correctness guarantee is implemented yet. The [invariants](docs/invariants.md)
-remain explicit requirements. Rails will own authoritative business logic;
-PostgreSQL will own authoritative state. Next.js handles presentation.
+The [invariants](docs/invariants.md) distinguish implemented sequential guarantees
+from future concurrency/delivery requirements. Rails owns business logic and
+PostgreSQL owns persisted state. Money uses integer EUR cents. Bid insertion and
+current-price update are atomic; explicit close assigns the winner. These are not
+concurrency-safety claims. Next.js still serves the original starting page.
 See [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
 [ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
 
 The roadmap investigates bid serialization, automatic bidding, closing races,
 idempotency, event delivery, and reconciliation in that order. It does not claim
-these problems are already solved.
+these problems are already solved. The current API has no authentication; bidder
+IDs are demo identity only. See [API usage](docs/api.md) and
+[ADR-002](docs/adr/002-core-auction-state.md) for the domain choices.
 
 ## Verification and learning
 
@@ -53,7 +58,7 @@ After native dependencies are installed and PostgreSQL is running:
 ```
 
 CI checks Ruby lint/security/tests, frontend lint/format/types/tests/build, and
-Compose startup. [Version choices](docs/tooling.md), [code map](docs/code-map.md),
+Compose startup plus a sequential HTTP auction smoke test. [Version choices](docs/tooling.md), [code map](docs/code-map.md),
 and [learning guide](docs/learning-guide.md) explain the foundation.
 
 ## Later engineering work

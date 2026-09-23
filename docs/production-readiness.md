@@ -1,8 +1,8 @@
 # Production readiness
 
-This is a development foundation, not a production auction system.
+This is a sequential auction domain and development foundation, not a production auction system.
 
-There is no domain implementation, authentication, authorization, rate limiting,
+There is no concurrent bid serialization, race-safe closure, authentication, authorization, rate limiting,
 backup/restore procedure, deployment configuration, capacity measurement, or
 operational runbook. Local Compose credentials are disposable development values;
 Compose is bound to loopback. Named volumes provide local persistence, not backups.

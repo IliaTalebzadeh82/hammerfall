@@ -47,7 +47,7 @@ in `.env` does not change an already-initialized database user's password.
 `/up` is Rails liveness, not a database query. Compose waits for PostgreSQL readiness
 before Rails starts, and Rails prepares its database. The RSpec integration check
 asserts a real connection to `hammerfall_test`. Frontend health confirms HTTP 200,
-not backend connectivity; the Phase 0 starting page does not call Rails.
+not backend connectivity; the starting page does not call Rails.
 
 ## Native apps with container PostgreSQL
 
@@ -94,8 +94,8 @@ named databases in database.yml.
 The check script reads root `.env`, validates Compose, checks Ruby lint/security and
 autoloading, prepares the test database, runs RSpec, then frontend lint, formatting,
 types, Vitest, and a production build. Run `bin/rails db:prepare` for development
-schema changes and `RAILS_ENV=test bin/rails db:prepare` before specs. Phase 0 has
-no domain migrations; database preparation creates Rails metadata only.
+schema changes and `RAILS_ENV=test bin/rails db:prepare` before specs. Phase 1 has a reversible migration for users, auctions, and bids; current schema
+is committed. Never roll back a populated development database just to test a migration.
 
 CI executes equivalent checks plus a container smoke test. A local build does not
 prove a remote GitHub Actions run succeeded.
@@ -106,3 +106,25 @@ Commit Gemfile.lock and package-lock.json together with manifest changes. Use
 `bundle install` in apps/api and `npm install` in apps/web. There is no root npm
 workspace because only one JavaScript application exists. Use the shadcn CLI in
 apps/web to add primitives when needed, rather than copying arbitrary components.
+
+## Phase 1 demo and API verification
+
+```sh
+docker compose exec api bin/rails db:seed
+docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-api
+```
+
+Seeds populate only an empty development domain with 3 users, scheduled/active/
+closed auctions, and 4 bids. A rerun or a database with existing domain records is
+left unchanged. The active seed's window lasts seven days from its first creation;
+seeds never reopen or refresh old auctions. The historical closed example uses
+trusted internal clock arguments; record creation times are insertion metadata.
+No test/production data is seeded.
+
+The smoke script creates its own labelled records, exercises the real JSON API,
+waits about eight seconds for the deadline, and leaves its closed auction for
+inspection. Native Ruby users can run `./scripts/smoke-api`; set API_BASE_URL if the
+API port differs from 3001. API details: [api.md](api.md).
+
+The API deliberately uses client-supplied bidder IDs without authentication. Keep
+it local. Both concurrent bid serialization and race-safe closure are future work.

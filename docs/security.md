@@ -1,9 +1,15 @@
 # Security
 
-No authenticated or business endpoints exist yet. Rails runs API-only middleware;
-there is no cross-origin API integration or permissive CORS policy in Phase 0.
-Authentication, authorization, CSRF strategy, and rate limiting must be decided
-when the request/session model exists.
+Phase 1 exposes business endpoints for local development, with no authentication
+or authorization. A supplied bidder_id is a demo actor selector, not proof of
+identity. Anyone with API access can create identities/auctions, submit bids as any
+existing user, and invoke lifecycle actions. Do not expose it as a public service.
+
+Rails runs API-only middleware; no session or permissive CORS policy is introduced.
+Authentication, authorization, CSRF strategy, and rate limiting remain future work.
+The versioned API allowlists resource attributes, rejects nested/unknown fields,
+bounds lists, validates IDs/money, and returns deliberate public JSON with stable
+expected-error codes. It does not broadly rescue unexpected programming errors.
 
 Ignore .env, Rails master keys, dependency folders, logs, and generated build files.
 .env.example contains only explicitly local dummy credentials. Never reuse these
