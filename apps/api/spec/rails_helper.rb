@@ -3,10 +3,16 @@ ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 abort("RSpec must run in the test environment") unless Rails.env.test?
 require "rspec/rails"
+require_relative "support/domain_helpers"
 
 ActiveRecord::Migration.maintain_test_schema!
 
 RSpec.configure do |config|
+  config.include DomainHelpers
+  config.include ActiveSupport::Testing::TimeHelpers
+  config.around(:each, :domain) do |example|
+    travel_to(Time.utc(2026, 9, 24, 12)) { example.run }
+  end
   config.use_transactional_fixtures = true
   config.filter_rails_from_backtrace!
 end
