@@ -29,3 +29,39 @@ Sources checked during setup:
 - [Next.js installation](https://nextjs.org/docs/app/getting-started/installation)
 - [Tailwind with Next.js](https://tailwindcss.com/docs/installation/framework-guides/nextjs)
 - [shadcn CLI](https://ui.shadcn.com/docs/cli)
+
+## Frontend compatibility choices
+
+TypeScript 6.0.3 matches the stable compiler line used by Next.js 16.3's own
+configuration package; Node types target Node 24. Vitest 5.0.1 uses the SWC React
+plugin 4.3.3 and jsdom 30.1.1. SWC avoids an npm peer-resolution conflict between
+the latest Babel-based Vite plugin and shadcn's Babel 7 tooling.
+
+Biome 2.5.14 supplies frontend linting and formatting with recommended React and
+Next.js rules. Next.js explicitly supports Biome. The generator initially supplied
+ESLint 9 (now deprecated); ESLint 10 encountered unsupported peer ranges in its
+React/accessibility plugins. Replacing that dependency set with Biome avoids
+forcing incompatible packages or preserving an unsupported lint runtime.
+
+The shadcn 4.21.0 CLI generated the base-nova configuration and Button component.
+System fonts replace downloaded Google fonts, keeping builds independent of a
+font CDN. The generated CSS's self-referencing font variable was corrected.
+
+- [Biome setup](https://biomejs.dev/guides/getting-started/)
+
+## Resolved versions
+
+| Tool | Version |
+| --- | --- |
+| Ruby / Bundler | 4.0.6 / 4.0.19 |
+| Rails / RSpec Rails | 8.1.3.1 / 8.0.4 |
+| PostgreSQL | 18.6 |
+| Node / npm | 24.20.0 / 11.19.0 |
+| Next.js / React | 16.3.6 / 19.2.8 |
+| TypeScript | 6.0.3 |
+| Tailwind CSS / shadcn CLI | 4.3.3 / 4.21.0 |
+| Biome / Vitest | 2.5.14 / 5.0.1 |
+
+The SWC test plugin emits an advisory recommending the Babel plugin for performance.
+It is not an error; the compatible SWC setup passes locally and in the container.
+Revisit the Babel plugin when its peer dependencies coexist cleanly with shadcn.

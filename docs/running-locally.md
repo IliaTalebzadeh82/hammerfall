@@ -21,12 +21,14 @@ Containers run as non-root users. On Linux, set `LOCAL_UID` and `LOCAL_GID` in
 
 Source directories are bind mounted so edits reload. Dependencies and generated
 Next.js/Rails temporary files use named volumes. On startup, Bundler/npm reconcile
-the installed dependencies with committed lockfiles. Rebuild after changing
+the installed dependencies with committed lockfiles. The frontend reinstalls only
+when its package manifest or lockfile changes; a checksum marker in node_modules
+keeps ordinary restarts fast. Rebuild after changing
 Dockerfiles or runtime versions. No production image or deployment is provided.
 
 ```sh
 docker compose logs -f
-docker compose exec api bundle exec rspec
+docker compose exec -e RAILS_ENV=test api bundle exec rspec
 docker compose exec web npm test
 docker compose stop
 docker compose down

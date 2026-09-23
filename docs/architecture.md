@@ -2,7 +2,7 @@
 
 ## Phase 0 scope
 
-The intended executable foundation is a Next.js presentation application in
+The executable foundation is a Next.js presentation application in
 `apps/web`, a Rails API application in `apps/api`, and PostgreSQL. See
 [progress](progress.md) for verification status. No domain models exist yet.
 

@@ -1,0 +1,11 @@
+.git
+.env
+**/node_modules
+**/.next
+**/coverage
+**/log
+**/tmp
+**/.bundle
+**/vendor/bundle
+**/config/master.key
+**/config/credentials/*.key

@@ -6,5 +6,5 @@ CI.run do
   step "Security: Brakeman", "bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error"
   step "Autoloading", "bin/rails zeitwerk:check"
   step "Test database", "env RAILS_ENV=test bin/rails db:prepare"
-  step "RSpec", "bundle exec rspec"
+  step "RSpec", "env RAILS_ENV=test bundle exec rspec"
 end

@@ -15,7 +15,7 @@ implicit runtime assumptions and stale dependencies make results hard to reprodu
 Next.js apps, Docker Compose for local dependencies, and the same lint/test commands
 locally and in CI. The Rails application remains the future authority.
 
-**Guarantees:** once verified, both apps boot and their foundation checks execute
+**Verified behavior:** both apps boot and their foundation checks execute
 against the declared runtimes. See progress.md for actual results.
 
 **Not guaranteed:** auction correctness, concurrency safety, authentication,
@@ -25,7 +25,7 @@ production readiness, or any distributed delivery semantics.
 then docs/code-map.md.
 
 **Tests to study:** the health request spec and the frontend starting-page test
-introduced with the scaffold. They exercise the boundary that actually exists.
+in the scaffold. They exercise the boundary that actually exists.
 
 **Interview discussion:** why defer microservices, why test against PostgreSQL,
 and why liveness differs from database readiness?

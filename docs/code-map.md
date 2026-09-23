@@ -1,7 +1,7 @@
 # Code map
 
 Phase 0 has no bidding or auction workflow. The map below describes only the
-foundation being scaffolded; progress.md records when verification is complete.
+implemented foundation; progress.md records the verification results.
 
 ## API liveness
 

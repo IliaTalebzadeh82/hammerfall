@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:18.6-bookworm
+        env:
+          POSTGRES_USER: hammerfall
+          POSTGRES_PASSWORD: hammerfall_ci_only
+          POSTGRES_DB: hammerfall_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd 'pg_isready -U hammerfall -d hammerfall_test'
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      RAILS_ENV: test
+      PGHOST: 127.0.0.1
+      PGUSER: hammerfall
+      PGPASSWORD: hammerfall_ci_only
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          working-directory: apps/api
+          bundler-cache: true
+      - run: bundle exec rubocop
+      - run: bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error
+      - run: bin/bundler-audit
+      - run: bin/rails db:prepare zeitwerk:check
+      - run: bundle exec rspec
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: cp .env.example .env
+      - name: Match container user to runner
+        run: |
+          echo "LOCAL_UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "LOCAL_GID=$(id -g)" >> "$GITHUB_ENV"
+      - run: docker compose config --quiet
+      - run: docker compose up --build --wait --wait-timeout 240
+      - run: curl --fail http://localhost:3001/up && curl --fail http://localhost:3000
+      - name: Logs
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop services
+        if: always()
+        run: docker compose down

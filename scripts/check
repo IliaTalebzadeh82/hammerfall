@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if [[ -f .env ]]; then
+  set -a
+  source .env
+  set +a
+fi
+
+docker compose config --quiet
+(
+  cd apps/api
+  bundle exec rubocop
+  bundle exec brakeman --quiet --no-pager --exit-on-warn --exit-on-error
+  bin/rails zeitwerk:check
+  RAILS_ENV=test bin/rails db:prepare
+  RAILS_ENV=test bundle exec rspec
+)
+(
+  cd apps/web
+  npm run lint
+  npm run format:check
+  npm run typecheck
+  npm test
+  npm run build
+)
