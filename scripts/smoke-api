@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+require "json"
+require "net/http"
+require "time"
+
+# Creates a labelled user and auction; leaves them available for inspection.
+base = ENV.fetch("API_BASE_URL", "http://127.0.0.1:3001")
+request = lambda do |method, path, expected, body = nil|
+  uri = URI.join(base, path)
+  klass = { get: Net::HTTP::Get, post: Net::HTTP::Post, patch: Net::HTTP::Patch }.fetch(method)
+  http_request = klass.new(uri)
+  if body
+    http_request["Content-Type"] = "application/json"
+    http_request.body = JSON.generate(body)
+  end
+  response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https", open_timeout: 5, read_timeout: 10) { |http| http.request(http_request) }
+  raise "#{method} #{path}: expected #{expected}, got #{response.code}: #{response.body}" unless response.code.to_i == expected
+  puts "#{method.to_s.upcase} #{path} => #{response.code}"
+  JSON.parse(response.body)
+end
+
+user = request.call(:post, "/api/v1/users", 201, { user: { name: "Smoke bidder #{Time.now.utc.iso8601}" } }).fetch("data")
+now = Time.now.utc
+ends_at = now + 8
+auction = request.call(:post, "/api/v1/auctions", 201, {
+  auction: { title: "Smoke auction #{now.iso8601}", starting_price: 10_000, minimum_increment: 500,
+             starts_at: (now - 60).iso8601(6), ends_at: ends_at.iso8601(6) }
+}).fetch("data")
+path = "/api/v1/auctions/#{auction.fetch('id')}"
+request.call(:patch, path, 200, { auction: { description: "Phase 1 HTTP smoke verification" } })
+request.call(:post, "#{path}/schedule", 200)
+request.call(:post, "#{path}/activate", 200)
+[ 10_000, 11_000 ].each do |amount|
+  request.call(:post, "#{path}/bids", 201, { bid: { bidder_id: user.fetch("id"), amount: amount } })
+end
+low = request.call(:post, "#{path}/bids", 422, { bid: { bidder_id: user.fetch("id"), amount: 10_500 } })
+raise "Wrong low-bid error" unless low.dig("error", "code") == "bid_too_low" && low.dig("error", "details", "minimum_bid") == 11_500
+active = request.call(:get, path, 200).fetch("data")
+raise "Incorrect active state" unless active.values_at("current_price", "current_leader_id", "winner_id") == [ 11_000, user.fetch("id"), nil ]
+sleep([ ends_at - Time.now.utc + 0.1, 0 ].max)
+closed = request.call(:post, "#{path}/close", 200).fetch("data")
+raise "Incorrect winner" unless closed.values_at("status", "winner_id", "current_leader_id") == [ "closed", user.fetch("id"), nil ]
+request.call(:post, "#{path}/close", 200)
+rejected = request.call(:post, "#{path}/bids", 422, { bid: { bidder_id: user.fetch("id"), amount: 12_000 } })
+raise "Wrong closed-auction error" unless rejected.dig("error", "code") == "invalid_auction_state"
+history = request.call(:get, "#{path}/bids", 200).fetch("data")
+raise "History changed after rejection" unless history.map { |bid| bid.fetch("amount") } == [ 10_000, 11_000 ]
+puts "Phase 1 smoke passed; retained auction #{auction.fetch('id')} and user #{user.fetch('id')}."

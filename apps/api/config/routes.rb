@@ -1,4 +1,18 @@
 Rails.application.routes.draw do
-  # Liveness only: Rails booted successfully. This does not query PostgreSQL.
   get "up" => "rails/health#show", as: :rails_health_check
+
+  namespace :api do
+    namespace :v1 do
+      resources :users, only: %i[index create]
+      resources :auctions, only: %i[index show create update] do
+        member do
+          post :schedule
+          post :activate
+          post :close
+          post :cancel
+        end
+        resources :bids, only: %i[index create]
+      end
+    end
+  end
 end
