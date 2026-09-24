@@ -1,10 +1,10 @@
 # Invariants
 
-## Implemented in Phase 1
+## Implemented through Phase 2
 
-Unless explicitly marked SQL, these are guarantees for **sequential calls through
-the documented domain entry points**, not for concurrent requests or privileged
-validation-bypassing writes.
+Unless explicitly marked SQL, these guarantees apply to concurrent calls through
+the documented domain entry points at PostgreSQL READ COMMITTED isolation.
+Privileged validation-bypassing writes remain outside the workflow contract.
 
 | Invariant | Enforcement | Evidence |
 | --- | --- | --- |
@@ -19,7 +19,9 @@ validation-bypassing writes.
 | Auction terms freeze after draft; cancellation cannot discard accepted bids | Auction validations and cancel! | auction_spec.rb |
 | At most one stored winner, and none outside closed state | One nullable winner_id; SQL FK and status CHECK | auction_spec.rb, domain_constraints_spec.rb |
 | Close chooses the highest accepted bidder, or no winner with no bids | close!; repeated close is a no-op | auction_spec.rb, bids_spec.rb |
-| History is stably paginated by server ID and excludes client timestamps | API allowlist, ordered scoped query | bids_spec.rb |
+| History has unique increasing auction-local sequence, excluding client ordering | Locked MAX(sequence)+1; SQL positive/NOT NULL/unique index; sequence pagination | concurrent_bidding_spec.rb, domain_constraints_spec.rb, bids_spec.rb |
+| Fresh validation and price/history mutation serialize per auction | SELECT FOR UPDATE before decisions; same lock for lifecycle/draft commands | concurrent_bidding_spec.rb stale waiter, same amount, many bidders, lifecycle and close cases |
+| Other auctions can progress while one is locked | Independent aggregate rows | concurrent_bidding_spec.rb independent-auction case |
 
 The API returns the persisted winner; it does not promote an active leader into a
 winner. The static frontend still has no auction view or independent projection.
@@ -30,24 +32,24 @@ Actual files are mapped in [code-map.md](code-map.md). Tests reside under
 
 All 15 original master invariants remain requirements. Their current status is:
 
-1. **Closed auctions cannot accept a new bid:** enforced sequentially; bid/close
-   races are not solved.
+1. **Closed auctions cannot accept a new bid:** enforced under the shared auction lock;
+   clock authority/scheduling remain Phase 4.
 2. **Same idempotency key cannot create multiple bids:** future Phase 5; there is
    no key handling or retry deduplication now.
 3. **Every accepted bid belongs to exactly one auction:** enforced structurally
    by SQL NOT NULL/FK.
-4. **At most one authoritative winner:** one winner reference exists; concurrent
-   winner/close correctness is still future work.
-5. **Deterministic authoritative accepted-bid ordering:** Phase 2. Ordinary IDs
-   currently support history, not concurrent commit/acceptance ordering.
+4. **At most one authoritative winner:** one winner reference; current close and bid
+   commands share the auction lock and select committed history.
+5. **Deterministic authoritative accepted-bid ordering:** enforced by auction-local
+   sequence under the lock and SQL uniqueness. No global ordering is claimed.
 6. **Client timestamps cannot determine authoritative ordering:** clients cannot
-   set bid timestamps; the authoritative ordering mechanism is still deferred.
+   set bid timestamps or sequence; the locked server assigns sequence.
 7. **Visible winner must agree with PostgreSQL:** API serializes the stored
    winner; real-time/frontend projection consistency is not implemented.
 8. **Automatic bid maxima are private:** Phase 3; no maxima exist yet.
-9. **Concurrent requests cannot lose updates:** Phase 2; explicitly not guaranteed.
-10. **Closure and bid acceptance serialize correctly:** future coordination/time
-    work; Phase 1 provides sequential preconditions only.
+9. **Concurrent requests cannot lose updates:** enforced by the row lock and atomic bid/price writes.
+10. **Closure and bid acceptance serialize correctly:** current commands share a row lock;
+    distributed time/closing workers and extensions remain Phase 4.
 11. **Committed bids eventually produce domain events:** Phase 9 onward; no outbox
     or event publication exists yet.
 12. **Duplicate events do not duplicate downstream effects:** Phase 10 onward.
@@ -56,5 +58,8 @@ All 15 original master invariants remain requirements. Their current status is:
 15. **Redis loss cannot invalidate authoritative state:** PostgreSQL is the only
     current store; Redis integration/failure behavior is deferred.
 
-Do not infer concurrency safety from the passing sequential suite. Update this
-ledger with enforcement and test references as later phases implement each promise.
+The dedicated concurrency group commits data and checks real independent PostgreSQL
+sessions. The ordinary suite keeps transactional wrappers. Removing locks must fail
+the concurrency suite; actual mutation/repetition results are recorded in progress.md.
+Normal accepted sequences are contiguous while history is immutable, but the public
+contract promises monotonicity, not gaplessness after privileged changes.

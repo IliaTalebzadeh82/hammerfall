@@ -5,9 +5,9 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Current scope: Phase 1 — core auction domain.** Users, auctions, bids, explicit
-lifecycle operations, and a versioned API work for sequential requests. Concurrent
-bid serialization and the real auction frontend are not implemented. [masterprompt.md](masterprompt.md) is the authoritative
+**Current scope: Phase 2 — correct concurrent bidding.** PostgreSQL auction row
+locks serialize fresh validation, bid sequence assignment and atomic price/history
+writes across Rails processes. The real auction frontend is not implemented. [masterprompt.md](masterprompt.md) is the authoritative
 engineering specification; [progress](docs/progress.md) records verified work.
 
 ## Run locally
@@ -35,15 +35,15 @@ port overrides, dependency updates, and shutdown.
 
 ## Correctness and architecture
 
-The [invariants](docs/invariants.md) distinguish implemented sequential guarantees
-from future concurrency/delivery requirements. Rails owns business logic and
+The [invariants](docs/invariants.md) distinguish implemented concurrency guarantees
+from future closing/delivery requirements. Rails owns business logic and
 PostgreSQL owns persisted state. Money uses integer EUR cents. Bid insertion and
-current-price update are atomic; explicit close assigns the winner. These are not
-concurrency-safety claims. Next.js still serves the original starting page.
+current-price update are atomic; explicit close assigns the winner. [ADR-003](docs/adr/003-auction-concurrency-control.md) explains serialization and
+the hot-auction bottleneck. Next.js still serves the original starting page.
 See [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
 [ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
 
-The roadmap investigates bid serialization, automatic bidding, closing races,
+The remaining roadmap investigates automatic bidding, distributed closing,
 idempotency, event delivery, and reconciliation in that order. It does not claim
 these problems are already solved. The current API has no authentication; bidder
 IDs are demo identity only. See [API usage](docs/api.md) and
@@ -58,7 +58,7 @@ After native dependencies are installed and PostgreSQL is running:
 ```
 
 CI checks Ruby lint/security/tests, frontend lint/format/types/tests/build, and
-Compose startup plus a sequential HTTP auction smoke test. [Version choices](docs/tooling.md), [code map](docs/code-map.md),
+Compose startup plus sequential and concurrent HTTP auction smoke tests. [Version choices](docs/tooling.md), [code map](docs/code-map.md),
 and [learning guide](docs/learning-guide.md) explain the foundation.
 
 ## Later engineering work

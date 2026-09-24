@@ -108,7 +108,7 @@ Recommended next prompt (exact):
 
 Status: COMPLETE
 
-Verified on 2026-09-24. Phase 2 has **not** started. Phase 0 commits and frontend
+Historical Phase 1 snapshot, verified on 2026-09-24. At that point Phase 2 had not started. Phase 0 commits and frontend
 source are preserved, and masterprompt.md is unchanged.
 
 ### Implemented
@@ -224,3 +224,178 @@ Phase 2 — Correct Concurrent Bidding. Begin only on a new explicit request.
 Recommended next prompt (exact):
 
 > Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, docs/domain-model.md, docs/invariants.md, and the ADRs. Implement Phase 2 only — Correct Concurrent Bidding: choose and document PostgreSQL concurrency control, serialize bid validation/insertion/current-price updates, define authoritative bid ordering, preserve increment and stale-bid rejection rules, and add real PostgreSQL concurrency tests using separate connections. Verify competing bids, rollback, stale requests, and absence of lost updates. Create docs/adr/auction-concurrency-control.md and update invariants, learning guide, code map, and progress. Run relevant checks and Docker/API verification, make coherent commits, and report evidence and limitations. Do not start Phase 3 or add automatic bidding, distributed closing, idempotency, or later-phase infrastructure.
+
+## Phase 2 — Correct Concurrent Bidding
+
+Status: COMPLETE
+
+Verified 2026-09-24. Phase 3 has not begun. Phase 0/1 history, masterprompt.md,
+frontend source and dependency locks are unchanged.
+
+### Implemented and concurrency strategy
+
+- PostgreSQL SELECT FOR UPDATE through Auction#reload(lock: true), inside a
+  transaction/savepoint, serializes bidding per auction across Rails processes.
+  Lock/reload precedes status/window/minimum decisions. Application time is sampled
+  after waiting, rather than at method entry. Stale objects are refreshed.
+- Bid insertion and stored current-price update remain atomic; a failure after
+  INSERT rolls back history and ordering even if an outer transaction rescues it.
+- Existing edit/lifecycle commands acquire the same row lock before deciding;
+  waiting bids recheck status, and waiting close sees committed accepted history.
+  This does not introduce a scheduler or distributed time/closing redesign.
+- Integer EUR cents, first-bid starting price, subsequent price-plus-increment,
+  active leader versus formal winner, and explicit closure semantics are preserved.
+- ADR-003 compares pessimistic locking, optimistic version/retry and conditional
+  compare-and-swap. Row locking has the simplest local proof, without retry
+  amplification or additional infrastructure. No Ruby mutex or distributed lock.
+
+### Authoritative ordering and API
+
+- Positive NOT NULL bigint Bid.sequence, UNIQUE(auction_id, sequence), assigned
+  MAX(sequence)+1 under the auction lock. Normal immutable history starts at 1;
+  rejected/rolled-back attempts consume no number. The contract is strictly
+  increasing auction-local order, not global order, FIFO arrival or unconditional
+  gaplessness in the presence of privileged history changes.
+- Maintenance migration backfills legacy sequential history by per-auction ID;
+  rollback drops ordering metadata without dropping bid data. It cannot recover
+  unknown historical concurrent commit ordering. API writers were stopped for the
+  original development migration; existing seed/smoke rows were preserved.
+- New unique index replaces (auction_id,id) for sequence history/MAX lookup.
+  Auction primary key remains the lock lookup; the existing amount-descending
+  leader index and bidder/winner reference indexes remain. No speculative indexes.
+- Bid responses expose sequence. Bid history uses after_sequence and
+  meta.next_after_sequence. Obsolete after_id on bid history is explicitly 400;
+  user/auction list cursors remain unchanged. Clients cannot supply sequence.
+- Stale contenders receive 422 bid_too_low with price/minimum from fresh locked
+  state, without SQL/lock implementation details. Later bids may change that state.
+
+### Tests and actual concurrency verification
+
+`spec/integration/concurrent_bidding_spec.rb` contains nine real PostgreSQL examples:
+
+1. Two valid-looking bids, independent backend PIDs, consistent final history/price.
+2. A lower waiter with a preloaded stale Auction rejects after a higher bid commits.
+3. Twelve distinct bidders contend; accepted sequence, increments, price and leader agree.
+4. Eight equal bids yield exactly one acceptance and seven domain rejections.
+5. Cancellation commits before a waiter proceeds; the bid rechecks status and rejects.
+6. Another auction finishes while the first auction remains locked.
+7. A real temporary SQL CHECK fails the price UPDATE after bid INSERT; both writes
+   roll back, and a subsequent bid receives sequence 1. No ActiveRecord lock mocks.
+8. The time window expires during lock wait; fresh time rejects the contender.
+9. A waiting close selects the just-committed bidder as its stored winner.
+
+Only this group sets use_transactional_tests=false. Fixtures commit and are visible
+across independent connections; workers load their own model instances. Queue
+barriers hold two checked-out PostgreSQL sessions before simultaneous bidding, and
+pg_blocking_pids proves controlled waiters actually block on the holder. Many
+contenders queue for the default pool of three; this is not twelve simultaneous
+PostgreSQL sessions. Owned records are cleaned after threads finish; all ordinary
+specs retain transactional fixtures.
+
+Final repeated run: seeds **1 through 20**, **9 examples each**, **180 examples,
+zero failures**. An earlier 20-run pass also succeeded before the additional
+checkout barrier. This is bounded correctness evidence, not stress confidence.
+
+Mutation verification: replacing the three command reload(lock: true) calls with
+plain reload caused **7 failures out of 9**, seed **43814**, with the final barrier.
+The mutant was loaded only in the test process; production source was unchanged.
+Failures included duplicate sequence errors, a parent-FK/unique-index deadlock,
+stale lifecycle/time acceptance and missing winner. The intended lock-before-child-
+write order resolves the competing lock cycle; no broad retry was added. The
+restored implementation passed native and container full suites.
+
+### Actual concurrent HTTP demonstration
+
+Executed scripts/smoke-concurrent-bids with:
+
+```sh
+API_BASE_URLS=http://127.0.0.1:3001,http://127.0.0.1:3002 ./scripts/smoke-concurrent-bids
+```
+
+Port 3001 was the Compose Rails process; port 3002 was an independent native Rails
+process connected to the same development PostgreSQL. Each request opened its own
+HTTP connection, and requests alternated processes. The temporary process was
+stopped afterward; this adds no multi-instance deployment infrastructure.
+
+| Auction / scenario | Actual responses | Accepted history (sequence: amount cents) | Final state |
+| --- | --- | --- | --- |
+| 9 / twelve amounts 10000..15500, step 500 | 4 × 201; 8 × 422 bid_too_low | 1:12000, 2:14000, 3:15000, 4:15500 | price 15500; leader 30; winner null |
+| 10 / eight amounts 10000 | 1 × 201; 7 × 422 bid_too_low | 1:10000 | price 10000; leader 21; winner null |
+
+The script verifies every response against committed history, fresh rejection
+minimums, increments, sequence uniqueness/order, final price and leader. Labelled
+rows remain for inspection. Accepted counts depend on scheduling; these are actual
+outcomes, not fixed expected counts or performance numbers. Sequential smoke also
+passed on auction 11/user 31: two accepts, low rejection, close/reclose, post-close
+rejection and unchanged history/winner.
+
+### Full verification actually run
+
+| Check | Result |
+| --- | --- |
+| Development migration forward and test db:prepare | Passed; existing development history backfilled |
+| Test db:rollback STEP=1 then db:migrate with three interleaved bids across two auctions | Passed; original IDs, amounts, sequences and stored prices preserved after reapply; owned test rows cleaned |
+| Native full RSpec | 178 examples, 0 failures |
+| Final concurrency group, seeds 1..20 | 180 examples, 0 failures |
+| Lock-removal mutation, seed 43814 | 9 examples, 7 expected failures; normal source unchanged |
+| bin/ci | All steps passed: setup, RuboCop, gem audit, Brakeman, autoloading, test DB and 178 specs |
+| RuboCop | 45 backend files, no offenses; both root Ruby smoke scripts also pass with explicit apps/api/.rubocop.yml |
+| Brakeman / bundler-audit | 0 warnings/errors; no known vulnerabilities in checked advisory DB |
+| ./scripts/check | Full native backend/frontend checks passed |
+| Frontend lint, format:check, typecheck, test, build | Passed; 1 test, successful production build; source unchanged |
+| docker compose config / up --build --wait --wait-timeout 240 | Passed; db, api and web healthy |
+| Container test DB preparation and full RSpec | 178 examples, 0 failures (final seed 36592) |
+| Live API /up and web / | HTTP 200 |
+| Sequential and two-process concurrent HTTP smoke | Passed with actual results above |
+| git diff --check | Passed |
+
+After an interruption, temporary logs/processes were gone and services were down;
+Compose was restarted and the final migration, checks and HTTP demonstration above
+were repeated. Initial cleanup/clock/scanner issues and the mutation deadlock are
+explained in engineering-journal.md. No check was disabled. GitHub-hosted Actions
+has not run; local/container equivalents were executed. The workflow now includes
+the concurrent HTTP script in addition to its sequential smoke.
+
+### Commits
+
+- `f5295ac` — feat(api): serialize auction commands and assign authoritative bid sequences
+- `0eff1e2` — test(api): verify concurrent bids through live HTTP requests
+- Documentation completion commit: `docs: record verified Phase 2 concurrency guarantees`
+
+The documentation commit does not embed its own hash. Earlier phase history was
+not amended or rewritten.
+
+### Guarantees, limits and review before Phase 3
+
+Concurrent normal manual bidding now has fresh validation, atomic mutation, unique
+acceptance ordering and consistent committed price/history. Existing lifecycle
+commands participate in the same serialization. Winner remains unset until close.
+
+A hot auction's row lock is the deliberate throughput bottleneck. Long transactions
+increase wait time; queued requests consume database connections. No fairness,
+unbounded scalability, throughput target or latency number is claimed. Other
+auctions can proceed independently. Unexpected database failures propagate; no
+blanket retry can mask lock-order bugs or ambiguous commits.
+
+Still absent: automatic bidding, distributed clock/closing policy, scheduler,
+soft-close, idempotency, authentication/authorization, rate limiting, messaging,
+external projections and all later infrastructure. Multi-query reads are not a
+consistent snapshot. Validation-bypassing SQL remains outside workflow guarantees.
+This is not production readiness or real-money approval.
+
+Before Phase 3 review private maximum visibility, tie priority, proxy price rules,
+manual versus automatic interactions, generated-bid ordering, maximum modification/
+cancellation and lock ordering. The current latest-bid-equals-price invariant must
+be reconsidered explicitly if proxy pricing changes its meaning. Preserve one
+auction serialization boundary and distinguish hidden maxima from public history.
+
+Development services remain on localhost:3000/3001/5432. Only the extra temporary
+port-3002 process was stopped. No user-owned development data was removed.
+
+### Next phase
+
+Phase 3 — Automatic Bidding, only on a new explicit request.
+
+Recommended next prompt (exact):
+
+> Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, docs/domain-model.md, docs/invariants.md, docs/architecture.md, docs/learning-guide.md, docs/code-map.md, docs/api.md, all ADRs, and the current bidding code/tests. Implement Phase 3 only — Automatic Bidding: private maximum bids, an explicit deterministic proxy-bidding algorithm, documented tie behavior, manual/automatic interactions, maximum modification/cancellation policy, and real PostgreSQL concurrency tests. Preserve Phase 2 auction-row serialization, fresh validation, atomic state/history updates, authoritative ordering, and maximum privacy. Document any necessary changes to price/leader invariants with examples and an ADR. Run full relevant checks, repeated concurrency tests, migrations, Docker and live API verification; update learning/code-map/progress docs and make coherent commits. Stop after Phase 3. Do not add distributed closing, soft-close, idempotency, Redis, Sidekiq, Kafka, outbox, WebSockets, authentication redesign or later infrastructure. Report actual evidence, limitations, and decisions requiring review.

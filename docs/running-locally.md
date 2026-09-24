@@ -128,3 +128,25 @@ API port differs from 3001. API details: [api.md](api.md).
 
 The API deliberately uses client-supplied bidder IDs without authentication. Keep
 it local. Both concurrent bid serialization and race-safe closure are future work.
+
+
+## Phase 2 migration and concurrency verification
+
+The sequence migration backfills existing bids by ID within each auction and adds
+NOT NULL/positive/unique constraints. Stop old API writers before this maintenance
+migration; do not mix old bid-writing code with the new schema. For an existing
+checkout: `docker compose stop api`, migrate using the new code (native
+`bin/rails db:migrate` with PG variables, or a one-off Compose API command), then
+`docker compose up --build --wait`. No development data rollback is required.
+Rollback/reapply tests belong in the isolated test database.
+
+Run `bundle exec rspec spec/integration/concurrent_bidding_spec.rb` in apps/api.
+Only this group disables transactional fixtures. It uses committed owned records,
+separate database sessions, Queue barriers and pg_blocking_pids observations.
+Default pool size 3 permits a holder and two workers; 12 contenders queue for
+connections after their start barrier. Cleanup deletes only each example's records.
+For repetition, run the group with `--seed` values 1 through 20, stopping on failure.
+
+`./scripts/smoke-concurrent-bids` checks live HTTP contention and retains labelled
+rows. To exercise existing independent Rails processes, pass comma-separated
+`API_BASE_URLS`. Neither the test nor the script measures capacity.

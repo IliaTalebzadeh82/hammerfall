@@ -1,15 +1,15 @@
 # Domain model
 
-Phase 1 implements correct **sequential operations** using PostgreSQL. Concurrent
-bid/lifecycle serialization is not implemented; see [ADR-002](adr/002-core-auction-state.md).
+Phase 2 serializes manual bidding and existing lifecycle commands through a
+PostgreSQL auction row lock; see [ADR-003](adr/003-auction-concurrency-control.md).
 
 ## Entities and representation
 
 | Entity | Stored fields | Meaning |
 | --- | --- | --- |
 | User | id, name, created_at, updated_at | Minimal bidder identity; names need not be unique and are not credentials |
-| Auction | id, title, description, status, starting_price, current_price, minimum_increment, starts_at, ends_at, winner_id, timestamps | Authoritative persisted auction state for the current sequential implementation |
-| Bid | id, auction_id, bidder_id, amount, created_at | An accepted, immutable manual bid; rejected attempts do not create rows |
+| Auction | id, title, description, status, starting_price, current_price, minimum_increment, starts_at, ends_at, winner_id, timestamps | Authoritative persisted auction state for concurrent manual bidding |
+| Bid | id, auction_id, bidder_id, amount, sequence, created_at | An accepted, immutable manual bid; rejected attempts do not create rows |
 
 All monetary fields are **integer EUR cents**, not euros or floating point. For
 example, `10500` means EUR 105.00. Each value must be an integer from 1 through
@@ -61,14 +61,14 @@ an ended auction can remain active until explicitly closed, but accepts no more
 bids; a scheduled auction does not activate itself. Activation after the window
 ends is rejected; it may still be cancelled if it has no bids.
 
-Phase 1 samples `Time.current` in Ruby; no scheduler, database-clock protocol,
-distributed clock guarantee, or race-safe closing exists. Trusted internal `at:`
+Phase 2 samples `Time.current` in Ruby after acquiring the row lock; no scheduler,
+database-clock protocol or distributed clock guarantee exists. Trusted internal `at:`
 arguments support deterministic tests and demo history. HTTP clients cannot supply
 authoritative time. Phase 4 must revisit clock authority and closing races.
 
 ## Bidding and current price
 
-`Auction#place_bid!` is the one normal write entry point. It reloads the auction,
+`Auction#place_bid!` is the one normal write entry point. It locks and reloads the auction in one SELECT FOR UPDATE,
 checks active status/time, validates an existing bidder and exact positive amount,
 then applies:
 
@@ -90,10 +90,12 @@ and destroy! calls. Foreign keys restrict deletion of referenced users/auctions.
 Privileged update_all, delete_all, raw SQL, and explicit validation bypasses are
 outside these workflow guarantees.
 
-Reloading avoids stale Ruby objects across sequential calls. **It is not a lock**.
-Concurrent calls can still validate against the same old price and overwrite one
-another. A transaction protects atomic writes, not the complete read/check/write
-sequence from concurrent interference. Phase 2 owns that work.
+The lock refreshes even a previously loaded stale Ruby object. Each waiter validates
+against committed predecessor state under READ COMMITTED, including status and the
+minimum. Draft edits and lifecycle commands lock the same row before deciding.
+The outermost transaction holds the lock until commit/rollback; savepoint release
+is not final commit. Independent auctions use independent locks. Same-auction
+commands serialize; fairness and arrival order are not guaranteed.
 
 ## Leader, winner, and history
 
@@ -104,29 +106,34 @@ An auction has one nullable winner reference, and the database forbids a non-nul
 winner outside closed status. Cancelled auctions have no bids or winner under
 normal operations. No refund/retraction policy is invented.
 
-History is ascending server-generated bid ID, with keyset pagination. IDs are
-ordinary insertion identifiers: they can have gaps and **are not commit order or
-an authoritative concurrent acceptance sequence**. created_at is insertion
-metadata. No client timestamp is accepted. The leading-bid query uses amount
+History is ascending auction-local `sequence`, with `after_sequence` keyset
+pagination. Under the auction lock, placement assigns MAX(sequence)+1, starting at
+1. PostgreSQL enforces NOT NULL, positive bigint and UNIQUE(auction_id, sequence).
+Committed normal operations produce contiguous sequences while history is immutable;
+rejections/rollback consume none. The contract is strict monotonic order, not a
+global gaplessness guarantee under privileged edits or future workflows. IDs may
+have gaps; created_at is insertion metadata. Neither is ordering authority. No
+client sequence or timestamp is accepted. The maintenance migration backfills
+legacy sequential history by ID; it cannot recover past concurrent commit order. The leading-bid query uses amount
 descending then ID ascending for deterministic selection; equal accepted amounts
-cannot occur in valid sequential bidding, so this is not an automatic-bidding tie
+cannot occur in valid serialized manual bidding, so this is not an automatic-bidding tie
 policy.
 
 ## Database versus application
 
 PostgreSQL enforces NOT NULL, foreign keys, positive bounded amounts, allowed status,
 nonblank names/titles, end-after-start, price-at-least-start, and winner-only-when-
-closed. Indexes cover bid history `(auction_id, id)`, highest bid
+closed. Indexes cover bid history `(auction_id, sequence)` unique, highest bid
 `(auction_id, amount DESC, id)`, and bidder/winner references. Primary keys supply
 identity uniqueness; display names and auction titles deliberately are not unique.
 
 Ruby enforces legal transitions, time eligibility, minimum bid, frozen terms,
-immutable accepted history, winner selection, and atomic price/history updates.
+immutable accepted history, winner selection, and atomic price/history updates under the auction row lock.
 Cross-row workflow rules are not duplicated in triggers. See the SQL-bypass tests
 in `spec/integration/domain_constraints_spec.rb` for the exact database guarantees.
 
 ## Deferred concepts
 
-AutomaticBid (Phase 3), IdempotencyRecord (Phase 5), OutboxEvent (Phase 9), concurrency
-ordering (Phase 2), and race-safe closure (Phase 4) are not implemented. There is no
+AutomaticBid (Phase 3), IdempotencyRecord (Phase 5), OutboxEvent (Phase 9), and distributed
+closing/time authority (Phase 4) are not implemented. There is no
 authentication; client-supplied bidder_id is a local/demo actor selector only.

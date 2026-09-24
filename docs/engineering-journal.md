@@ -49,3 +49,46 @@ regression test reproduced one persisted bid after the failure.
 place_bid! now requests a new transaction/savepoint. The same test confirms no bid
 survives the rescued failure. This is atomic rollback scope, not locking or
 serialization. Simultaneous calls remain explicitly unsafe in Phase 1.
+
+## Phase 2 — Lock before deciding, not just before writing
+
+Phase 1's reload and savepoint preserved atomic writes but allowed competing
+read/check/write decisions. Phase 2 moves the serialization point to the auction
+row, before status, time, minimum and sequence decisions. Lifecycle actions must
+use the same protocol: otherwise close can compute a winner before waiting on a
+later UPDATE and persist a stale winner after a bid commits.
+
+The initial removal of all three command locks during mutation verification produced
+five failures in nine PostgreSQL examples: stale acceptance/deadlock, duplicate ordering,
+expired-window acceptance, cancellation followed by an accepted bid, and closure
+with a missing winner. The mutation's deadlock came from inserting a child before
+locking its parent: the foreign-key key-share wait and competing unique-sequence
+insertion formed a cycle. Acquiring the auction lock first prevents that competing
+write pattern. No broad retry was added to hide these failures.
+
+The concurrency suite disables transactional fixtures only for its own group.
+Tests commit owned data and hold distinct PostgreSQL connections, using Queue
+barriers and pg_blocking_pids rather than sleeps to assume a race occurred.
+A short polling sleep only yields while checking an actual database wait. The
+many-contender test works with the existing pool of three, so not every contender
+holds a connection at once. Separate backend PIDs prove independent sessions.
+
+Early cleanup tried destroying a shared User object whose inverse bid association
+had been populated in workers. That cached association caused deletion-restriction
+errors even after SQL cleanup. Workers now load their own model instances and
+cleanup targets owned IDs. The clock-wait test uses ends_at + one second because
+Rails travel_to rounds to seconds while the stored end can retain microseconds.
+
+Brakeman flagged interpolation of the internal pagination column as possible SQL
+injection. The column was chosen only by code, but using Arel's greater-than
+predicate removes raw SQL interpolation and keeps the existing scanner clean.
+The API explicitly replaces bid-history after_id with after_sequence; other list
+cursors remain unchanged. No scanner suppressions or dependency changes were needed.
+
+The final barrier also holds two checked-out connections before releasing either
+bidder, removing any dependence on checkout scheduling for session independence.
+With this barrier, seeds 1–20 passed all nine examples each. A second mutation run
+loaded the unlocked model only in the test process (leaving live API code intact):
+seed 43814 failed seven of nine examples. Restoring normal loading passed the full
+178-example suite natively and in Docker. These are bounded correctness tests,
+not stress testing or a latency/throughput measurement.

@@ -1,6 +1,6 @@
 # Architecture
 
-## What exists now — Phases 0 and 1
+## What exists now — Phases 0–2
 
 Next.js in apps/web serves the unchanged starting page. Rails in apps/api owns
 User, Auction, Bid, explicit lifecycle operations, and a JSON REST API under
@@ -22,9 +22,12 @@ envelope. There is no repository/service/use-case framework or state-machine gem
 
 Auction owns its lifecycle and bid-placement entry point. Bid guards accepted
 history from ordinary mutations. SQL protects structural integrity; Ruby protects
-workflow rules for sequential operations. The current-price/bid writes are atomic,
-but no explicit locking, optimistic version, compare-and-swap, or other concurrency
-coordination is implemented. See [ADR-002](adr/002-core-auction-state.md).
+workflow rules inside a PostgreSQL transaction with SELECT FOR UPDATE on one auction.
+Fresh validation, auction-local sequence assignment, bid insertion and price update
+share that lock. Existing lifecycle/draft actions follow the same protocol. See
+[ADR-003](adr/003-auction-concurrency-control.md). Waiters consume database connections;
+a hot auction is intentionally serialized. Other auctions can progress independently.
+No process-local synchronization, external lock service or retry framework is used.
 
 Identity is a supplied existing bidder_id, supported by minimal user create/list
 endpoints for local demonstrations. It is not authenticated. Administrative-looking
@@ -39,12 +42,13 @@ leader is computed from the highest accepted bid and remains conceptually distin
 
 `/up` is Rails liveness, not a database readiness guarantee. Compose separately
 probes PostgreSQL. RSpec checks actual database connectivity, and the API smoke
-script verifies the sequential lifecycle against running containers.
+scripts verify the lifecycle and simultaneous HTTP bids against running containers.
+Real PostgreSQL concurrency specs use committed rows and independent sessions.
 
 ## Later phases — not implemented
 
-Phase 2 adds concurrent bid serialization and authoritative ordering. Automatic
-bidding follows in Phase 3; race-safe closing and soft-close in Phase 4; idempotency
+Automatic bidding follows in Phase 3; distributed closing/time authority and
+soft-close in Phase 4; idempotency
 in Phase 5; the auction frontend in Phase 6; Action Cable in Phase 7; Redis/Sidekiq
 in Phase 8; outbox in Phase 9; Kafka in Phase 10. Projections, reconciliation,
 observability, load testing, and deployment follow the master roadmap.

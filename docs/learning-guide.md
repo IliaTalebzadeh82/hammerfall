@@ -30,7 +30,7 @@ in the scaffold. They exercise the boundary that actually exists.
 **Interview discussion:** why defer microservices, why test against PostgreSQL,
 and why liveness differs from database readiness?
 
-## Core auction domain — Phase 1
+## Core auction domain — Phase 1 (historical guarantees)
 
 **Problem:** define what a valid sequential auction operation means before asking
 how simultaneous operations should be serialized.
@@ -96,7 +96,6 @@ Add the problem, naive approach, failure modes, chosen implementation, guarantee
 limitations, source files, demonstrative tests, and interview explanation for each
 subsystem when it is built:
 
-- Bid serialization (Phase 2)
 - Automatic bidding (Phase 3)
 - Auction closing and soft-close (Phase 4)
 - Idempotency (Phase 5)
@@ -110,3 +109,32 @@ subsystem when it is built:
 - Kubernetes (Phase 18)
 
 Do not substitute hypothetical explanations for evidence from implemented code.
+
+## Bid serialization — Phase 2
+
+**Problem and naive failure:** Phase 1's transaction makes its two writes atomic,
+not its decision exclusive. At price 10000/increment 500, A and B both reload 10000;
+A accepts 11000 and commits; B, already validated, accepts 10500 and overwrites the
+price. A plain reload can be stale again immediately. A Ruby mutex would only help
+one process. See ADR-003 for alternatives and the concrete transaction boundary.
+
+**Chosen implementation:** lock and refresh the auction row in PostgreSQL before
+validation, allocate MAX(sequence)+1 while locked, insert the bid, update price,
+and commit. Existing lifecycle actions use the same lock. Waiters revalidate price,
+status and the time window. No retry loop or external work belongs in the lock.
+
+**Guarantees:** accepted manual bids serialize per auction across database sessions;
+sequences identify that order; failure rolls back bid/price/sequence together.
+**Limits:** no FIFO/fairness, global ordering, clock synchronization, idempotency,
+or throughput guarantee. A hot auction is a serialized resource. Independent
+auctions can proceed concurrently; a long outer transaction delays lock release.
+
+**Read first:** Auction#place_bid!, the sequence migration, BidPresenter, ADR-003,
+and spec/integration/concurrent_bidding_spec.rb. The concurrency suite uses real
+committed rows, independent PostgreSQL sessions and database-observed lock waits.
+Transactional fixtures remain enabled elsewhere. Tests check outcomes, stale loaded
+objects, rollback, lifecycle changes and independence, rather than mocking locks.
+
+**Interview discussion:** explain atomicity versus isolation, why validation must
+follow lock acquisition, why uniqueness is insufficient, how rollback affects
+ordering, and why pessimistic locking trades simple correctness for hot-row queues.

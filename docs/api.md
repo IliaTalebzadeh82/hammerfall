@@ -1,4 +1,4 @@
-# Phase 1 API
+# Phase 2 API
 
 Base path: `/api/v1`. This API is for local development. There is **no authentication
 or authorization**; supplied bidder_id identifies a database row, not the caller.
@@ -20,13 +20,18 @@ Use JSON request bodies with Content-Type: application/json. See
 | POST | /auctions/:id/close | Close an active auction at/after ends_at |
 | POST | /auctions/:id/cancel | Cancel an eligible auction with no bids |
 | GET | /auctions/:auction_id/bids | List accepted bid history |
-| POST | /auctions/:auction_id/bids | Place a sequential manual bid |
+| POST | /auctions/:auction_id/bids | Place a serialized manual bid |
 
 Create returns 201; reads, edits, and lifecycle actions return 200. Single resources
 use `{"data": {...}}`. Lists use `{"data": [...], "meta": {"next_after_id": null}}`.
-Lists are ordered by ascending ID, default limit 20, maximum 100. Pass positive
+User/auction lists are ordered by ascending ID, default limit 20, maximum 100. Pass positive
 `limit` and optional `after_id`; follow next_after_id until null. These cursors do
 not imply authoritative transaction ordering.
+
+Bid history instead uses ascending auction-local `sequence`, `after_sequence`, and
+`meta.next_after_sequence` with the same limits. This replaces Phase 1 after_id for
+bids; that old parameter is rejected with 400 to avoid silently restarting a page.
+Sequence represents serialized accepted-bid order, not request arrival order.
 
 ## Auction input and representation
 
@@ -65,8 +70,14 @@ Lifecycle actions take no body and never accept client time as authoritative.
 The bidder must already exist. Money must be an integer JSON number: `10500.5`,
 `10500.0`, and `"10500"` are invalid. A bid must meet starting_price if first;
 otherwise current_price + minimum_increment. Responses contain id, auction_id,
-bidder_id, amount, currency, created_at. There is no bid edit/delete API, rejected
+bidder_id, amount, sequence, currency, created_at. There is no bid edit/delete API, rejected
 bid table, idempotency key, or automatic bidding endpoint.
+
+Bids validate fresh status, time and minimum after acquiring the auction row lock.
+A stale waiter receives ordinary 422 bid_too_low with the price/minimum observed
+inside that transaction; later commits may change them again. Sequence is assigned
+by the server and cannot be supplied. Rejections and rollbacks allocate no persisted
+sequence. IDs/timestamps remain metadata.
 
 ## Expected errors
 
@@ -109,3 +120,11 @@ The script creates a labelled user and auction, edits/schedules/activates it, ac
 two bids, rejects a low bid, waits about eight seconds for ends_at, closes twice,
 rejects a post-close bid, and verifies history/leader/winner. It leaves those rows
 for inspection. This is sequential HTTP verification, not a concurrency benchmark.
+
+
+For simultaneous HTTP verification, run `./scripts/smoke-concurrent-bids`. It starts
+12 concurrent increasing attempts and eight equal-amount attempts on two fresh
+auctions, verifies accepted history/sequences/price/leader and prints outcomes.
+Rows remain labelled for inspection. Optional API_BASE_URLS is a comma-separated
+list of running Rails URLs for routing requests across independent processes.
+This is correctness smoke coverage, not a capacity benchmark.
