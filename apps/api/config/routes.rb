@@ -6,6 +6,7 @@ Rails.application.routes.draw do
       resources :users, only: %i[index create]
       resources :auctions, only: %i[index show create update] do
         member do
+          put "maximum-bid", to: "maximum_bids#update"
           post :schedule
           post :activate
           post :close

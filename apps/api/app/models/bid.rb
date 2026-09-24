@@ -2,6 +2,7 @@ class Bid < ApplicationRecord
   belongs_to :auction, inverse_of: :bids
   belongs_to :bidder, class_name: "User", inverse_of: :bids
 
+  validates :origin, inclusion: { in: %w[manual automatic] }
   validates :amount, minor_units: true
   validates :sequence, numericality: { only_integer: true, greater_than: 0 }
   validate :persisted_participants

@@ -9,6 +9,9 @@ class Auction < ApplicationRecord
     "cancelled" => %w[draft scheduled active]
   }.freeze
 
+  belongs_to :current_leader, class_name: "User", optional: true
+  has_many :maximum_bids, autosave: false, validate: false, dependent: :restrict_with_exception, inverse_of: :auction
+
   belongs_to :winner, class_name: "User", optional: true, inverse_of: :won_auctions
   has_many :bids, dependent: :restrict_with_exception, inverse_of: :auction
 
@@ -62,15 +65,9 @@ class Auction < ApplicationRecord
     # Preserve atomicity even if a caller rescues failure inside an outer transaction.
     transaction(requires_new: true) do
       reload(lock: true)
-      at ||= Time.current
-      unless status == "active"
-        raise DomainError.new("invalid_auction_state", "Bids require an active auction.", details: { status: status })
-      end
-      unless starts_at <= at && at < ends_at
-        raise DomainError.new("auction_not_open", "The bidding window is not open.")
-      end
+      validate_bidding_window!(at || Time.current)
 
-      bid = bids.build(bidder: bidder, amount: amount, sequence: (bids.maximum(:sequence) || 0) + 1)
+      bid = Bid.new(auction_id: id, bidder: bidder, amount: amount, sequence: (bids.maximum(:sequence) || 0) + 1)
       raise ActiveRecord::RecordInvalid.new(bid) unless bid.valid?(:placement)
 
       minimum = minimum_bid
@@ -78,10 +75,36 @@ class Auction < ApplicationRecord
         raise DomainError.new("bid_too_low", "Bid must be at least #{minimum} cents.", details: { minimum_bid: minimum, current_price: current_price })
       end
 
-      bid.save!(context: :placement)
-      self.current_price = bid.amount
-      save!(context: :bid_placement)
-      bid
+      Bidding::ProxyResolver.new(self).manual(bidder, bid.amount)
+    end
+  end
+
+  def set_maximum!(bidder:, maximum_amount:, at: nil)
+    transaction(requires_new: true) do
+      reload(lock: true)
+      validate_bidding_window!(at || Time.current)
+      instruction = MaximumBid.find_or_initialize_by(auction_id: id, bidder_id: bidder&.id)
+      instruction.bidder = bidder
+      previous = instruction.maximum_amount
+      instruction.maximum_amount = maximum_amount
+      instruction.priority_sequence ||= 1
+      raise ActiveRecord::RecordInvalid.new(instruction) unless instruction.valid?(:maximum_configuration)
+
+      if previous && maximum_amount < previous
+        raise DomainError.new("maximum_bid_cannot_decrease", "Maximum bids cannot decrease.")
+      end
+      return instruction if previous == maximum_amount
+
+      if instruction.new_record?
+        minimum = current_leader_id.nil? ? starting_price : current_price + (current_leader_id == bidder.id ? 0 : 1)
+        if maximum_amount < minimum
+          raise DomainError.new("maximum_bid_too_low", "Maximum does not cover the public price.", details: { current_price: current_price })
+        end
+      end
+      instruction.priority_sequence = (maximum_bids.maximum(:priority_sequence) || 0) + 1
+      instruction.save!(context: :maximum_configuration)
+      Bidding::ProxyResolver.new(self).maximum(instruction)
+      instruction
     end
   end
 
@@ -90,10 +113,19 @@ class Auction < ApplicationRecord
   end
 
   def leading_bid
-    bids.order(amount: :desc, id: :asc).first
+    bids.where(bidder_id: current_leader_id).order(sequence: :desc).first
   end
 
   private
+
+  def validate_bidding_window!(at)
+    unless status == "active"
+      raise DomainError.new("invalid_auction_state", "Bids require an active auction.", details: { status: status })
+    end
+    unless starts_at <= at && at < ends_at
+      raise DomainError.new("auction_not_open", "The bidding window is not open.")
+    end
+  end
 
   def transition_to!(target, at:)
     transaction(requires_new: true) do
@@ -104,7 +136,7 @@ class Auction < ApplicationRecord
         raise DomainError.new("invalid_state_transition", "Cannot transition from #{status} to #{target}.", details: { from: status, to: target })
       end
       check_transition_preconditions!(target, at || Time.current)
-      self.winner = leading_bid&.bidder if target == "closed"
+      self.winner_id = current_leader_id if target == "closed"
       self.status = target
       save!(context: :transition)
       self
@@ -136,6 +168,7 @@ class Auction < ApplicationRecord
     end
     errors.add(:winner, "is only assigned on closure") if winner_id && status != "closed"
     if new_record?
+      errors.add(:current_leader, "must be empty initially") if current_leader_id
       errors.add(:status, "must start as draft") unless status == "draft"
       errors.add(:current_price, "must equal starting_price initially") unless current_price == starting_price
     end
@@ -145,6 +178,9 @@ class Auction < ApplicationRecord
   def managed_changes
     return if new_record?
 
+    if will_save_change_to_current_leader_id? && validation_context != :bid_placement
+      errors.add(:current_leader, "must be changed through bidding")
+    end
     if will_save_change_to_status? && validation_context != :transition
       errors.add(:status, "must be changed through a lifecycle action")
     end

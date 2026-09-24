@@ -17,7 +17,7 @@ module Api
           minimum_increment: @auction.minimum_increment,
           starts_at: @auction.starts_at.iso8601(6),
           ends_at: @auction.ends_at.iso8601(6),
-          current_leader_id: @auction.status == "active" ? @auction.leading_bid&.bidder_id : nil,
+          current_leader_id: @auction.status == "active" ? @auction.current_leader_id : nil,
           winner_id: @auction.winner_id,
           created_at: @auction.created_at.iso8601(6),
           updated_at: @auction.updated_at.iso8601(6)
