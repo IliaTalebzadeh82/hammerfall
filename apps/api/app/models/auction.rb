@@ -95,11 +95,9 @@ class Auction < ApplicationRecord
       end
       return instruction if previous == maximum_amount
 
-      if instruction.new_record?
-        minimum = current_leader_id.nil? ? starting_price : current_price + (current_leader_id == bidder.id ? 0 : 1)
-        if maximum_amount < minimum
-          raise DomainError.new("maximum_bid_too_low", "Maximum does not cover the public price.", details: { current_price: current_price })
-        end
+      minimum = current_leader_id.nil? ? starting_price : current_price + (current_leader_id == bidder.id ? 0 : 1)
+      if maximum_amount < minimum
+        raise DomainError.new("maximum_bid_too_low", "Maximum does not cover the public price.", details: { current_price: current_price })
       end
       instruction.priority_sequence = (maximum_bids.maximum(:priority_sequence) || 0) + 1
       instruction.save!(context: :maximum_configuration)

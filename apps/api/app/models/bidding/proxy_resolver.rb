@@ -13,7 +13,6 @@ module Bidding
 
     def maximum(instruction)
       return if @auction.current_leader_id == instruction.bidder_id
-      return if @auction.current_leader_id && instruction.maximum_amount <= @auction.current_price
 
       resolve(instruction.bidder, instruction.maximum_amount, priority: instruction.priority_sequence)
     end

@@ -12,10 +12,11 @@ Equal-price proxy ties need explicit priority and a stored leader, not ID order.
 
 Use one current MaximumBid per auction/bidder. Increases are binding; lowering and
 cancellation are forbidden. Same amount is a no-op after lifecycle/time validation.
-New instructions must cover starting_price without bids; otherwise a challenger
+New or increased instructions must cover starting_price without bids; otherwise a challenger
 must exceed current_price (partial increment allowed), or a leader may cover its
-current price. Existing instructions may increase even while still exhausted below
-current price: protection changes but no visible bid is emitted. No historical
+current price. Noncompetitive increases are rejected without allocating priority.
+Otherwise a dormant commitment at a manual leader’s existing price could later
+contradict equal-ceiling priority when that leader adds protection. No historical
 maximum audit table is introduced.
 
 Every new/increased commitment receives MAX(priority_sequence)+1 under the auction
@@ -55,7 +56,7 @@ A is incumbent, B incoming; A's proxy has earlier priority. P is public price.
 | maximum | proxy at 100 | 305 | 300 | none | A 300, B 305 | 305 | B |
 | maximum | manual at 220, increment 20 | 230 | 220 | none | B 230 | 230 | B |
 | own maximum increase | own leader at P | higher ceiling | own old ceiling | new priority | none | P | unchanged |
-| exhausted max increase | any at P | still <= P | >= P | unchanged contest | none | P | unchanged |
+| nonleader max increase | any at P | still <= P | >= P | rejected, no priority change | none | P | unchanged |
 
 ## Visible history and leader
 

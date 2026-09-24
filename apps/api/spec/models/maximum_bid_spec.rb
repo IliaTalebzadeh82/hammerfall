@@ -94,7 +94,7 @@ RSpec.describe MaximumBid, :domain, type: :model do
   it "keeps exhausted instructions and reactivates a later competitive increase" do
     maximum(alice, 30_000)
     auction.place_bid!(bidder: bob, amount: 50_000)
-    maximum(alice, 40_000)
+    expect { maximum(alice, 40_000) }.to raise_error(DomainError) { |e| expect(e.code).to eq("maximum_bid_too_low") }
     assert_state([ 10_000, 30_000, 50_000 ], bob)
     maximum(alice, 60_000)
     assert_state([ 10_000, 30_000, 50_000, 51_000 ], alice)
@@ -154,5 +154,15 @@ RSpec.describe MaximumBid, :domain, type: :model do
       expect(auction.reload.current_price).to be >= before
       assert_state(amounts, User.find(auction.current_leader_id)) unless amounts.empty?
     end
+  end
+
+  it "does not establish dormant tie priority at a manual leader's existing price" do
+    maximum(alice, 30_000)
+    maximum(bob, 40_000)
+    auction.place_bid!(bidder: alice, amount: 50_000)
+    expect { maximum(bob, 50_000) }.to raise_error(DomainError) { |e| expect(e.code).to eq("maximum_bid_too_low") }
+    expect(auction.maximum_bids.find_by!(bidder: bob)).to have_attributes(maximum_amount: 40_000, priority_sequence: 2)
+    maximum(alice, 50_000)
+    assert_state([ 10_000, 30_000, 31_000, 40_000, 50_000 ], alice)
   end
 end
