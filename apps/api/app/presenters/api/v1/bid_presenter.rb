@@ -11,6 +11,7 @@ module Api
           auction_id: @bid.auction_id,
           bidder_id: @bid.bidder_id,
           amount: @bid.amount,
+          sequence: @bid.sequence,
           currency: Auction::CURRENCY,
           created_at: @bid.created_at.iso8601(6)
         }

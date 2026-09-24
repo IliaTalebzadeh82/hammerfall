@@ -29,8 +29,8 @@ class Auction < ApplicationRecord
   end
 
   def edit_draft!(attributes)
-    transaction do
-      reload
+    transaction(requires_new: true) do
+      reload(lock: true)
       unless status == "draft"
         raise DomainError.new("invalid_auction_state", "Only draft auctions can be edited.")
       end
@@ -41,27 +41,28 @@ class Auction < ApplicationRecord
     end
   end
 
-  def schedule!(at: Time.current)
+  def schedule!(at: nil)
     transition_to!("scheduled", at: at)
   end
 
-  def activate!(at: Time.current)
+  def activate!(at: nil)
     transition_to!("active", at: at)
   end
 
-  def close!(at: Time.current)
+  def close!(at: nil)
     transition_to!("closed", at: at)
   end
 
   def cancel!
-    transition_to!("cancelled", at: Time.current)
+    transition_to!("cancelled", at: nil)
   end
 
-  # Atomic for a sequential call. No lock/serialization across simultaneous calls.
-  def place_bid!(bidder:, amount:, at: Time.current)
+  # PostgreSQL owns serialization across all Rails processes.
+  def place_bid!(bidder:, amount:, at: nil)
     # Preserve atomicity even if a caller rescues failure inside an outer transaction.
     transaction(requires_new: true) do
-      reload
+      reload(lock: true)
+      at ||= Time.current
       unless status == "active"
         raise DomainError.new("invalid_auction_state", "Bids require an active auction.", details: { status: status })
       end
@@ -69,7 +70,7 @@ class Auction < ApplicationRecord
         raise DomainError.new("auction_not_open", "The bidding window is not open.")
       end
 
-      bid = bids.build(bidder: bidder, amount: amount)
+      bid = bids.build(bidder: bidder, amount: amount, sequence: (bids.maximum(:sequence) || 0) + 1)
       raise ActiveRecord::RecordInvalid.new(bid) unless bid.valid?(:placement)
 
       minimum = minimum_bid
@@ -95,14 +96,14 @@ class Auction < ApplicationRecord
   private
 
   def transition_to!(target, at:)
-    transaction do
-      reload
+    transaction(requires_new: true) do
+      reload(lock: true)
       return self if status == target
 
       unless TRANSITIONS.fetch(target).include?(status)
         raise DomainError.new("invalid_state_transition", "Cannot transition from #{status} to #{target}.", details: { from: status, to: target })
       end
-      check_transition_preconditions!(target, at)
+      check_transition_preconditions!(target, at || Time.current)
       self.winner = leading_bid&.bidder if target == "closed"
       self.status = target
       save!(context: :transition)

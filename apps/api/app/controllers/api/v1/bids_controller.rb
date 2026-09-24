@@ -2,7 +2,8 @@ module Api
   module V1
     class BidsController < BaseController
       def index
-        render_collection(find_auction.bids) { |bid| BidPresenter.new(bid).as_json }
+        raise ActionController::BadRequest if params.key?(:after_id)
+        render_collection(find_auction.bids, order_key: :sequence) { |bid| BidPresenter.new(bid).as_json }
       end
 
       def create

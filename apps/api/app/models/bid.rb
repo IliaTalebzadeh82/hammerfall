@@ -3,10 +3,11 @@ class Bid < ApplicationRecord
   belongs_to :bidder, class_name: "User", inverse_of: :bids
 
   validates :amount, minor_units: true
+  validates :sequence, numericality: { only_integer: true, greater_than: 0 }
   validate :persisted_participants
   validate :placement_entry_point, on: :create
 
-  # Accepted bids are historical facts. Corrections are not part of Phase 1.
+  # Accepted bids are historical facts. Corrections are not supported.
   def readonly?
     persisted? || super
   end

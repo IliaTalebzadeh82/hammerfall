@@ -46,23 +46,23 @@ RSpec.describe "Core domain database constraints", :domain do
     expect_database_rejection(PG::NotNullViolation) { User.where(id: id).update_all(name: nil) }
   end
 
-  [ { amount: 0 }, { amount: -1 }, { amount: MinorUnitsValidator::MAXIMUM + 1 } ].each do |attributes|
+  [ { sequence: 0 }, { sequence: -1 }, { amount: 0 }, { amount: -1 }, { amount: MinorUnitsValidator::MAXIMUM + 1 } ].each do |attributes|
     it "enforces bid CHECKs for #{attributes}" do
-      row = { auction_id: auction.id, bidder_id: bidder.id, amount: 10_000, created_at: Time.current }.merge(attributes)
+      row = { auction_id: auction.id, bidder_id: bidder.id, amount: 10_000, sequence: 1, created_at: Time.current }.merge(attributes)
       expect_database_rejection(PG::CheckViolation) { Bid.insert_all!([ row ]) }
     end
   end
 
-  %i[auction_id bidder_id amount created_at].each do |field|
+  %i[auction_id bidder_id amount sequence created_at].each do |field|
     it "enforces bid NOT NULL for #{field}" do
-      row = { auction_id: auction.id, bidder_id: bidder.id, amount: 10_000, created_at: Time.current, field => nil }
+      row = { auction_id: auction.id, bidder_id: bidder.id, amount: 10_000, sequence: 1, created_at: Time.current, field => nil }
       expect_database_rejection(PG::NotNullViolation) { Bid.insert_all!([ row ]) }
     end
   end
 
   %i[auction_id bidder_id].each do |field|
     it "enforces the bid #{field} foreign key" do
-      row = { auction_id: auction.id, bidder_id: bidder.id, amount: 10_000, created_at: Time.current, field => -1 }
+      row = { auction_id: auction.id, bidder_id: bidder.id, amount: 10_000, sequence: 1, created_at: Time.current, field => -1 }
       expect_database_rejection(PG::ForeignKeyViolation) { Bid.insert_all!([ row ]) }
     end
   end
@@ -73,5 +73,14 @@ RSpec.describe "Core domain database constraints", :domain do
     active.place_bid!(bidder: user, amount: 10_000)
     expect_database_rejection(PG::ForeignKeyViolation) { Auction.where(id: active.id).delete_all }
     expect_database_rejection(PG::ForeignKeyViolation) { User.where(id: user.id).delete_all }
+  end
+
+  it "enforces unique sequences within an auction, not across auctions" do
+    active = create_auction(state: "active")
+    first = active.place_bid!(bidder: bidder, amount: 10_000)
+    row = first.attributes.except("id")
+    expect_database_rejection(PG::UniqueViolation) { Bid.insert_all!([ row ]) }
+    other = create_auction(state: "active")
+    expect(other.place_bid!(bidder: bidder, amount: 10_000).sequence).to eq(1)
   end
 end

@@ -45,14 +45,15 @@ module Api
       end
 
       # Bounded, stable history/list pagination; IDs are not commit ordering.
-      def render_collection(scope)
+      def render_collection(scope, order_key: :id)
         limit = params.key?(:limit) ? positive_integer(params[:limit], maximum: 100) : 20
-        scope = scope.where("id > ?", positive_integer(params[:after_id])) if params.key?(:after_id)
-        rows = scope.order(:id).limit(limit + 1).to_a
+        cursor = "after_#{order_key}"
+        scope = scope.where(scope.klass.arel_table[order_key].gt(positive_integer(params[cursor]))) if params.key?(cursor)
+        rows = scope.order(order_key).limit(limit + 1).to_a
         page = rows.first(limit)
         render json: {
           data: page.map { |record| yield record },
-          meta: { next_after_id: rows.length > limit ? page.last.id : nil }
+          meta: { "next_#{cursor}" => rows.length > limit ? page.last.public_send(order_key) : nil }
         }
       end
     end

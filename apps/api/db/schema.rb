@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_24_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_24_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -32,7 +32,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_000000) do
     t.check_constraint "ends_at > starts_at", name: "auctions_time_window"
     t.check_constraint "minimum_increment >= 1 AND minimum_increment <= '1000000000000'::bigint", name: "auctions_minimum_increment_range"
     t.check_constraint "starting_price >= 1 AND starting_price <= '1000000000000'::bigint", name: "auctions_starting_price_range"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'scheduled'::character varying, 'active'::character varying, 'closed'::character varying, 'cancelled'::character varying]::text[])", name: "auctions_valid_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'scheduled'::character varying::text, 'active'::character varying::text, 'closed'::character varying::text, 'cancelled'::character varying::text])", name: "auctions_valid_status"
     t.check_constraint "title::text ~ '[^[:space:]]'::text", name: "auctions_title_present"
     t.check_constraint "winner_id IS NULL OR status::text = 'closed'::text", name: "auctions_winner_only_when_closed"
   end
@@ -42,10 +42,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_000000) do
     t.bigint "auction_id", null: false
     t.bigint "bidder_id", null: false
     t.datetime "created_at", null: false
+    t.bigint "sequence", null: false
     t.index ["auction_id", "amount", "id"], name: "index_bids_on_auction_and_leading_amount", order: { amount: :desc }
-    t.index ["auction_id", "id"], name: "index_bids_on_auction_id_and_id"
+    t.index ["auction_id", "sequence"], name: "index_bids_on_auction_id_and_sequence", unique: true
     t.index ["bidder_id"], name: "index_bids_on_bidder_id"
     t.check_constraint "amount >= 1 AND amount <= '1000000000000'::bigint", name: "bids_amount_range"
+    t.check_constraint "sequence > 0", name: "bids_sequence_positive"
   end
 
   create_table "users", force: :cascade do |t|

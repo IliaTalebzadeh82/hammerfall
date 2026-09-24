@@ -9,8 +9,8 @@ RSpec.describe "Bidding API", :domain, type: :request do
     post path, params: { bid: { bidder_id: bidder.id, amount: 10_000 } }, as: :json
     expect(response).to have_http_status(:created)
     data = json.fetch("data")
-    expect(data.keys).to match_array(%w[id auction_id bidder_id amount currency created_at])
-    expect(data).to include("bidder_id" => bidder.id, "amount" => 10_000, "currency" => "EUR")
+    expect(data.keys).to match_array(%w[id auction_id bidder_id amount sequence currency created_at])
+    expect(data).to include("bidder_id" => bidder.id, "amount" => 10_000, "currency" => "EUR", "sequence" => 1)
     get path
     expect(json.fetch("data")).to eq([ data ])
     get "/api/v1/auctions/#{auction.id}"
@@ -66,15 +66,24 @@ RSpec.describe "Bidding API", :domain, type: :request do
     expect(json.dig("error", "code")).to eq("auction_not_open")
   end
 
-  it "paginates history by server ID and scopes it to one auction" do
+  it "paginates history by authoritative sequence and scopes it to one auction" do
     other = create_auction(state: "active")
     other.place_bid!(bidder: bidder, amount: 50_000)
     first = auction.place_bid!(bidder: bidder, amount: 10_000)
     second = auction.place_bid!(bidder: bidder, amount: 10_500)
     get path, params: { limit: 1 }
     expect(json.fetch("data").map { |row| row["id"] }).to eq([ first.id ])
-    get path, params: { limit: 1, after_id: first.id }
+    get path, params: { limit: 1, after_sequence: first.sequence }
     expect(json.fetch("data").map { |row| row["id"] }).to eq([ second.id ])
-    expect(json.dig("meta", "next_after_id")).to be_nil
+    expect(json.dig("meta", "next_after_sequence")).to be_nil
+  end
+
+  it "rejects client sequences and invalid or obsolete history cursors" do
+    post path, params: { bid: { bidder_id: bidder.id, amount: 10_000, sequence: 20 } }, as: :json
+    expect(response).to have_http_status(:bad_request)
+    [ { after_id: 1 }, { after_sequence: 0 }, { after_sequence: "oops" } ].each do |query|
+      get path, params: query
+      expect(response).to have_http_status(:bad_request)
+    end
   end
 end
