@@ -19,3 +19,12 @@ file is needed for the current app.
 
 RuboCop and Brakeman run in checks; bundler-audit runs in CI and is available
 locally. Dependency checks reduce risk but are not a security guarantee.
+
+
+Phase 3 provides representation/data privacy, not complete authorization-based
+secrecy. Public auction/history and maximum acknowledgements omit maxima, priorities
+and automatic origins; parameter/SQL bind/model-inspection filtering is tested.
+No private maximum read/list/delete endpoints exist. Supplied actor IDs still permit
+impersonation and probing; operators can access plaintext maxima in PostgreSQL.
+An automatic visible offer may reach its ceiling by design, without labelling it as
+that ceiling. Do not expose this unauthenticated local API to untrusted networks.

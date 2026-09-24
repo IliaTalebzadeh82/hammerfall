@@ -1,9 +1,9 @@
 # Architecture
 
-## What exists now — Phases 0–2
+## What exists now — Phases 0–3
 
 Next.js in apps/web serves the unchanged starting page. Rails in apps/api owns
-User, Auction, Bid, explicit lifecycle operations, and a JSON REST API under
+User, Auction, Bid, MaximumBid, explicit lifecycle operations, and a JSON REST API under
 `/api/v1`. PostgreSQL stores all domain state. The frontend does not yet consume
 the auction API. Compose still runs exactly web, api, and db.
 
@@ -38,7 +38,7 @@ lifecycle endpoints are also unauthenticated. This is not a deployable public AP
 Rails is the business authority; Next.js handles presentation; PostgreSQL owns
 persisted state. [ADR-001](adr/001-modular-monolith.md) still governs service
 boundaries. The in-database winner is exposed only after explicit closure. A current
-leader is computed from the highest accepted bid and remains conceptually distinct.
+leader is stored explicitly after proxy resolution, separately from winner.
 
 `/up` is Rails liveness, not a database readiness guarantee. Compose separately
 probes PostgreSQL. RSpec checks actual database connectivity, and the API smoke
@@ -47,9 +47,21 @@ Real PostgreSQL concurrency specs use committed rows and independent sessions.
 
 ## Later phases — not implemented
 
-Automatic bidding follows in Phase 3; distributed closing/time authority and
+Distributed closing/time authority and
 soft-close in Phase 4; idempotency
 in Phase 5; the auction frontend in Phase 6; Action Cable in Phase 7; Redis/Sidekiq
 in Phase 8; outbox in Phase 9; Kafka in Phase 10. Projections, reconciliation,
 observability, load testing, and deployment follow the master roadmap.
 No component listed here is present merely because it appears in the future plan.
+
+
+## Proxy bidding
+
+Auction#place_bid! and #set_maximum! own transaction/lock/eligibility boundaries.
+Bidding::ProxyResolver owns the complete pairwise pricing algorithm and ordered
+visible bid generation. Private MaximumBid records have their own priority order.
+The auction leader/price and all generated bids are updated before the single commit;
+there is no intermediate committed challenger followed by an asynchronous counter.
+MaximumBidsController acknowledges writes without exposing private state. Public
+presenters never expose maximum/priority/origin. ADR-004 records the decision table,
+settled-state proof, binding policy and representation-versus-authorization limit.

@@ -5,9 +5,9 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Current scope: Phase 2 — correct concurrent bidding.** PostgreSQL auction row
-locks serialize fresh validation, bid sequence assignment and atomic price/history
-writes across Rails processes. The real auction frontend is not implemented. [masterprompt.md](masterprompt.md) is the authoritative
+**Current scope: Phase 3 — automatic/maximum bidding.** Private binding ceilings,
+durable tie priority and synchronous proxy responses preserve PostgreSQL auction
+row serialization and atomic price/history/leader updates across Rails processes. The real auction frontend is not implemented. [masterprompt.md](masterprompt.md) is the authoritative
 engineering specification; [progress](docs/progress.md) records verified work.
 
 ## Run locally
@@ -43,7 +43,7 @@ the hot-auction bottleneck. Next.js still serves the original starting page.
 See [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
 [ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
 
-The remaining roadmap investigates automatic bidding, distributed closing,
+The remaining roadmap investigates distributed closing,
 idempotency, event delivery, and reconciliation in that order. It does not claim
 these problems are already solved. The current API has no authentication; bidder
 IDs are demo identity only. See [API usage](docs/api.md) and
@@ -58,7 +58,7 @@ After native dependencies are installed and PostgreSQL is running:
 ```
 
 CI checks Ruby lint/security/tests, frontend lint/format/types/tests/build, and
-Compose startup plus sequential and concurrent HTTP auction smoke tests. [Version choices](docs/tooling.md), [code map](docs/code-map.md),
+Compose startup plus sequential, concurrent and proxy HTTP smoke tests. [Version choices](docs/tooling.md), [code map](docs/code-map.md),
 and [learning guide](docs/learning-guide.md) explain the foundation.
 
 ## Later engineering work

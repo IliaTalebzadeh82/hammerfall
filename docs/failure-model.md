@@ -9,8 +9,8 @@
 | Next.js unavailable | Starting page unavailable | Restart frontend and inspect logs |
 | Dependency registry unavailable | First install/build or startup install can fail | Restore registry access and retry; lockfiles remain authoritative |
 
-Phase 2 persists serialized manual bidding. Bid insertion and current-price update either
-commit together or roll back. If a response is lost after commit, clients cannot
+Phase 3 persists serialized manual/proxy bidding. Private maximum/priority updates,
+all visible bids, current price and leader commit together or roll back. If a response is lost after commit, clients cannot
 safely deduplicate a retry yet. Application restart does not erase PostgreSQL data;
 a local volume is not a backup. Ended auctions need an explicit close action.
 Existing bid/close commands share the auction row lock; distributed time and

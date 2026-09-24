@@ -229,7 +229,7 @@ Recommended next prompt (exact):
 
 Status: COMPLETE
 
-Verified 2026-09-24. Phase 3 has not begun. Phase 0/1 history, masterprompt.md,
+Historical Phase 2 snapshot, verified 2026-09-24. At that point Phase 3 had not begun. Phase 0/1 history, masterprompt.md,
 frontend source and dependency locks are unchanged.
 
 ### Implemented and concurrency strategy
@@ -399,3 +399,233 @@ Phase 3 — Automatic Bidding, only on a new explicit request.
 Recommended next prompt (exact):
 
 > Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, docs/domain-model.md, docs/invariants.md, docs/architecture.md, docs/learning-guide.md, docs/code-map.md, docs/api.md, all ADRs, and the current bidding code/tests. Implement Phase 3 only — Automatic Bidding: private maximum bids, an explicit deterministic proxy-bidding algorithm, documented tie behavior, manual/automatic interactions, maximum modification/cancellation policy, and real PostgreSQL concurrency tests. Preserve Phase 2 auction-row serialization, fresh validation, atomic state/history updates, authoritative ordering, and maximum privacy. Document any necessary changes to price/leader invariants with examples and an ADR. Run full relevant checks, repeated concurrency tests, migrations, Docker and live API verification; update learning/code-map/progress docs and make coherent commits. Stop after Phase 3. Do not add distributed closing, soft-close, idempotency, Redis, Sidekiq, Kafka, outbox, WebSockets, authentication redesign or later infrastructure. Report actual evidence, limitations, and decisions requiring review.
+
+## Phase 3 — Automatic Bidding
+
+Status: COMPLETE
+
+Verified 2026-09-24. Phase 4 has not begun. Phase 0–2 history, masterprompt.md,
+frontend source and dependency lockfiles are unchanged.
+
+### Implemented and proxy rules
+
+- MaximumBid is a private binding instruction, separate from visible accepted Bid.
+  One current instruction exists per auction/bidder. It stores bounded integer EUR
+  maximum_amount and independent durable auction-local priority_sequence.
+- Auction#set_maximum! and existing #place_bid! both lock/reload the auction in a
+  transaction/savepoint before lifecycle/time checks and resolution. The cohesive
+  Bidding::ProxyResolver owns pricing and ordered generation of at most two rows.
+- First maximum opens at starting price. A leader adding/increasing protection emits
+  nothing. Lower challengers visibly reach their ceiling, then incumbent counters
+  at the minimum required price. Higher challengers first exhaust incumbent
+  protection, then offer only enough to win (or their exact manual amount).
+- Automatic prices clamp at the user's ceiling, allowing a final partial increment.
+  Fixed minimum_increment remains; no dynamic increments, reserve or extension.
+- Equal ceilings use earlier priority, including an existing proxy versus a later
+  equal manual bid. Challenger then priority winner may both have equal-price rows.
+  Visible amounts are non-decreasing, refining Phase 2's strict increment invariant.
+- Explicit current_leader_id is selected by pricing/priority rules and saved with
+  price. The final emitted row represents that leader and current_price. winner_id
+  remains null while active; existing explicit close copies the leader under lock.
+- The pairwise algorithm relies on all prior nonleaders being exhausted at/below
+  current price or losing an equal-ceiling tie after each completed command. The
+  decision table and this settled-state reasoning are documented in ADR-004.
+
+### Tie semantics and maximum modification policy
+
+New and increased maxima receive MAX(priority_sequence)+1 under the auction lock.
+The priority for a raised ceiling reflects the raise, not its earlier smaller
+amount. Earlier commitment to an equal ceiling wins. Visible Bid.sequence remains
+independent, unique and monotonically increasing per auction.
+
+Increase is allowed; same amount is a no-op preserving priority after eligibility
+checks; lower amounts raise maximum_bid_cannot_decrease; cancellation is unsupported
+and normal destruction raises. Exhausted instructions remain stored. A nonleader increase
+at/below public price is rejected without priority/state mutation; a later competitive
+increase can resolve again. New or increased nonleader protection must exceed
+current price, allowing a partial increment; a leader must cover its existing price.
+
+### Privacy and API
+
+PUT `/api/v1/auctions/:id/maximum-bid` accepts:
+
+```json
+{"maximum_bid":{"bidder_id":42,"maximum_amount":50000}}
+```
+
+It returns 200 with only auction_id, bidder_id and accepted=true. There is no maximum
+read/list/delete endpoint. New expected errors are maximum_bid_cannot_decrease and
+maximum_bid_too_low, without stored private amounts. Existing eligibility/validation/
+not-found error conventions remain. A manual POST returns its own accepted row,
+which can be outbid by a counter committed in the same operation.
+
+Public auction/history omit maximum_amount, priority_sequence and origin. Explicit
+presenters and acknowledgements avoid generic model dumps. Rails filters private
+parameters, SQL bind values and model inspection; captured-log tests verify this.
+Visible bids can legitimately reach an exhausted ceiling but never identify it as
+a maximum or disclose unused protection. This is **representation/data privacy,
+not complete authorization-based secrecy**: actor IDs remain unauthenticated,
+impersonation/probing are possible, and operators can read plaintext database rows.
+
+### Schema and migrations
+
+- maximum_bids with NOT NULL/FKs, positive bounded maximum, positive priority,
+  unique (auction_id,bidder_id) and unique (auction_id,priority_sequence).
+- Auction.current_leader_id foreign key/index; existing Phase 2 history backfills
+  its leader from latest accepted sequence, including closed auctions.
+- Bid.origin with manual default and allowed manual/automatic CHECK; old rows become
+  manual. Existing public sequence constraints remain unchanged.
+- Maintenance migration with writers stopped. The down migration refuses to delete
+  private commitments when any MaximumBid exists. Rollback/reapply was tested on
+  three interleaved legacy bids across two auctions; IDs, amounts, sequences and
+  prices were preserved and leader/origin were correctly restored. Refusal with an
+  existing private instruction was separately verified before owned test cleanup.
+
+### Concurrency and tests
+
+The transaction owns fresh validation, instruction/priority write, all visible
+INSERTs and the final price/leader UPDATE. SQL failure rolls all of these back,
+including when an outer transaction handles the failure. No asynchronous responses,
+process-local correctness locks, external calls or broad database retries exist.
+
+New coverage:
+
+- 30 deterministic/model examples: first max, manual leader protection, increases,
+  same/lower/cancel policy, manual below/equal/above ceiling, proxy lower/higher/tied,
+  final partial increments, refreshed priority, exhausted instruction reactivation,
+  multiple previous bidders, dormant tie-priority regression, invalid money, inactive/time states, close tie winner,
+  and an 80-operation reproducible mixed-command invariant stream.
+- 10 PostgreSQL concurrency examples: different/equal simultaneous maxima, manual
+  below/above versus max, increase versus challenger, two existing increases,
+  same-user competing increases, closed/cancelled waiters, and real SQL failure
+  after two generated rows with complete rollback and subsequent sequence reuse.
+- 5 request/privacy examples: actual public JSON and other-actor responses, errors,
+  unavailable read/cancel routes, repeated values/missing actors, and captured debug
+  request/SQL logs plus model inspection filtering.
+- 11 real SQL constraint examples cover NULL/range/FK/uniqueness/origin/leader rules.
+- All Phase 2 examples remain; shared committed-data/session helpers moved to
+  spec/support/committed_auction_context.rb. Only the two concurrency groups disable
+  transactional wrappers. Workers use separate connections/model instances and
+  explicit Queue barriers; pg_blocking_pids verifies controlled lock waits. Cleanup
+  targets owned committed records; ordinary tests remain transaction-wrapped.
+
+Repeated both concurrency groups with **seeds 1–20**: **19 examples per run,
+380 examples, zero failures** (180 manual + 200 maximum examples). These are bounded
+correctness tests, not load or reliability confidence beyond what was exercised.
+
+Lock-removal experiment loaded a separate mutated Auction definition only in the
+RSpec process: replacing reload(lock: true) with plain reload caused **9 failures
+out of 10 new proxy concurrency examples**, seed **43814**. Duplicate priorities,
+inconsistent contests and stale lifecycle acceptance were detected. Actual source
+remained locked and the normal full suite passed afterward. No sabotage committed.
+
+### Live verification
+
+Ran `scripts/smoke-proxy-bidding` using two independent Rails processes sharing
+PostgreSQL: Compose at localhost:3001 and temporary native Rails at localhost:3002.
+The final simultaneous requests alternated processes and used independent HTTP
+connections. Then queried PostgreSQL to verify private commitment priority and
+public sequence/leader state. In the final rerun Alice was user 51; Bob was user 52.
+
+| Scenario / auction | Actual visible amounts in sequence order (cents) | Price / leader |
+| --- | --- | --- |
+| A / 64: Alice maximum 30000, Bob manual 20000 | 10000, 20000, 21000 | 21000 / Alice |
+| B / 65: Alice maximum 30000, Bob maximum 40000 | 10000, 30000, 31000 | 31000 / Bob |
+| C / 66: Alice maximum 30000, Bob maximum 30000 | 10000, 30000, 30000 | 30000 / Alice |
+| D / 67: concurrent maxima 30000/40000 across processes | 10000, 30000, 31000 | 31000 / Bob |
+
+All four had visible sequences 1,2,3 and winner=null. Database inspection confirmed
+Alice priority 1 and Bob priority 2 where both instructions existed. Scenario C's
+last two rows were Bob 30000 then Alice 30000; earlier durable priority selected
+Alice. Public responses contained no ceiling/priority/origin fields, and scenario A
+never exposed Alice's unused 30000. The script retained labelled rows for inspection.
+
+Existing sequential smoke also passed (auction 41/user 38). Existing live manual
+concurrency smoke passed: auction 62 accepted 3 of 12 competing increasing bids,
+rejected 9, final price 15500; auction 63 accepted one of eight equal bids, rejected
+seven, final price 10000. Accepted counts reflect actual scheduling, not a benchmark.
+The temporary port-3002 process was stopped after verification.
+
+### Lock-held work observation
+
+A local sql.active_record monotonic-notification probe measured SELECT FOR UPDATE
+completion to COMMIT completion, with two warmups and twenty samples per case.
+Manual-only challenge: median **19.294 ms**, range **12.700–32.287 ms**.
+Challenge plus proxy counter: median **23.894 ms**, range **13.548–30.760 ms**.
+This run observed about 4.6 ms more median lock-held work. Other development activity
+was present; these numbers are a small local observation, not isolated benchmark
+results, a capacity estimate or stable latency claim. The extra private reads and
+visible write hold the same serialized auction row longer. Proper measurement
+remains Phase 14/15. Only sample-owned records were removed.
+
+### Full verification actually run
+
+| Check | Result |
+| --- | --- |
+| Native full RSpec | 234 examples, 0 failures |
+| Combined concurrency repeated seeds 1..20 | 380 examples, 0 failures |
+| Proxy mutation without locks | 10 examples, 9 expected failures; normal source unchanged |
+| Development/test forward migrations | Passed; existing development history preserved |
+| Test rollback/reapply with existing legacy bids and separate populated-max refusal | Passed; leader/origin/sequence/price verified |
+| bin/ci | All backend steps passed, including final 234 examples |
+| RuboCop | 54 backend files, no offenses; new root smoke script passed using API config |
+| Brakeman / bundler-audit / Zeitwerk | 0 security warnings; no known vulnerabilities in checked advisory DB; autoload check passed |
+| ./scripts/check | Full native backend/frontend checks passed |
+| Frontend lint / formatting / typecheck / test / production build | Passed; one test; frontend source unchanged |
+| Compose config | Passed |
+| Compose up --build --wait --wait-timeout 240 | Initial Ruby manifest lookup returned registry HTTP 403; later retry built both images using cached layers and all services were healthy |
+| Cached API startup while registry was unavailable | Passed with bind-mounted current code and unchanged dependencies |
+| Container test DB prepare/full RSpec | 234 examples, 0 failures, final seed 57790 |
+| Four proxy HTTP scenarios and sequential/concurrent manual smoke scripts | Passed, results above |
+| API /up and frontend / | HTTP 200 |
+| git diff --check | Passed |
+
+No runtime/dependency change or scanner suppression bypassed the temporary registry
+failure. The build retry resolved it; no no-cache build is claimed. GitHub-hosted CI
+has not run. Local/container equivalents passed and CI now includes proxy smoke.
+Initial association-validation issues and the dormant equal-price priority edge case
+were fixed and retested, not hidden; see engineering-journal.md. Final native/
+container suites, twenty combined concurrency runs, mutation and two-process live
+scenarios were repeated after the eligibility fix. No Phase 4 functionality or later infrastructure was added.
+
+### Commits
+
+- `d0b110d` — feat(api): resolve binding private maxima under the auction lock
+- `b3e0a3c` — test(api): exercise proxy bidding across live Rails processes
+- `af6ff24` — fix(domain): reject noncompetitive increases before assigning proxy priority
+- Documentation completion commit: `docs: record verified Phase 3 proxy bidding semantics`
+
+The documentation commit intentionally does not contain its own hash. Phase 0–2
+history was not amended or rewritten.
+
+### Guarantees, known limitations and review before Phase 4
+
+Binding protection, minimum winning proxy pricing, durable tie priority, non-
+decreasing visible history, atomic price/leader/max resolution, separate formal
+winner and cross-process PostgreSQL serialization are implemented and tested.
+
+One hot auction remains a serialized row-lock bottleneck; extra proxy work increases
+lock duration and waiting connections. No fairness or throughput guarantee exists.
+Maxima are plaintext and unauthenticated actor IDs do not protect against impersonation.
+No maximum-change history, cancellation, reserve, dynamic increments, idempotency,
+notifications, outbox, realtime, caching or other later infrastructure is present.
+App-clock eligibility and explicit close remain; automatic responses never extend
+ends_at. Generic multi-query reads need not share one commit snapshot. Privileged
+SQL/validation bypass remains outside normal workflow guarantees.
+
+Before Phase 4 review authoritative clock source, close versus an entire multi-bid
+proxy transaction, retry-safe/repeated close, winner finality under equal ceilings,
+scheduler delays, and whether one logical contest or each generated row triggers an
+extension. Define extension window/duration and original end semantics explicitly.
+Preserve binding maximum privacy and the auction lock order during that work.
+
+Development db/api/web remain running on localhost:5432/3001/3000. Live demo rows
+are retained; the extra native process and sample-owned timing rows were cleaned.
+
+### Next phase
+
+Phase 4 — Auction Closing + Soft Close, only on a new explicit request.
+
+Recommended next prompt (exact):
+
+> Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, docs/domain-model.md, docs/invariants.md, docs/architecture.md, docs/learning-guide.md, docs/code-map.md, docs/api.md, all ADRs, and the current lifecycle/manual/proxy code and tests. Implement Phase 4 only — Auction Closing + Soft Close. Define and document authoritative time, closing ownership, delayed and duplicate close behavior, winner finality, and fixed anti-sniping extension rules. Specify how one logical proxy contest with multiple generated bids affects extension. Preserve the PostgreSQL auction-row lock, fresh validation, private binding maxima, deterministic priority, atomic history/price/leader state, and public privacy. Add real separate-connection/process tests for bidding/proxy/closing/extension races and repeated or stale closers. Use only infrastructure justified within Phase 4; do not introduce Phase 5 idempotency keys or later Redis, Sidekiq, Kafka, outbox, WebSockets, observability, authentication redesign, Kubernetes or Terraform. Run relevant full checks, repeated concurrency tests, migrations, Docker and live multi-process demonstrations. Update ADRs, invariants, learning guide, code map and progress, make coherent commits, report actual evidence and limitations, and stop after Phase 4.

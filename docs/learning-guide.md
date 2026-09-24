@@ -96,7 +96,6 @@ Add the problem, naive approach, failure modes, chosen implementation, guarantee
 limitations, source files, demonstrative tests, and interview explanation for each
 subsystem when it is built:
 
-- Automatic bidding (Phase 3)
 - Auction closing and soft-close (Phase 4)
 - Idempotency (Phase 5)
 - WebSockets (Phase 7)
@@ -138,3 +137,71 @@ objects, rollback, lifecycle changes and independence, rather than mocking locks
 **Interview discussion:** explain atomicity versus isolation, why validation must
 follow lock acquisition, why uniqueness is insufficient, how rollback affects
 ordering, and why pessimistic locking trades simple correctness for hot-row queues.
+
+## Automatic bidding — Phase 3
+
+**Problem:** a private spending ceiling is not a public offer. Setting 500 should
+not cost 500 when the auction can be led for 100. A challenger can trigger several
+visible bids, all of which must settle before anyone reads committed new state.
+
+**Naive failure:** save Bob's 200 bid, commit, then enqueue Alice's counter. A crash
+leaves Bob as leader despite Alice's binding protection; another request sees an
+incorrect intermediate state. Simply dumping model JSON also exposes Alice's
+unused maximum. Choosing the highest equal row by ID makes ties accidental.
+
+**Implementation:** one MaximumBid per user/auction, increases only, each commitment
+with a durable priority_sequence. Auction locks/reloads first, writes protection
+when needed, invokes Bidding::ProxyResolver, and commits all visible rows with the
+final current_price/current_leader_id. No asynchronous resolution or mutation
+callbacks. See ADR-004's table, written before the implementation.
+
+**Step-by-step (starting 100, increment 10):**
+
+1. Alice authorizes 300: store private priority 1; emit Alice 100, visible sequence 1.
+2. Bob manually bids 200: emit Bob 200 (sequence 2), Alice 210 (sequence 3), then
+   commit price 210/leader Alice. Her unused 300 ceiling is absent from public JSON.
+3. In a fresh contest Bob instead authorizes 400: emit Alice 300, then Bob 310.
+   Bob pays only enough to win. All three records/price/leader commit atomically.
+4. If Bob authorizes 305 instead, his final offer is 305, not unauthorized 310.
+5. If Bob authorizes 300, emit Bob 300 then Alice 300. Price does not decrease;
+   Alice's earlier priority wins. Equal visible amounts now have legitimate meaning.
+6. If Alice had 200 and raises to Bob's already established 300, she gets a new
+   priority and loses that tie. Old low-ceiling seniority does not carry forward.
+7. A leader raising protection from 300 to 500 emits nothing and does not self-bid.
+
+**Why two contenders suffice:** every completed contest leaves previous losers
+exhausted at/below visible price or behind an equal-ceiling priority winner. A new
+command only changes its caller's offer/protection. Comparing that caller to the
+current leader therefore accounts for all stored instructions without repeatedly
+incrementing against every historical bidder. This assumption must be reviewed if
+future policy permits reductions, retractions or reserve prices.
+
+**Leader and price:** explicit leader state is selected by ceiling and priority,
+not last-row luck. The final visible row represents that selected leader and its
+amount equals current_price. Normal rows never decrease; ties may remain equal.
+The public origin is hidden even though internal Bid.origin explains the algorithm.
+Manual offers may exceed a user's old proxy cap as a new explicit authorization.
+
+**Privacy:** hidden inputs complicate requests, errors, SQL/debug logs, inspection
+and serialization. Tests capture actual JSON and logger output with a distinctive
+unused ceiling. Rails filters maximum_amount/priority/origin; explicit presenters
+and an amount-free acknowledgement keep those fields private. Visible bids can
+reach ceilings by design, but never label them as ceilings. Without authentication,
+this is representation privacy, not secure identity or protection from probing.
+
+**Guarantees and limits:** the same PostgreSQL auction row serializes every contest;
+private instruction, priority, generated rows and price/leader roll back together.
+More database work holds that row longer. No throughput/fairness promise follows.
+One request can emit multiple rows; lock duration and connection queue pressure
+remain the hot-auction bottleneck. No extensions, closing clock redesign, idempotency,
+notifications or other later systems are implemented.
+
+**Read first:** app/models/auction.rb, maximum_bid.rb and
+app/models/bidding/proxy_resolver.rb under apps/api. Then read models/maximum_bid_spec.rb
+for the table/property stream, integration/concurrent_maximum_bidding_spec.rb for
+real sessions and SQL rollback, and requests/maximum_bids_spec.rb for JSON/log privacy.
+
+**Interview discussion:** explain ceiling versus price, why equal bids are valid,
+why priority changes on a raise, why asynchronous counters violate atomicity, why
+stored leader is distinct from winner, why dormant maxima need no rebidding loop,
+and why request filtering alone would not prove SQL/model-inspection privacy.

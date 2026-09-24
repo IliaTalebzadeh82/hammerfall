@@ -150,3 +150,22 @@ For repetition, run the group with `--seed` values 1 through 20, stopping on fai
 `./scripts/smoke-concurrent-bids` checks live HTTP contention and retains labelled
 rows. To exercise existing independent Rails processes, pass comma-separated
 `API_BASE_URLS`. Neither the test nor the script measures capacity.
+
+## Phase 3 proxy verification and migration
+
+Run `bundle exec rspec spec/models/maximum_bid_spec.rb spec/requests/maximum_bids_spec.rb`
+and both `spec/integration/concurrent*_spec.rb` groups from apps/api with the
+normal PG environment. Transactional wrappers stay enabled outside those groups.
+Run `./scripts/smoke-proxy-bidding` against a healthy API; optional API_BASE_URLS
+routes its final race across two independent processes. Labelled demo rows remain.
+
+The new migration backfills current_leader_id from the last Phase 2 visible sequence
+and existing Bid.origin as manual. Stop old writers for maintenance deployment.
+Test rollback/reapply on a test database with pre-proxy history. Downgrade refuses
+when MaximumBid rows exist, preventing silent destruction of binding private
+commitments. An explicit preservation/migration plan is required in that case.
+
+If a registry lookup fails but the verified development image is cached,
+`docker compose up --no-build --wait` can run the bind-mounted current code with
+unchanged dependencies. This verifies runtime behavior; it does not prove that a
+fresh image can be built while the registry remains unavailable.

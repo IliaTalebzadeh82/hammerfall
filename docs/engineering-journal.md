@@ -92,3 +92,63 @@ loaded the unlocked model only in the test process (leaving live API code intact
 seed 43814 failed seven of nine examples. Restoring normal loading passed the full
 178-example suite natively and in Docker. These are bounded correctness tests,
 not stress testing or a latency/throughput measurement.
+
+## Phase 3 — One transaction for private permission and public competition
+
+The decision table in ADR-004 was written before the resolver. Private MaximumBid
+and public Bid are different facts. An explicit leader avoids accidentally using
+highest-amount/ID ordering when equal-ceiling contests emit equal-price rows.
+A durable priority assigned on each raise prevents an old lower ceiling from
+claiming seniority at a new higher ceiling.
+
+The pairwise resolver depends on a settled-state invariant: previous losing maxima
+are exhausted at/below public price or lose an equal-ceiling priority tie. Therefore
+only the incoming bidder and current leader compete. Visible loser ceiling precedes
+winner amount; this prevents the nonsensical 350 then 300 history. At most two
+visible rows are emitted, with final price/leader and private state in one commit.
+
+Initial implementation retained an unsaved validation-only Bid in the auction's
+association target and implicitly revalidated private instructions during the
+auction save using the wrong validation context. Rails correctly rejected those
+parent saves. The manual candidate is now a standalone validation object; MaximumBid
+writes are explicitly validated/saved, with parent autosave and implicit validation
+disabled for that association. Tests were retained and passed after the fix.
+
+Capturing real debug logs confirmed Rails' parameter filter also filters ActiveRecord
+SQL binds and model inspection for maximum_amount/priority_sequence/origin. Public
+presenters and amount-free maximum acknowledgements are independently tested. This
+does not supply authentication or hide amounts that legitimately become visible bids.
+
+The unlocked test-process mutation failed nine of ten proxy concurrency examples;
+normal code passed twenty combined manual/proxy runs (380 examples). No sabotage
+was written into application source. Real SQL failure after two visible inserts
+proved rollback of private state, priority, history, price and leader, including
+an outer transaction that handled the error.
+
+A bounded local lock observation used sql.active_record monotonic notifications:
+interval from completion of SELECT FOR UPDATE to completion of COMMIT, including
+its query comment. Two warmups and twenty samples per case compared a manual-only
+challenge (one visible insert) with an automatic counter (two visible inserts).
+Observed median: 19.294 ms manual, 23.894 ms proxy; ranges 12.700–32.287 and
+13.548–30.760 ms respectively. This local run had other development activity and
+is not an isolated benchmark; it suggests extra lock-held work (~4.6 ms median
+here), not a stable latency, capacity estimate or throughput promise. Sample-owned
+rows were removed; user/demo rows were untouched. Phase 14/15 own proper measurement.
+
+Docker Hub returned HTTP 403 for ruby:4.0.6-slim manifest resolution during a
+Compose rebuild. The unchanged cached API runtime successfully started with current
+bind-mounted source and passed the full 233-example suite and live proxy tests.
+The frontend image build completed. No runtime version, lockfile or security check
+was changed to bypass the registry failure. After resuming later, a normal `docker compose up --build --wait` retry resolved
+the registry metadata, built both images with cached layers, and left all services
+healthy. The temporary registry failure is resolved; no no-cache build is claimed.
+
+Final review found a subtle eligibility hole in allowing noncompetitive increases:
+Alice max 300, Bob max 400, Alice manually bids 500, then Bob raises to exactly
+500 without becoming leader. If Alice later protects her existing 500, Bob would
+hold an earlier equal private priority while Alice stayed leader. We reject the
+nonleader's noncompetitive increase before assigning priority. All new/increased
+ceilings must cover the leader's own price or strictly exceed another leader's
+price; same-value repeats still no-op after lifecycle/time validation. A dedicated
+regression proves no dormant equal-price priority is created. This tightens the
+initial policy and preserves the resolver's settled-state and equal-ceiling rules.

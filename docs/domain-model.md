@@ -1,139 +1,146 @@
 # Domain model
 
-Phase 2 serializes manual bidding and existing lifecycle commands through a
-PostgreSQL auction row lock; see [ADR-003](adr/003-auction-concurrency-control.md).
+Phase 3 adds binding private MaximumBid instructions to the PostgreSQL-serialized
+auction domain. Read [ADR-004](adr/004-proxy-bidding.md), including its decision
+table, for the proxy rules. ADR-003's auction row lock remains authoritative.
 
-## Entities and representation
+## Entities and money
 
-| Entity | Stored fields | Meaning |
-| --- | --- | --- |
-| User | id, name, created_at, updated_at | Minimal bidder identity; names need not be unique and are not credentials |
-| Auction | id, title, description, status, starting_price, current_price, minimum_increment, starts_at, ends_at, winner_id, timestamps | Authoritative persisted auction state for concurrent manual bidding |
-| Bid | id, auction_id, bidder_id, amount, sequence, created_at | An accepted, immutable manual bid; rejected attempts do not create rows |
+- User: ID and nonblank name (up to 100 characters); names are not credentials.
+- Auction: title (nonblank, up to 200), description (up to 10000, default empty),
+  status, starting_price, current_price, minimum_increment, starts_at, ends_at,
+  current_leader_id, winner_id, timestamps.
+- Bid: accepted visible fact with auction_id, bidder_id, amount, sequence,
+  created_at and internal origin (manual/automatic). No normal edit/delete path.
+- MaximumBid: one current private instruction per auction/bidder, maximum_amount,
+  priority_sequence and timestamps. Updates replace the current ceiling/priority;
+  no historical private-max audit table exists. No cancellation.
 
-All monetary fields are **integer EUR cents**, not euros or floating point. For
-example, `10500` means EUR 105.00. Each value must be an integer from 1 through
-1,000,000,000,000 inclusive. The API rejects decimal numbers (including `100.0`),
-numeric strings, booleans, and out-of-range values instead of coercing them.
-`MinorUnitsValidator` inspects values before ActiveRecord's integer casting.
-PostgreSQL bigint and CHECK constraints protect stored ranges. The bound also
-keeps price-plus-increment exact in JavaScript JSON consumers. If the next minimum
-exceeds the supported amount bound, no further valid bid is possible.
+All money is **integer EUR cents**, inclusive range 1..1000000000000. Numeric strings,
+floats (including 100.0), booleans and out-of-range input are rejected before Rails
+coercion. SQL range checks independently protect storage. There is no conversion,
+fractional-cent value, reserve price or dynamic increment table. Fixed positive
+auction.minimum_increment applies, with the proxy exceptions below. Price-plus-
+increment stays in JavaScript's exact integer range; an offer itself must fit the
+bound. Times use UTC, with ends_at strictly greater than starts_at.
 
-EUR is currently the sole supported currency, exposed by presenters as a constant.
-There is no conversion, configurable currency, payment, or fractional-cent feature.
-Review this assumption before expanding the product. PostgreSQL numeric would also
-be valid, but adds scale/rounding decisions without a present requirement.
+## Lifecycle and time
 
-Title is nonblank and at most 200 characters; user name is nonblank and at most
-100. Description defaults to an empty string and is limited to 10,000 characters
-by the application. Both timestamps are required, with ends_at strictly after
-starts_at. All times are stored/serialized in UTC through Rails.
+New auctions are draft, price equals starting_price and no leader/winner exists.
+Use create_draft! and edit_draft!; terms freeze after draft. No reopen/reschedule.
 
-## Explicit lifecycle
-
-New auctions always start as draft. Use `Auction.create_draft!` to initialize
-current price. `edit_draft!` edits draft terms and adjusts the initial current price.
-All terms freeze after scheduling, including title/description. There is no
-reschedule/reopen/delete HTTP operation.
-
-| Operation | Allowed source | Target | Preconditions |
+| Action | Source | Target | Preconditions |
 | --- | --- | --- | --- |
-| schedule! | draft | scheduled | ends_at is still in the future; starts_at may already have arrived |
+| schedule! | draft | scheduled | ends_at has not passed |
 | activate! | scheduled | active | starts_at <= application time < ends_at |
 | close! | active | closed | application time >= ends_at |
 | cancel! | draft, scheduled, active | cancelled | no accepted bids |
 
-Repeating an operation while already at its target status is a successful no-op,
-even if its original time precondition no longer holds. It does not recompute the
-winner. Every other transition is rejected. Closed and cancelled are terminal.
-A direct ordinary `auction.update!(status: "closed")` fails validation; callers
-must use the lifecycle methods. Validation guards contain no state-changing
-callbacks. Their internal validation contexts are conventions, not a security
-boundary against deliberate validation bypasses or SQL.
+Repeating the target state is a no-op. Closed/cancelled are terminal. Existing
+lifecycle and draft commands lock/reload the same auction row used by bidding.
+Close copies current_leader_id into winner_id, including equal-price priority
+winners; without bids both remain null. No automatic activation/closing scheduler.
 
-## Status and time
+Manual and maximum commands recheck active status and the half-open time window
+inside the lock, sampling Time.current after waiting. Even same-maximum no-ops
+recheck eligibility. Trusted internal at: values support tests/seeds; HTTP cannot
+set authoritative time. Application clocks, explicit closure and unchanged ends_at
+remain Phase 3 limitations. There is no soft close or distributed time redesign.
 
-**Stored status is lifecycle authority.** Timestamps define a half-open bidding
-window: starts_at is inclusive; ends_at is exclusive. Both status active and the
-time window must permit a bid. Time passing never changes status by itself. Thus,
-an ended auction can remain active until explicitly closed, but accepts no more
-bids; a scheduled auction does not activate itself. Activation after the window
-ends is rejected; it may still be cancelled if it has no bids.
+## Binding protection and priority
 
-Phase 2 samples `Time.current` in Ruby after acquiring the row lock; no scheduler,
-database-clock protocol or distributed clock guarantee exists. Trusted internal `at:`
-arguments support deterministic tests and demo history. HTTP clients cannot supply
-authoritative time. Phase 4 must revisit clock authority and closing races.
+Auction#set_maximum! establishes or increases private protection. New or increased protection
+must cover starting price on an empty auction. A challenger to an existing leader
+must exceed public current_price (one cent is sufficient for a final partial
+increment); a current leader may set protection equal to its price. No instruction
+can authorize an automatic offer above its ceiling.
 
-## Bidding and current price
+Increases receive a fresh auction-local priority_sequence = MAX(priority_sequence)+1
+inside the lock. Repeating the same amount preserves priority and produces no bids.
+Decreases raise maximum_bid_cannot_decrease with no private details. Cancellation
+is unsupported in the API and rejected by normal model destruction. An exhausted
+instruction remains stored; a later competitive increase can compete again. A
+nonleader increase at/below current price is rejected without changing protection
+or priority. A leader’s increased ceiling must cover its current price. An already-leading bidder setting
+or increasing protection never raises its own visible price.
 
-`Auction#place_bid!` is the one normal write entry point. It locks and reloads the auction in one SELECT FOR UPDATE,
-checks active status/time, validates an existing bidder and exact positive amount,
-then applies:
+Lowest priority_sequence wins equal ceilings. A raise gets new priority at its new
+ceiling, not its original lower commitment's priority. Example: Bob establishes
+300 at priority 7; Alice raises 200 to 300 at priority 8; Bob wins. A previously
+established proxy also wins against a later manual offer equal to its ceiling.
+Priority is independent of public bid sequence, clocks, row IDs or HTTP arrival.
 
-```text
-no accepted bids: minimum = starting_price
-otherwise:       minimum = current_price + minimum_increment
-```
+## Proxy resolution and visible history
 
-A bid may exceed the minimum, including on the first bid. The same bidder may bid
-again. In a transaction, insert the bid and persist current_price = bid.amount.
-If either write fails, both roll back. A nested call uses a savepoint so this also
-holds if an outer caller catches the failure and commits its own work. Before any accepted bid, current_price =
-starting_price. Rejected bids change neither table.
+Auction#place_bid! retains the manual minimum: starting_price without bids,
+otherwise current_price + minimum_increment. Manual offers are accepted at exactly
+the submitted amount. They may be immediately outbid in the same transaction;
+the returned Bid is the caller's accepted offer, not a promise of leadership.
 
-This duplicated price simplifies reads and provides a place for future visible
-pricing rules. It must not be updated independently. Normal direct Bid.create!
-and current-price mutations fail validation; accepted bids reject normal update!
-and destroy! calls. Foreign keys restrict deletion of referenced users/auctions.
-Privileged update_all, delete_all, raw SQL, and explicit validation bypasses are
-outside these workflow guarantees.
+Bidding::ProxyResolver compares the incoming bidder with the authoritative current
+leader. All other maxima were already exhausted or lost an equal-ceiling tie at
+the last completed command. The incumbent ceiling is its public price or private
+maximum, whichever is greater. A manual-only incumbent has ceiling=current_price.
 
-The lock refreshes even a previously loaded stale Ruby object. Each waiter validates
-against committed predecessor state under READ COMMITTED, including status and the
-minimum. Draft edits and lifecycle commands lock the same row before deciding.
-The outermost transaction holds the lock until commit/rollback; savepoint release
-is not final commit. Independent auctions use independent locks. Same-auction
-commands serialize; fairness and arrival order are not guaranteed.
+- Without a leader, first maximum produces starting_price, not its ceiling.
+- Lower challenger: emit challenger at its ceiling/offer, then incumbent at the
+  smaller of its ceiling and challenger + increment.
+- Higher challenger: first exhaust the incumbent's proxy ceiling if above public
+  price; then emit the manual offer or minimum winning automatic amount.
+- Equal ceilings: emit challenger then priority winner at the same amount.
+- Partial final increment: clamp an automatic offer to its ceiling, e.g. ceilings
+  300/305 with increment 10 resolve at 305, never 310.
+- No duplicate existing manual offer or self-counter is generated.
 
-## Leader, winner, and history
+A command emits at most two Bid rows. Visible amounts are **non-decreasing**, not
+strictly increasing: equal-price tie resolutions are now valid. Every emitted row
+gets the next MAX(sequence)+1 under the auction lock, regardless of origin. Current
+price equals the final emitted amount and the last row represents the selected
+leader. Protection-only updates change neither price nor leader nor history.
+The explicit current_leader_id is selected by ceiling/priority rules; row insertion
+order is a consequence, not the tie authority. Winner remains null while active.
+An automatic row never exceeds its user's binding maximum. A manual row can exceed
+that same user's old maximum because it is a separate explicit authorization.
 
-The highest accepted bid determines the current leader. The API exposes
-current_leader_id only while active; it is not a formal winner. On explicit close,
-winner_id is assigned to the highest bidder, or remains null when no bids exist.
-An auction has one nullable winner reference, and the database forbids a non-null
-winner outside closed status. Cancelled auctions have no bids or winner under
-normal operations. No refund/retraction policy is invented.
+## Transaction and structural guarantees
 
-History is ascending auction-local `sequence`, with `after_sequence` keyset
-pagination. Under the auction lock, placement assigns MAX(sequence)+1, starting at
-1. PostgreSQL enforces NOT NULL, positive bigint and UNIQUE(auction_id, sequence).
-Committed normal operations produce contiguous sequences while history is immutable;
-rejections/rollback consume none. The contract is strict monotonic order, not a
-global gaplessness guarantee under privileged edits or future workflows. IDs may
-have gaps; created_at is insertion metadata. Neither is ordering authority. No
-client sequence or timestamp is accepted. The maintenance migration backfills
-legacy sequential history by ID; it cannot recover past concurrent commit order. The leading-bid query uses amount
-descending then ID ascending for deterministic selection; equal accepted amounts
-cannot occur in valid serialized manual bidding, so this is not an automatic-bidding tie
-policy.
+Both entry points use transaction(requires_new: true), SELECT FOR UPDATE/reload,
+fresh eligibility checks, private-state validation/write if applicable, synchronous
+resolution and all visible INSERTs, then final price/leader UPDATE and COMMIT.
+All records share the transaction; SQL failure after a partial resolution rolls
+back maxima, priorities, bids, price and leader. A nested caller owns final outer
+commit and lock lifetime. No network work, queues or callbacks resolve contests.
+Maximum association autosave/implicit validation is disabled: the command explicitly
+validates and saves each instruction before resolving, within that same transaction.
 
-## Database versus application
+SQL enforces foreign keys, NOT NULL, bounded money, valid statuses/origins, positive
+priority/sequence, UNIQUE(auction_id,bidder_id) for instructions, and separate unique
+auction-local sequence/priority indexes. Auction primary key locates the lock;
+sequence index supports history; instruction indexes support lookup and priority.
+The prior amount index remains for compatibility, but no longer selects the leader.
 
-PostgreSQL enforces NOT NULL, foreign keys, positive bounded amounts, allowed status,
-nonblank names/titles, end-after-start, price-at-least-start, and winner-only-when-
-closed. Indexes cover bid history `(auction_id, sequence)` unique, highest bid
-`(auction_id, amount DESC, id)`, and bidder/winner references. Primary keys supply
-identity uniqueness; display names and auction titles deliberately are not unique.
+Normal immutable history has contiguous sequences starting at 1. The contract is
+strict monotonicity, not global order or guaranteed gaplessness after privileged
+history changes. Rejection/rollback consumes no committed sequence or priority.
+ID and created_at remain metadata. Workflow rules are Ruby logic under the lock;
+raw SQL/update_all/explicit validation bypasses remain outside that contract.
 
-Ruby enforces legal transitions, time eligibility, minimum bid, frozen terms,
-immutable accepted history, winner selection, and atomic price/history updates under the auction row lock.
-Cross-row workflow rules are not duplicated in triggers. See the SQL-bypass tests
-in `spec/integration/domain_constraints_spec.rb` for the exact database guarantees.
+Migration backfills leader from latest Phase 2 sequence and marks old bids manual.
+Stop writers for maintenance rollout. Down migration refuses to discard existing
+MaximumBid records; test rollback/reapply uses pre-proxy history. Downgrading a
+populated Phase 3 database requires an explicit data-preservation plan.
 
-## Deferred concepts
+## Privacy and remaining limits
 
-AutomaticBid (Phase 3), IdempotencyRecord (Phase 5), OutboxEvent (Phase 9), and distributed
-closing/time authority (Phase 4) are not implemented. There is no
-authentication; client-supplied bidder_id is a local/demo actor selector only.
+Public presenters omit maximum, priority and origin. Maximum PUT returns only an
+acknowledgement. No maximum GET/list/DELETE exists. Parameters, SQL binds and model
+inspection filter private fields. Reaching a visible ceiling can inherently reveal
+an amount through bidding; it is never labelled as a ceiling or automatic origin.
+This provides representation/data privacy, **not authorization-based secrecy**:
+unauthenticated supplied bidder IDs permit impersonation/probing. Operators can
+read plaintext private database records. Authentication is not redesigned here.
+
+One hot auction serializes work and queues database connections. No fairness,
+throughput guarantee or arbitrary multi-query snapshot guarantee is made. Distributed
+closing/soft-close (Phase 4), idempotency (Phase 5), frontend, messaging and later
+infrastructure remain deferred.

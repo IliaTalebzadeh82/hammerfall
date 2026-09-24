@@ -1,6 +1,6 @@
 # Code map
 
-Paths below are relative to the repository root. Phase 2 coordinates commands through a PostgreSQL auction row lock.
+Paths below are relative to the repository root. Phase 3 coordinates commands through a PostgreSQL auction row lock.
 There is no outbox, event publication, or realtime delivery.
 
 ## Creating an auction
@@ -38,7 +38,8 @@ There is no outbox, event publication, or realtime delivery.
 - Validation: active/window/minimum checks there; participants and money in
   `apps/api/app/models/bid.rb` and `app/validators/minor_units_validator.rb`.
 - Ordering: compute MAX(sequence)+1 while locked; Bid validates a positive integer.
-- Writes: INSERT accepted Bid, then UPDATE Auction.current_price inside that transaction.
+- Writes: ProxyResolver inserts accepted/generated Bids, then updates price/leader
+  inside that transaction; see Phase 3 paths below.
 - COMMIT: return the Bid only when the transaction completes; a nested caller must
   still commit its outer transaction before reporting durable success.
 - Schema defense: `20260924010000_add_authoritative_bid_sequence.rb`, positive
@@ -80,3 +81,43 @@ There is no outbox, event publication, or realtime delivery.
 - Checks: `scripts/check`, `apps/api/config/ci.rb`, `.github/workflows/ci.yml`.
 - Executable HTTP demonstration: `scripts/smoke-api` and
   `scripts/smoke-concurrent-bids`; create labelled demo records.
+
+## Phase 3: first maximum and maximum increase
+
+- HTTP: `apps/api/config/routes.rb` PUT maximum-bid member route.
+- Input/actor: `apps/api/app/controllers/api/v1/maximum_bids_controller.rb#update`.
+- Transaction + auction lock + eligibility: `apps/api/app/models/auction.rb#set_maximum!`,
+  transaction(requires_new: true), reload(lock: true), validate_bidding_window!.
+- Private state: `apps/api/app/models/maximum_bid.rb`; command compares prior amount,
+  rejects reductions, returns unchanged on equal input, assigns fresh priority and
+  saves explicitly. Parent association does not implicitly save private state.
+- Algorithm: `apps/api/app/models/bidding/proxy_resolver.rb#maximum`/`#resolve`.
+  A first bidder gets starting_price. Leader protection updates emit nothing.
+- Generated rows: #emit increments auction-local visible sequence and saves Bid
+  with internal origin; #finish saves price and current_leader_id atomically.
+- COMMIT then HTTP: MaximumBidsController acknowledges auction_id/bidder_id/accepted,
+  without any maximum/priority/origin serialization.
+
+## Phase 3: manual versus automatic, two maxima, and ties
+
+- Manual HTTP entry remains BidsController#create → Auction#place_bid!.
+- After row lock and fresh manual minimum validation, ProxyResolver#manual calls
+  #resolve. Maximum commands reach the same resolver via #maximum.
+- #resolve reads the incumbent's current instruction and compares ceilings; equal
+  ceilings compare explicit priority. Loser's ceiling precedes winner's minimal
+  offer. A winning manual offer retains its exact submitted amount.
+- #emit writes up to two visible rows, including equal-price tie rows; #finish stores
+  the selected leader/price; all changes share the entry-point transaction.
+- Manual API returns its accepted Bid after complete resolution, even when outbid.
+  History lists all committed generated rows in sequence order with origin omitted.
+- Existing close! copies current_leader_id to winner_id under the same lock.
+- Schema/backfill: `20260924020000_add_maximum_bidding.rb`; SQL constraints protect
+  current instruction uniqueness, private priority, origin and leader references.
+- Privacy: `config/initializers/filter_parameter_logging.rb` plus explicit presenters
+  and MaximumBidsController's acknowledgement; no public private-state read path.
+- Tests: `spec/models/maximum_bid_spec.rb`,
+  `spec/integration/concurrent_maximum_bidding_spec.rb`,
+  `spec/integration/maximum_bid_constraints_spec.rb`,
+  `spec/requests/maximum_bids_spec.rb` under apps/api. Both concurrency groups use
+  `spec/support/committed_auction_context.rb` for owned committed data/session helpers.
+- Live demonstration: `scripts/smoke-proxy-bidding` exercises four concrete scenarios.

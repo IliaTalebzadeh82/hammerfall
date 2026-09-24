@@ -1,4 +1,4 @@
-# Phase 2 API
+# Phase 3 API
 
 Base path: `/api/v1`. This API is for local development. There is **no authentication
 or authorization**; supplied bidder_id identifies a database row, not the caller.
@@ -71,7 +71,9 @@ The bidder must already exist. Money must be an integer JSON number: `10500.5`,
 `10500.0`, and `"10500"` are invalid. A bid must meet starting_price if first;
 otherwise current_price + minimum_increment. Responses contain id, auction_id,
 bidder_id, amount, sequence, currency, created_at. There is no bid edit/delete API, rejected
-bid table, idempotency key, or automatic bidding endpoint.
+bid table or idempotency key. A manual response is the caller’s accepted Bid;
+proxy counterbids may already have changed the leader by the same commit. Fetch
+auction/history to observe the settled state. Origin is never a public field.
 
 Bids validate fresh status, time and minimum after acquiring the auction row lock.
 A stale waiter receives ordinary 422 bid_too_low with the price/minimum observed
@@ -128,3 +130,45 @@ auctions, verifies accepted history/sequences/price/leader and prints outcomes.
 Rows remain labelled for inspection. Optional API_BASE_URLS is a comma-separated
 list of running Rails URLs for routing requests across independent processes.
 This is correctness smoke coverage, not a capacity benchmark.
+
+
+## Private maximum configuration
+
+PUT `/api/v1/auctions/:id/maximum-bid`:
+
+```json
+{"maximum_bid":{"bidder_id":42,"maximum_amount":50000}}
+```
+
+Returns 200 for create, increase or same-value no-op:
+
+```json
+{"data":{"auction_id":1,"bidder_id":42,"accepted":true}}
+```
+
+The acknowledgement intentionally omits even the supplied ceiling and private
+priority. No GET/list/delete maximum endpoints exist (404). Unknown fields such as
+priority_sequence/origin are 400. Supplied bidder_id is still a demo actor selector,
+not authentication: representation privacy does not prevent impersonation/probing.
+
+Money uses the same strict bounded integer cents validator. New or increased protection covers
+starting_price, or exceeds public current_price for a nonleader, or covers the
+current leader's own visible price. Partial final increments are allowed for
+proxies. A nonleader increase at/below public price is rejected as
+maximum_bid_too_low without changing private state or priority. Same amount
+preserves priority; a valid increase resets it.
+
+Additional 422 errors: maximum_bid_cannot_decrease and maximum_bid_too_low. They
+contain no stored private amount. The latter may contain public current_price.
+Existing validation_failed/invalid_auction_state/auction_not_open/user_not_found
+contracts still apply, including lifecycle checks for repeated same values.
+
+One command may emit zero, one or two public Bid rows, each with its own sequence.
+Equal ceilings can emit equal amounts with different sequences; the earlier private
+commitment wins. Public auction current_leader_id is explicit state, and winner_id
+remains null until close. Bids do not expose whether they are automatic. No ends_at
+extension occurs. See ADR-004 for examples and docs/domain-model.md for full rules.
+
+Run `./scripts/smoke-proxy-bidding` for manual-vs-proxy, higher/equal proxy and
+simultaneous maximum scenarios. API_BASE_URLS can route the final race across two
+running Rails processes. Script output is public state; labelled records remain.
