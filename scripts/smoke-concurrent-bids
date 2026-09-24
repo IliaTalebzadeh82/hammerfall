@@ -1,0 +1,69 @@
+#!/usr/bin/env ruby
+require "json"
+require "net/http"
+require "time"
+
+# Each request has its own HTTP connection. Rows remain for inspection.
+bases = ENV.fetch("API_BASE_URLS", ENV.fetch("API_BASE_URL", "http://127.0.0.1:3001")).split(",")
+request = lambda do |base, method, path, body = nil|
+  uri = URI.join(base, path)
+  message = (method == :get ? Net::HTTP::Get : Net::HTTP::Post).new(uri)
+  if body
+    message["Content-Type"] = "application/json"
+    message.body = JSON.generate(body)
+  end
+  response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https", open_timeout: 5, read_timeout: 20) { |http| http.request(message) }
+  [ response.code.to_i, JSON.parse(response.body) ]
+end
+success = lambda do |method, path, body = nil|
+  status, data = request.call(bases.first, method, path, body)
+  raise "Setup/read failed: #{status} #{data}" unless [ 200, 201 ].include?(status)
+  data.fetch("data")
+end
+users = Array.new(12) do |i|
+  success.call(:post, "/api/v1/users", { user: { name: "Concurrent smoke #{Time.now.utc.iso8601} bidder #{i}" } }).fetch("id")
+end
+{ increasing: (0...12).map { |i| 10_000 + i * 500 }, equal: Array.new(8, 10_000) }.each do |scenario, amounts|
+  now = Time.now.utc
+  auction = success.call(:post, "/api/v1/auctions", {
+    auction: { title: "Concurrent smoke #{scenario} #{now.iso8601}", starting_price: 10_000,
+               minimum_increment: 500, starts_at: (now - 60).iso8601, ends_at: (now + 3600).iso8601 }
+  })
+  path = "/api/v1/auctions/#{auction.fetch('id')}"
+  success.call(:post, "#{path}/schedule")
+  success.call(:post, "#{path}/activate")
+  ready = Queue.new
+  start = Queue.new
+  threads = amounts.each_with_index.map do |amount, i|
+    Thread.new do
+      ready << true
+      raise "Start barrier timed out" unless start.pop(timeout: 10)
+      status, body = request.call(bases[i % bases.length], :post, "#{path}/bids", { bid: { bidder_id: users[i], amount: amount } })
+      { amount: amount, status: status, body: body, server: bases[i % bases.length] }
+    end
+  end
+  amounts.length.times { raise "Ready barrier timed out" unless ready.pop(timeout: 10) }
+  amounts.length.times { start << true }
+  outcomes = threads.map(&:value)
+  accepted = outcomes.select { |outcome| outcome[:status] == 201 }
+  rejected = outcomes.select { |outcome| outcome[:status] == 422 && outcome[:body].dig("error", "code") == "bid_too_low" }
+  raise "Unexpected response: #{outcomes}" unless accepted.length + rejected.length == amounts.length
+  history = success.call(:get, "#{path}/bids?limit=100")
+  state = success.call(:get, path)
+  raise "Accepted response/history mismatch" unless history.map { |bid| bid.fetch("id") }.sort == accepted.map { |row| row[:body].dig("data", "id") }.sort
+  raise "Invalid sequence" unless history.map { |bid| bid.fetch("sequence") } == (1..history.length).to_a
+  raise "Invalid increment" unless history.each_cons(2).all? { |left, right| right.fetch("amount") >= left.fetch("amount") + 500 }
+  raise "Incorrect final price" unless state.fetch("current_price") == history.last.fetch("amount") && state.fetch("current_price") == amounts.max
+  raise "Incorrect leader/winner" unless state.fetch("current_leader_id") == history.last.fetch("bidder_id") && state["winner_id"].nil?
+  raise "Equal amounts accepted more than once" if scenario == :equal && accepted.length != 1
+  rejected.each do |row|
+    details = row[:body].fetch("error").fetch("details")
+    raise "Invalid fresh rejection details" unless details.fetch("minimum_bid") == details.fetch("current_price") + 500 && row[:amount] < details.fetch("minimum_bid")
+  end
+  puts JSON.pretty_generate(scenario: scenario, auction_id: auction.fetch("id"), servers: bases,
+                            accepted: accepted.length, rejected: rejected.length, final_price: state.fetch("current_price"),
+                            leader: state.fetch("current_leader_id"), winner: state["winner_id"],
+                            history: history.map { |bid| bid.slice("sequence", "amount", "bidder_id") },
+                            responses: outcomes.map { |row| row.except(:body).merge(sequence: row[:body].dig("data", "sequence"), error: row[:body]["error"]) })
+end
+puts "Concurrent HTTP smoke passed. This is correctness evidence, not a benchmark."
