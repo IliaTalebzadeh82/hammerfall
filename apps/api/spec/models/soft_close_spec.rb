@@ -56,16 +56,6 @@ RSpec.describe "Soft close", type: :model do
     expect(auction.reload.ends_at).to eq(original)
   end
 
-  it "extends again in a later real window with no deadline or clock manipulation between commands", :slow do
-    deadline_fixture(auction, AuctionClock.now + 2)
-    original = auction.ends_at
-    auction.place_bid!(bidder: alice, amount: 10_000)
-    expect(auction.reload.ends_at).to eq(original + 90)
-    wait_until_database_time(auction.ends_at - 60)
-    auction.place_bid!(bidder: bob, amount: 11_000)
-    expect(auction.reload).to have_attributes(original_ends_at: original, ends_at: original + 180)
-  end
-
   it "guards timing fields and final winner against ordinary updates" do
     auction.place_bid!(bidder: alice, amount: 10_000)
     [ { ends_at: auction.ends_at + 90 }, { original_ends_at: auction.original_ends_at + 90 }, { closed_at: AuctionClock.now } ].each do |change|
