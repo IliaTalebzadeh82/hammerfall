@@ -47,7 +47,7 @@ in `.env` does not change an already-initialized database user's password.
 `/up` is Rails liveness, not a database query. Compose waits for PostgreSQL readiness
 before Rails starts, and Rails prepares its database. The RSpec integration check
 asserts a real connection to `hammerfall_test`. Frontend health confirms HTTP 200,
-not backend connectivity; the starting page does not call Rails.
+not backend connectivity; browser API failures have their own retryable error states.
 
 ## Native apps with container PostgreSQL
 
@@ -118,16 +118,16 @@ Seeds populate only an empty development domain with 3 users, scheduled/active/
 closed auctions, and 4 bids. A rerun or a database with existing domain records is
 left unchanged. The active seed's window lasts seven days from its first creation;
 seeds never reopen or refresh old auctions. The historical closed example uses
-trusted internal clock arguments; record creation times are insertion metadata.
+explicit historical fixture SQL before normal closure; creation times are insertion metadata.
 No test/production data is seeded.
 
 The smoke script creates its own labelled records, exercises the real JSON API,
-waits about eight seconds for the deadline, and leaves its closed auction for
+waits about 65 seconds for the deadline, and leaves its closed auction for
 inspection. Native Ruby users can run `./scripts/smoke-api`; set API_BASE_URL if the
 API port differs from 3001. API details: [api.md](api.md).
 
 The API deliberately uses client-supplied bidder IDs without authentication. Keep
-it local. Both concurrent bid serialization and race-safe closure are future work.
+it local. Concurrent bidding, race-safe closure and idempotency are implemented; authentication remains future work.
 
 
 ## Phase 2 migration and concurrency verification
@@ -279,3 +279,57 @@ use explicit setup SQL; production decisions still use the real DB clock.
 Run all four concurrent_* suites repeatedly, serially against the test database.
 Idempotency adds no process-local lock or new service. The existing closer remains
 a separate Rails process role and needs no Idempotency-Key.
+
+## Phase 6 browser frontend
+
+Open http://localhost:3000/auctions. Choose a real demo user in the header; the
+selector is explicitly unauthenticated. Browse a detail page, enter EUR strings,
+and submit a manual or binding private maximum bid. The API still decides acceptance,
+leadership, extensions and closure. Use Refresh auction to see other bidders' changes;
+there is no realtime subscription yet. Initial load, visible-tab return, command
+completion and countdown expiry also refresh.
+
+All browser API calls use `/api/v1`. `next.config.ts` transparently rewrites to
+API_ORIGIN: native default http://127.0.0.1:3001; Compose sets http://api:3000.
+For another native API port export API_ORIGIN before starting Next. Restart after
+changes; production builds capture rewrite configuration. Only loopback is added
+to Next's allowed development origins, and Rails development allows the Compose
+`api` host. No credentials belong in this URL or NEXT_PUBLIC variables.
+
+The existing small development seed remains unchanged: three demo users and
+scheduled/active/closed examples are sufficient to start browsing. It skips an
+existing domain and never refreshes expired auctions. Browser scenarios create
+fresh labelled fixtures through the API instead of resetting your data. Lifecycle
+activation remains explicit; the frontend does not add admin controls.
+
+Pending command recovery uses sessionStorage; selecting a demo actor uses
+localStorage. If a response is lost, keep the saved attempt and use Retry safely.
+Reloading or navigating within the same tab preserves it. Refresh alone cannot
+confirm the command outcome. Private maximum input may remain temporarily in the
+caller's pending session record until terminal resolution/abandonment/tab cleanup.
+Do not copy this storage into logs or bug reports. The client retry window is one
+hour; it is not indefinite server retention. See frontend.md and ADR-007.
+
+Browser verification against the running local Compose stack:
+
+```sh
+cd apps/web
+npm ci
+npx playwright install chromium
+npm run test:e2e
+# Optional compatible installed-browser fallback when downloads are unavailable:
+PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/google/chrome/chrome npm run test:e2e
+```
+
+Set E2E_BASE_URL for another frontend port. The tests exercise real mutations and
+retain labelled records, so use only a local demo/disposable environment. They
+cover browsing, actor selection, manual/max bidding, stale rejection, a committed
+response deliberately dropped before reload/retry, zero/closure, lifecycle states,
+and 390/768/1440 layouts. Screenshots live in ignored apps/web/test-results; no
+private traces or network payload reports are enabled. GitHub's Compose job installs
+Chromium and runs the same scenarios. A local run is not evidence that hosted CI ran.
+
+The complete native check remains scripts/check. Frontend-only: npm test, lint,
+format:check, typecheck and build. A production smoke can use `npm run build` then
+`npm run start -- --hostname 127.0.0.1 --port 3100` while Rails remains running.
+The next build reads API_ORIGIN; it requires no database access to generate pages.

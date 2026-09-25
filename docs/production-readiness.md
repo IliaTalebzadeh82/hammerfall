@@ -38,3 +38,11 @@ reserve their keys until physical deletion. This is bounded retry protection, no
 permanent deduplication or authentication. Retained outcomes add storage and lock
 lifetime; cleanup and API snapshot compatibility need operational ownership. No
 performance improvement is claimed without measurement. See ADR-006.
+
+Phase 6 now provides a working browser auction UI with session-based retry recovery
+and real-API browser evidence. It still has no authentication, authorization or
+real-money readiness. Reads become stale between explicit/visibility/command/expiry
+refreshes; there is no realtime transport. Browser storage can be lost and clocks
+can move. The one-hour client retry horizon is conservative, not a durability SLA.
+Separate auction/history GETs are not one consistent snapshot. No exhaustive
+accessibility audit, cross-browser certification or performance benchmark is claimed.

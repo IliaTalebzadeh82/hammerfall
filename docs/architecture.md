@@ -1,11 +1,11 @@
 # Architecture
 
-## What exists now — Phases 0–5
+## What exists now — Phases 0–6
 
-Next.js in apps/web serves the unchanged starting page. Rails in apps/api owns
+Next.js in apps/web provides the auction listing/detail and command UI. Rails in apps/api owns
 User, Auction, Bid, MaximumBid, explicit lifecycle operations, and a JSON REST API under
-`/api/v1`. PostgreSQL stores all domain state. The frontend does not yet consume
-the auction API. Compose runs web, api, db and auction-closer.
+`/api/v1`. PostgreSQL stores all domain state. The frontend consumes the versioned REST API through a transparent same-origin
+rewrite; Rails remains the sole command authority. Compose runs web, api, db and auction-closer.
 
 ```text
 API client → controllers → IdempotentBidding (bid/max) → Auction → PostgreSQL
@@ -13,7 +13,7 @@ API client → controllers → IdempotentBidding (bid/max) → Auction → Postg
                  ↓                         ↓
            JSON presenters        Bid + current_price transaction
 
-Browser → Next.js static starting page
+Browser / Next.js → REST reads and commands → Rails API → PostgreSQL
 
 Auction Closer (same Rails app/process role) → Auction#close! → PostgreSQL
 ```
@@ -51,7 +51,7 @@ Real PostgreSQL concurrency specs use committed rows and independent sessions.
 
 ## Later phases — not implemented
 
-The auction frontend in Phase 6; Action Cable in Phase 7; Redis/Sidekiq
+Action Cable in Phase 7; Redis/Sidekiq
 in Phase 8; outbox in Phase 9; Kafka in Phase 10. Projections, reconciliation,
 observability, load testing, and deployment follow the master roadmap.
 No component listed here is present merely because it appears in the future plan.
@@ -87,7 +87,7 @@ See ADR-005 and running-locally.md for failure and shutdown behavior.
 ## Client retry boundary — Phase 5
 
 ```text
-Next.js (static starting page)
+Next.js browser UI (request/response + explicit refresh)
 
 HTTP clients -> Rails API instances
                   |
@@ -107,3 +107,20 @@ complete domain rollback. Duplicate INSERTs coordinate via PostgreSQL uniqueness
 completed retries bypass Auction entirely. No mutex, Redis or generic middleware
 pipeline exists. A manual bounded prune task manages expired completed outcomes.
 See ADR-006 for lock order, failure classes, retention and compatibility boundaries.
+
+## Browser boundary — Phase 6
+
+App Router pages use one client REST layer with public runtime shape guards. Local
+read/form state stays in each view; one context shares the demo actor and unresolved
+command. A transparent Next rewrite provides local connectivity, without Next API
+handlers, BFF domain logic or wildcard production CORS.
+
+One opaque key and immutable payload are saved in sessionStorage before transmission.
+Transport ambiguity retains them for explicit safe retry; terminal responses trigger
+fresh auction/history reads. No optimistic price, leader or local closure exists.
+X-Server-Time is application-clock presentation metadata only. The ticking countdown
+refreshes at zero and follows the returned effective deadline.
+
+Phase 6 refresh model: initial request/response, explicit refresh, visible-tab return,
+terminal command and countdown expiry. Phase 7: actual server-pushed auction updates
+and reconnect recovery, not implemented yet. See frontend.md and ADR-007.

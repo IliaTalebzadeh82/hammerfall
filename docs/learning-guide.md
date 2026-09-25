@@ -452,3 +452,109 @@ claimed. Duplicate waiters can consume connections. Expiry, authentication chang
 future API serialization changes and non-idempotent internal callers are boundaries
 that need explicit treatment. Phase 6 should preserve pending keys across uncertain
 network outcomes and generate a fresh key only for a genuinely new intention.
+
+## Browser correctness — Phase 6
+
+**Problem:** displayed state is not necessarily current state. A successful bid is
+not necessarily the current leader. A network failure is not proof of rollback.
+A naive frontend optimistically changes price/leader, closes at local zero and
+creates a new key for each retry. Each shortcut contradicts a backend guarantee.
+
+**The implemented boundary:** React displays typed public GET state and submits
+intentions. Rails/PostgreSQL owns decisions. The listing and detail use one REST
+client and explicit shapes. The application shell holds demo identity and one
+pending command; individual screens own their reads and local form input. No
+second auction engine, BFF, global auction store or event transport was introduced.
+
+**Lost response timeline:**
+
+```text
+Browser                             Rails/PostgreSQL
+Save session intention K1 + P
+POST bid K1 ---------------------->
+                                    lock + validate + settle
+                                    COMMIT bid + extension + outcome
+            X response lost
+"Was this processed?"
+Reload tab; recover K1 + P
+Retry SAME K1 + P ----------------->
+                                    replay retained outcome
+<---------------- original result
+Clear pending intention
+GET auction + history ------------>
+<---------------- current public state
+```
+
+Changing the amount under K1 would cause 409. Creating K2 for a transport retry
+could cause another real command. Therefore pending/ambiguous intentions are
+immutable and block actor changes and both bidding forms. A synchronous ref guards
+two clicks before React updates. sessionStorage is written before transmission;
+if it is unavailable, transmission is blocked. It temporarily contains the caller's
+own pending maximum, never another user's private data. Resolved commands are
+removed. An explicit two-step abandonment warns that it cannot cancel server work.
+A browser abort is treated like network ambiguity, not server cancellation.
+
+**Command outcome versus auction outcome:**
+
+```text
+Browser sees price 100 / leader Alice
+Bob submits manual 200 / key B1
+Rails accepts Bob 200 and settles Alice's counter at 210 in one transaction
+201 returns Bob's accepted bid of 200
+GET returns price 210 / leader Alice
+UI: "Your bid was accepted" and "Current leader · Alice"
+```
+
+There is no contradiction. The command was accepted; it did not promise leadership.
+Another command may also commit between POST and GET. A recovered old response can
+be older still. Current GET data drives the page, never the command body's amount.
+Only closed status plus public winner_id supports a final winner label.
+
+**Stale rejection is ordinary interaction:** a page hints minimum 310, another
+bidder raises price to 400, and submitting 310 returns bid_too_low/minimum 410.
+The form explains that rejection and labels safe error details as values at the
+server's decision, clears the terminal intention and refreshes auction/history.
+The user can create a new intention. The frontend neither silently raises the amount
+nor automatically retries it. Conflict 409 is a client-intention problem, never a
+reason to quietly generate another UUID.
+
+**Countdown is presentation:** X-Server-Time estimates app-clock/browser offset,
+not PostgreSQL decision time. Network delay and host clock differences remain.
+The isolated countdown ticks without rerendering the whole auction each second;
+at zero it shows Checking status and refreshes once per effective deadline. It
+never changes status to closed, infers a winner, or edits ends_at. A returned
+extension restarts the display. With a delayed closer, manual/focus refresh may
+still be needed to see finalization. The server may accept or reject irrespective
+of a browser estimate; only clearly terminal/non-active states hide new commands.
+
+**Exact input:** split the decimal string into euros and fractional digits, pad
+one fractional digit, and build bounded integer cents. `10.999` fails; it is never
+rounded into a different bid. EUR formatting is display-only. Client validation
+checks shape/bounds, while price, binding-maximum rules and deadlines stay in Rails.
+
+**Read races:** a slow GET started before a later refresh must not overwrite that
+later result. Abort controllers and generation guards reject stale completions.
+Pagination uses authoritative sequence, preserving equal-price rows. Separate
+auction/history requests still are not one database snapshot; do not infer a winner
+from the last loaded history row. Refresh resets history to its first page.
+
+**Why Phase 7 is needed:** this phase refreshes only on initial load, explicit
+request, return to a visible tab, countdown zero and terminal commands. Other
+bidders' activity can remain unseen between those points. No Connected/Realtime
+badge or aggressive polling conceals that gap. Phase 7 adds actual server-pushed
+updates and reconnect recovery while retaining command identity and server authority.
+
+**Read first:** ADR-007, docs/frontend.md, lib/api/client.ts, lib/intentions.ts and
+components/auction/session.tsx under apps/web/src. Then follow auction-detail.tsx,
+bidding-panel.tsx and presentation.tsx. Study commands.test.tsx for response loss,
+replay, terminal errors, actor changes and storage failure; reads.test.tsx for
+stale GETs/pagination; presentation.test.tsx for fake-time boundaries/privacy;
+and e2e/auctions.spec.ts for a real commit whose response is intentionally dropped.
+
+**Guarantees and limits:** stable retained intentions make explicit retries safe
+under the backend contract. Demo IDs are not authentication. Storage can be lost,
+copying tabs may copy commands, the one-hour client retry horizon relies on a local
+clock, and no cross-tab coordination exists. No instant freshness, consistent
+multi-query snapshot, production security, capacity or accessibility certification
+is claimed. Explain these limits alongside the successful recovery timeline in
+an interview, rather than calling the entire UI strongly consistent.

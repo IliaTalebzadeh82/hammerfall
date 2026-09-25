@@ -172,8 +172,8 @@ unauthenticated supplied bidder IDs permit impersonation/probing. Operators can
 read plaintext private database records. Authentication is not redesigned here.
 
 One hot auction serializes work and queues database connections. No fairness,
-throughput guarantee or arbitrary multi-query snapshot guarantee is made. Frontend, messaging and later
-infrastructure remain deferred.
+throughput guarantee or arbitrary multi-query snapshot guarantee is made. Messaging and later infrastructure remain deferred. Phase 6 now presents the
+existing public domain without changing these rules.
 
 ## Phase 5 logical commands and retained outcomes
 

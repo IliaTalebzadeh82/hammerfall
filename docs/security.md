@@ -37,3 +37,12 @@ plaintext database. Opaque keys should be sufficiently unique; do not encode sec
 in them. Never reinterpret actor scope or expose retained records as a public list.
 Conflict/replay responses retain the original public privacy boundary. New key,
 fingerprint and response attributes are filtered from ordinary model/bind logging.
+
+Phase 6 renders auction text through React, never dangerouslySetInnerHTML. Actor
+selection remains visibly unauthenticated. No credentials or private inputs enter
+URLs or public environment variables. The public API client/types/views have no
+maximum/priority/origin display fields. The selected actor's own unresolved maximum
+is temporarily stored in same-tab sessionStorage for retry; resolved storage is
+removed, unsubmitted inputs clear on actor changes, and no confirmed ceiling is
+inferred from acknowledgements. Storage access is not an authentication boundary.
+Local host allowances are explicit; production CORS was not broadened. See ADR-007.

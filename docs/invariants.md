@@ -1,6 +1,6 @@
 # Invariants
 
-## Implemented through Phase 5
+## Implemented through Phase 6
 
 Unless explicitly marked SQL, these guarantees apply to concurrent calls through
 the documented domain entry points at PostgreSQL READ COMMITTED isolation.
@@ -24,7 +24,7 @@ Privileged validation-bypassing writes remain outside the workflow contract.
 | Other auctions can progress while one is locked | Independent aggregate rows | concurrent_bidding_spec.rb independent-auction case |
 
 The API returns the persisted winner; it does not promote an active leader into a
-winner. The static frontend still has no auction view or independent projection.
+winner. The frontend renders that public state and never promotes a leader locally.
 Actual files are mapped in [code-map.md](code-map.md). Tests reside under
 `apps/api/spec/models`, `spec/requests`, and `spec/integration`.
 
@@ -46,7 +46,7 @@ All 15 original master invariants remain requirements. Their current status is:
 6. **Client timestamps cannot determine authoritative ordering:** clients cannot
    set bid timestamps or sequence; the locked server assigns sequence.
 7. **Visible winner must agree with PostgreSQL:** API serializes the stored
-   winner; real-time/frontend projection consistency is not implemented.
+   winner; Phase 6 renders fresh GET state. Realtime projection delivery is not implemented.
 8. **Automatic bid maxima are private:** explicit public presenters/acknowledgements
    omit maxima/priority/origin; request/SQL/inspection filters are tested. No complete
    authorization secrecy exists with supplied unauthenticated bidder IDs.
@@ -126,3 +126,19 @@ not raw Auction method invocations without a client identity. They last while th
 record exists, assume cryptographic digest collision resistance, and do not create
 an authentication boundary. Processing rows are normally uncommitted; direct SQL
 can violate that workflow despite structural checks. No arbitrary 500 is cached.
+
+## Phase 6 browser boundaries
+
+These are client behavior guarantees, not replacements for the database invariants.
+
+| Boundary | Implementation | Evidence under apps/web |
+| --- | --- | --- |
+| A new intention gets one key; ambiguity preserves actor/operation/amount/key | AuctionSession synchronous guard, sessionStorage, explicit retry | commands.test.tsx; real commit/drop/reload/replay E2E |
+| Countdown cannot finalize an auction | AuctionTiming emits refresh only; UI reads status/winner from GET | presentation.test.tsx fake time; real closer browser scenario |
+| Accepted bid does not imply leadership | Detail uses current_leader_id from fresh GET, no optimistic price/leader | commands.test.tsx; real proxy/stale rejection E2E |
+| Public views render no private max/priority/origin | Public types and explicit cells; no broad object rendering | presentation.test.tsx extra-private-field fixture; real maximum browser scenario |
+| Money input cannot silently round fractional cents | Decimal digit parsing and safe bounded integers | money.test.ts |
+| Late read completion cannot overwrite a later refresh | Abort and generation guards | reads.test.tsx |
+
+Actor IDs are still unauthenticated. Browser storage/clock loss, separate GET
+snapshots and absence of realtime remain explicit limits. See ADR-007.

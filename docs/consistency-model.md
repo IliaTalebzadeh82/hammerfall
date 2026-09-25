@@ -1,7 +1,7 @@
 # Consistency model
 
 PostgreSQL stores User, Auction, Bid, current price, sequence, private maxima/priority, explicit leader and closed-auction
-winner. There is no external projection/cache; the frontend has no auction view.
+winner. There is no external projection/cache; the frontend renders request/response public state that can become stale between refreshes.
 
 At READ COMMITTED, place_bid! locks and reloads its auction before validating
 status, time, amount and minimum. It assigns MAX(sequence)+1 and persists bid and
@@ -41,3 +41,9 @@ reserve their keys until physical deletion. This is bounded retry protection, no
 permanent deduplication or authentication. Retained outcomes add storage and lock
 lifetime; cleanup and API snapshot compatibility need operational ownership. No
 performance improvement is claimed without measurement. See ADR-006.
+
+Phase 6 never optimistically changes price/leader or closes at local zero. It
+separates historical command outcomes (including replay) from fresh auction/history
+GETs, rejects late superseded read completions, and retains immutable pending keys
+for explicit retries. This does not make multi-query reads snapshot-consistent or
+provide realtime delivery. See ADR-007 and frontend.md.

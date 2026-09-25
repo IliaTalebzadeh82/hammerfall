@@ -222,3 +222,40 @@ exception as well as StandardError; only the identified test fixtures were remov
 Repeating sabotage verifies that all five domain/idempotency tables are empty
 before running the normal verification suites. Development demonstration data is
 retained separately.
+
+## Phase 6 — Unknown outcomes reach the browser (2026-09-26)
+
+The UI needs to preserve identity across a lost response, not merely disable a
+button. A shared ref closes the same-render double-click gap; sessionStorage saves
+one immutable command before fetch. A global recovery banner preserves it across
+routes, actor selection is locked, and a tab reload restores it. The real browser
+experiment forwarded a bid to Rails, observed 201, then dropped that response.
+Reload plus explicit retry recovered the original result under the same key/body
+without another history row. Current state still came from a fresh GET.
+
+The same-origin rewrite exposed two development configuration boundaries. Rails
+rejected the Compose `api` host until it was specifically allowed in development.
+Next.js 16.3.6 rejected dev resource/HMR access from 127.0.0.1; initial SSR skeletons
+therefore appeared but hydration did not finish. Reading the installed Next docs
+and adding explicit loopback allowedDevOrigins fixed the real browser failure.
+Framework development HMR is not auction realtime delivery or Phase 7 work.
+
+The presentation header initially used only after_action. A request spec proved
+that Rails skips that callback on rescued errors. The shared expected-error renderer
+now calls the same timestamp helper; ordinary responses retain the callback. The
+header is fresh application time only, never bidding authority or a replay snapshot.
+
+Playwright's Chromium CDN returned a region-access HTTP 403. Rather than disabling
+browser verification, the suite ran against the installed Google Chrome executable.
+A first responsive assertion also matched Next's route-announcer alert in addition
+to the form error; the test now targets the amount's associated error element.
+The assertions still verify visible error copy and focus. Final screenshots inspect
+real 390/768/1440 layouts, long titles, large prices and populated history. These
+are functional/layout checks, not cross-browser or accessibility certification.
+
+An explicit refresh failure could previously retry with the next pagination cursor
+instead of the failed first-page request. The list now retains the failed cursor;
+a regression test proves refresh retry replaces the first page without duplicate
+cards. Another read test resolves an older GET after a newer one and confirms the
+newer state remains visible. This is local request ordering, not a promise that
+independent Rails GETs share one database snapshot.

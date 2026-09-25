@@ -261,3 +261,16 @@ no-op; its response is not marked replayed.
 All existing smoke scripts now generate a new key per distinct bidding command.
 `scripts/smoke-idempotency` reuses keys intentionally across two independent API
 URLs to demonstrate duplicates, conflicts, lost responses and replay after closure.
+
+## Phase 6 presentation metadata
+
+Normal `/api/v1` responses and expected API error renders include `X-Server-Time`,
+an ISO 8601 UTC timestamp from the Rails application clock near rendering. The
+browser uses it only to estimate countdown clock offset. It does not describe the
+post-lock PostgreSQL decision time, guarantee clock synchronization, or authorize
+a bid. Network delay and app/database clock skew can affect the estimate.
+
+This header is fresh transport metadata on replay, not part of the saved Phase 5
+logical response. Status/body replay contracts and all domain semantics are unchanged.
+The frontend uses a transparent same-origin Next rewrite; no CORS-wide production
+policy or new maximum read endpoint was added.

@@ -78,7 +78,7 @@ There is no outbox, event publication, or realtime delivery.
   `apps/api/spec/requests/health_spec.rb`.
 - Database setup: `apps/api/config/database.yml`; connectivity coverage in
   `apps/api/spec/integration/database_spec.rb`.
-- Unchanged web page: `apps/web/src/app/layout.tsx`, `page.tsx`, and `page.test.tsx`.
+- Web entry: `apps/web/src/app/layout.tsx`; `/` redirects to `/auctions`. See the Phase 6 maps below.
 - Compose: `docker-compose.yml` and `infrastructure/` development Dockerfiles.
 - Checks: `scripts/check`, `apps/api/config/ci.rb`, `.github/workflows/ci.yml`.
 - Executable HTTP demonstration: `scripts/smoke-api` and
@@ -218,3 +218,61 @@ public error. No duplicated winner logic or exception-after-commit protocol exis
   `integration/idempotency_constraints_spec.rb` real SQL defenses.
 - Live executable: `scripts/smoke-idempotency`, development-only, requires two API URLs
   and retains labelled rows. Existing smoke scripts issue fresh keys per intention.
+
+## Phase 6: browser routes and public reads
+
+All paths in this section begin under `apps/web` unless otherwise noted.
+
+- `/`: `src/app/page.tsx` redirects to `/auctions`.
+- List: `src/app/auctions/page.tsx` → `components/auction/auction-list.tsx` →
+  `lib/api/client.ts#getAuctions`; ID cursor and Load more, explicit/focus refresh.
+- Detail: `src/app/auctions/[id]/page.tsx` awaits and validates params →
+  `components/auction/auction-detail.tsx`; getAuction + getBids refresh together.
+- API transport: `next.config.ts` rewrite and API_ORIGIN; no API route handlers.
+  `lib/api/types.ts` contains public-only models; client.ts guards runtime shapes,
+  bounded numeric values, metadata, pagination and error envelopes.
+- History: `presentation.tsx#BidHistory` renders explicit public fields by sequence;
+  detail's moreHistory follows next_after_sequence. New refresh resets pagination.
+- Read races: detail/list abort prior reads; detail generation also guards late
+  history pagination. `reads.test.tsx` proves a late older GET cannot replace new state.
+
+## Phase 6: demo actor and manual/maximum commands
+
+- Shell/provider: `src/app/layout.tsx` installs `AuctionSession`/`ApplicationShell`
+  from `components/auction/session.tsx`. User pages come from getUsers; selected ID
+  is stored as hammerfall.actor in localStorage, explicitly not authentication.
+- Forms: `components/auction/bidding-panel.tsx#AmountForm` validates strings with
+  `lib/money.ts#parseEuroInputToCents`, then calls session.submit. Binding maximum
+  copy is inline; no max cancellation/read endpoint or inferred protection display.
+- Intention: session.submit generates crypto.randomUUID only on a new submission.
+  execute persists the immutable intention before calling client.ts#sendCommand.
+- Manual: sendCommand POSTs bid {bidder_id,amount}; maximum: PUTs maximum_bid
+  {bidder_id,maximum_amount}. Both send Idempotency-Key and preserve response metadata.
+- Pending/ambiguous: the ref prevents same-turn duplicate clicks; one saved command
+  blocks both forms/actor changes. `lib/intentions.ts` validates and restores session
+  data; only exact allowlisted values become the retry payload.
+- Safe retry: session.retry checks the one-hour horizon and reuses the same command.
+  ApplicationShell offers recovery across routes and inline two-step abandonment.
+- Replay/terminal result: sendCommand recognizes Idempotency-Replayed; session stores
+  an outcome revision, removes pending storage; detail reacts by refreshing auction
+  AND history. Its state comes from GET, never the returned command price.
+- Stale rejection: client.ts#errorMessage maps stable codes and safe historical
+  price/minimum details. The same terminal refresh runs on rejection, including 409.
+- Privacy: public types omit private fields, history has explicit cells, changing
+  actor remounts/clears form input, and pending maxima never enter logs/URLs.
+
+## Phase 6: countdown, layout and verification
+
+- `presentation.tsx#AuctionTiming`: isolated local ticks, offset from X-Server-Time,
+  one expiration callback per ends_at, Checking status until Rails says otherwise.
+- Header source: `apps/api/app/controllers/api/v1/base_controller.rb#set_presentation_time`;
+  response metadata only, covered by `spec/requests/presentation_time_spec.rb`.
+- Layout: `src/app/globals.css`; shadcn Button/Badge/Input/Label/Alert/Skeleton under
+  `src/components/ui`. Semantic labels, error/live regions and public table headings.
+- Unit/component tests: lib/money.test.ts, lib/api/client.test.ts,
+  lib/intentions.test.ts; components/auction/{commands,reads,presentation}.test.tsx.
+- Real API browser tests: `e2e/auctions.spec.ts`, `playwright.config.ts`; real browsing,
+  actor selection, manual/max, stale rejection, commit-then-drop-response/reload/retry,
+  countdown/closure and 390/768/1440 screenshots with long titles/large amounts.
+- Commands: `npm test`, lint, format:check, typecheck, build, test:e2e. CI's Compose
+  job starts real Rails/PostgreSQL/closer and runs the browser scenarios.

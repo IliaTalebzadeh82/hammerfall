@@ -5,14 +5,13 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Current scope: Phase 5 — client command idempotency.** Required client keys,
-PostgreSQL ownership and atomically stored outcomes make bid/max retries safe across
-Rails processes, including after closure. PostgreSQL decision
-time after the auction lock, fixed final-60-second/+90 extensions and an autonomous
-Rails closer preserve winner finality across processes. Private binding ceilings,
-durable tie priority and synchronous proxy responses preserve PostgreSQL auction
-row serialization and atomic price/history/leader updates across Rails processes. The real auction frontend is not implemented. [masterprompt.md](masterprompt.md) is the authoritative
-engineering specification; [progress](docs/progress.md) records verified work.
+**Current scope: Phase 6 — Frontend.** Browse real auctions, inspect public bid
+history, select an explicit demo bidder, and submit manual or private maximum bids.
+The responsive Next.js interface preserves stable client intentions for safe retry
+after lost responses, including tab reload. Rails/PostgreSQL still owns price,
+leader, deadline extensions and final winner. Updates use request/response and
+explicit refresh; realtime delivery is Phase 7. [masterprompt.md](masterprompt.md)
+is the specification; [progress](docs/progress.md) records actual verification.
 
 ## Run locally
 
@@ -43,11 +42,11 @@ The [invariants](docs/invariants.md) distinguish implemented concurrency guarant
 from future event-delivery requirements. Rails owns business logic and
 PostgreSQL owns persisted state. Money uses integer EUR cents. Bid insertion and
 current-price update are atomic; explicit close assigns the winner. [ADR-003](docs/adr/003-auction-concurrency-control.md) explains serialization and
-the hot-auction bottleneck. Next.js still serves the original starting page.
-See [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
+the hot-auction bottleneck. Next.js presents public GET state and never optimistically decides price or leader.
+See [frontend](docs/frontend.md), [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
 [ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
 
-The remaining roadmap builds the auction frontend, realtime delivery and later event/reconciliation systems. It does not claim
+The remaining roadmap adds realtime delivery and later event/reconciliation systems. It does not claim
 these problems are already solved. The current API has no authentication; bidder
 IDs are demo identity only. See [API usage](docs/api.md) and
 [ADR-002](docs/adr/002-core-auction-state.md) for the domain choices.
@@ -61,7 +60,7 @@ After native dependencies are installed and PostgreSQL is running:
 ```
 
 CI checks Ruby lint/security/tests, frontend lint/format/types/tests/build, and
-Compose startup plus sequential, concurrent and proxy HTTP smoke tests. [Version choices](docs/tooling.md), [code map](docs/code-map.md),
+Compose startup, HTTP smoke tests and real-API Playwright browser scenarios. [Version choices](docs/tooling.md), [code map](docs/code-map.md),
 and [learning guide](docs/learning-guide.md) explain the foundation.
 
 ## Later engineering work

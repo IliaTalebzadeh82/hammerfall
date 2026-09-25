@@ -1083,3 +1083,161 @@ presentation; server DB time and the returned deadline remain authoritative.
 Recommended next prompt (exact):
 
 > Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, apps/web/AGENTS.md, current API/domain/invariants/architecture/learning-guide/code-map/running-locally docs, all ADRs, and the existing frontend and bidding/closing/idempotency code and tests. Implement Phase 6 only — Frontend: auction listing and detail, live countdown, manual bid and automatic-bid forms, public bid history, status indicators, responsive UI and shadcn/ui components using the real Rails API. Generate one Idempotency-Key per new user intention and reuse the same key and payload for transport retries; handle replay, 400/409/422 responses and ambiguous failures clearly, and refresh public state after commands. Preserve server-authoritative deadlines, privacy of maximum amounts/priority/origin, and the explicit unauthenticated demo identity limitation. Add meaningful frontend tests and browser verification, run full checks and Docker verification, update docs/progress and learning material, create coherent commits with a clean working tree, and stop after Phase 6. Do not add fake features, authentication, Action Cable, Redis, Sidekiq, Kafka, outbox or later-phase infrastructure.
+
+## Phase 6 — Frontend
+
+Status: COMPLETE (2026-09-26)
+
+### Implemented routes and architecture
+
+`/` redirects to `/auctions`; `/auctions/[id]` presents a real auction and its
+sequence-paginated accepted bids. A shared shell provides the demo actor selector,
+recovery banner and navigation. Domain components live in
+`apps/web/src/components/auction`; public types and the fetch client live in
+`apps/web/src/lib/api`. Next's transparent `/api/v1` rewrite reaches Rails using
+`API_ORIGIN`; it adds no BFF business logic. shadcn primitives support the forms,
+alerts, badges and loading layouts. Text-focused cards use actual API data.
+
+Demo selection loads paginated real users and persists only the chosen actor ID
+in localStorage. It explicitly does not authenticate anyone. Switching actors
+clears unsubmitted form values; unresolved commands lock actor selection.
+
+### Money, time and server authority
+
+Money input is parsed from digit groups into integer EUR cents, with explicit
+precision/bounds validation and no rounding of excessive decimals. Display uses
+Intl.NumberFormat. The isolated countdown ticks from returned `ends_at`, adjusted
+by an approximate response-time offset. The minimal Rails `X-Server-Time` header
+is fresh presentation metadata, including rescued errors; it is not PostgreSQL
+clock authority and does not change stored idempotency response bodies/statuses.
+At zero the UI checks authoritative state instead of closing the auction or
+choosing a winner. Refreshed extensions update the countdown.
+
+Public GETs determine price, leader, winner and history. Terminal command results
+trigger fresh auction/history reads. Explicit refresh and tab visibility also
+refresh state. Superseded reads are aborted/guarded against stale replacement.
+There is no optimistic price/leader update or simulated realtime transport.
+
+### Commands, recovery and privacy
+
+Manual and private maximum forms create one opaque crypto.randomUUID per new
+intention. Maximum copy explains increase-only, binding behavior. The accepted
+command message remains distinct from refreshed leadership after automatic bids.
+One tab-wide immutable intention binds operation, actor, auction, cents and key.
+It is saved in sessionStorage before transmission and retained across reloads.
+Storage failures block transmission rather than silently lose retry identity.
+
+Network failures, timeouts, malformed success responses and 5xx are ambiguous.
+Safe retry sends the same payload/key explicitly; it never blindly generates a
+replacement. Replay acknowledges the historical result and refetches public
+state. An explicit warned abandonment clears the local attempt, not a committed
+server bid. One-hour client retry eligibility stays below the server's minimum
+one-day retention; expired attempts require review/abandonment. Refresh alone
+does not resolve ambiguity. Valid 400/404/409/422 error envelopes have terminal
+feedback; stale minimum/price details are described as historical and followed
+by fresh reads. Unexpected payloads remain conservative.
+
+Public types/components select public fields and never render maximum amount,
+priority or bid origin. Tests pass deliberately overbroad objects to prove this.
+A user's unresolved maximum exists only in that tab's sessionStorage, not public
+history, URLs, analytics or debug output. Descriptions render as React text.
+
+### Responsive design and accessibility
+
+The restrained cream/green interface has responsive cards and a two-column detail
+layout that stacks on mobile. A mobile bidding anchor keeps forms reachable.
+Long titles and EUR 1 billion values were exercised at 390, 768 and 1440 pixels;
+forms and errors remain within the viewport and accepted history stays readable.
+Labels, field-associated errors, visible focus, semantic table headers, skip
+navigation, textual statuses and polite command feedback are implemented. The
+countdown is not a once-per-second live announcement. Abandonment uses inline
+confirmation, not a focus-trapping modal. This is not a formal accessibility audit.
+
+### Verification evidence
+
+The final verification results follow. The browser suite uses the actual
+Rails API and ordinary closer, with labelled development records retained. For
+response-loss recovery, Playwright forwards the real POST, observes Rails' 201,
+then drops only the browser response. Reload and retry must carry exactly the
+original key/body, return a replay, clear pending storage and leave four accepted
+rows rather than a duplicate fifth row.
+
+The Compose browser run passed all four cases: auction 114 covered manual/max,
+stale rejection and committed-response-loss recovery; 115 closed through the
+independent closer; 116 exercised long titles, large money and all three widths;
+117 covered draft, scheduled and cancelled states. Countdown verification asserts
+an automatic authoritative GET at zero before the explicit final refresh.
+
+Playwright 1.63.0 used installed Chrome 154.0.8037.57 through
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/google/chrome/chrome`. Bundled Chromium
+installation was attempted but its download returned regional HTTP 403; this
+was not treated as successful installation. Screenshots are generated under the
+ignored `apps/web/test-results` directory. Browser output directories are also
+explicitly excluded from Biome, avoiding lint/format failures on generated JSON.
+
+The production build was served separately on port 3100 and passed the same four
+browser tests in 12.7 seconds: auctions 118 (commands/replay), 119 (closure),
+120 (responsive layout), and 121 (draft/scheduled/cancelled). This also verified
+production hydration and the native API rewrite. The temporary production server
+was stopped afterward; the Compose development stack remains available on port 3000.
+
+| Check | Actual result |
+| --- | --- |
+| Final `scripts/check` | Passed; Compose config, backend and complete frontend checks |
+| Final native RSpec in that check | 326 examples, zero failures; seed 9562 |
+| Backend `bin/ci` | Passed; 326 examples, seed 46901; setup, audit, lint, autoload and DB preparation |
+| Container full RSpec | 326 examples, zero failures; seed 606 |
+| RuboCop / Brakeman / gem audit | 74 files without offenses; zero security warnings; no known vulnerabilities in checked database |
+| Vitest / Testing Library | 61 tests in seven files, all passed |
+| Frontend lint / format / types | Passed, including generated-output exclusions |
+| Next production build | Passed; listing and dynamic detail route, plus favicon |
+| Compose browser suite | Four passed in 14.6 seconds against real Rails and closer |
+| Production browser suite | Four passed in 12.7 seconds against real Rails and closer |
+| Responsive screenshots | Captured and visually inspected at 390/768/1440; long title, large price, error, focus and accepted history |
+| Compose config / image build / startup | Passed; api/db/web healthy, closer running; cached build layers used |
+| `git diff --check` | Passed |
+
+The GitHub workflow now installs Chromium and runs the real API browser suite after
+existing smoke checks. GitHub-hosted CI itself was not run. Screenshot paths from
+the final production browser run are
+`apps/web/test-results/auctions-responsive-forms--38c6a--history-and-keyboard-focus/`
+(`detail-390.png`, `detail-768.png`, `detail-1440.png`, `listing-desktop.png`). They
+are ignored generated artifacts, not checked-in fixtures. Existing backend tests
+continue covering concurrency, proxy settlement, privacy, deadlines, closing,
+soft close and idempotency; frontend work did not change those domain services.
+
+### Known limitations and review before Phase 7
+
+Refreshes can show stale state between requests; two GETs are not one atomic
+snapshot. Actor IDs are unauthenticated. Pending private maxima are readable by
+scripts with access to the tab's origin; sessionStorage is recovery, not secure
+storage or coordination across tabs/devices. Closing the tab can lose recovery.
+The retry horizon is deliberately conservative and depends on browser wall time;
+server retention/pruning remains the real replay boundary. Server-time offset is
+approximate and cannot decide deadline eligibility. Read failures can leave an
+explicitly stale previous view. No performance, production readiness or hosted CI
+claim is made. There is no Action Cable, WebSocket, SSE, Redis, notification or
+later-phase infrastructure in this implementation.
+
+Review ADR 007, the public field allowlists, GET race handling and command-result
+versus current-state distinction before adding server-pushed updates. Keep stable
+intentions and REST refresh/recovery when adding realtime behavior. A transport
+connection must never become authority for bid acceptance, deadlines or winners.
+
+### Commits
+
+- `a7ef234` — feat(web): add typed auction transport and immutable command foundations
+- `48f29f1` — feat(web): build auction views and recoverable bidding workflows
+- `ad8ade6` — test(web): verify real bidding recovery and responsive browser flows
+- Documentation completion: `docs: record verified Phase 6 frontend behavior`
+
+The documentation completion commit intentionally does not contain its own hash.
+Phase 0–5 history is preserved.
+
+### Next phase
+
+Phase 7 — Real-Time Updates, only on a new explicit request.
+
+Recommended next prompt (exact):
+
+> Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, apps/web/AGENTS.md, all ADRs, docs/frontend.md, and the current architecture, domain-model, invariants, API, consistency-model, learning-guide, code-map and running-locally documents. Inspect the frontend command/recovery code, public serializers, bidding/closing/idempotency services and tests. Implement Phase 7 only — Real-Time Updates, following the master plan. Add real server-pushed auction updates with Action Cable while preserving Rails/PostgreSQL authority, maximum/priority/origin privacy, stable idempotency intentions, historical replay semantics and fresh REST recovery. Handle connection loss, reconnects and stale/out-of-order updates explicitly; never infer acceptance, closure or winners from transport state or browser time. Do not add later-phase infrastructure or silently change domain semantics. Add meaningful backend/frontend/browser tests, run full regression/security/build and Docker verification, document actual evidence and remaining delivery limitations, update progress/learning/code-map/ADRs, create coherent commits with a clean working tree, and stop after Phase 7. Do not begin Phase 8.
