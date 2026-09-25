@@ -89,6 +89,20 @@ jobs:
         run: docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-proxy-bidding
       - name: Bounded idempotency pruning task
         run: docker compose exec -T api bin/rails idempotency:prune
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Prepare real browser verification
+        run: |
+          docker compose exec -T api bin/rails db:seed
+          cd apps/web
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Real API browser scenarios
+        working-directory: apps/web
+        run: npm run test:e2e
       - name: Logs
         if: failure()
         run: docker compose logs --no-color

@@ -16,3 +16,6 @@ apps/api/storage/*
 apps/api/config/master.key
 apps/api/config/credentials/*.key
 .DS_Store
+
+apps/web/test-results/
+apps/web/playwright-report/
