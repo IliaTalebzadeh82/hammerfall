@@ -81,6 +81,8 @@ jobs:
       - run: curl --fail http://localhost:3001/up && curl --fail http://localhost:3000
       - name: Sequential auction API smoke
         run: docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-api
+      - name: Independent closer one-shot
+        run: docker compose exec -T auction-closer bin/auction_closer --once
       - name: Concurrent auction API smoke
         run: docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-concurrent-bids
       - name: Proxy bidding API smoke

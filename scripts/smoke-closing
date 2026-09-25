@@ -1,0 +1,154 @@
+#!/usr/bin/env ruby
+# Development-only multi-process correctness demonstration; retains labelled rows.
+# Run with Compose closer stopped so delayed/stale discovery order is controlled.
+require_relative "../apps/api/config/environment"
+require "json"
+require "net/http"
+require "open3"
+require "timeout"
+$stdout.sync = true
+abort "Closing smoke requires development" unless Rails.env.development?
+
+if ENV["CLOSING_SMOKE_CHILD"]
+  id = Integer(ENV.fetch("CLOSING_SMOKE_AUCTION"))
+  candidates = AuctionCloser.new.candidate_ids
+  stale = Auction.find(id)
+  pid = ApplicationRecord.connection_pool.with_connection { |c| c.select_value("SELECT pg_backend_pid()") }
+  puts JSON.generate(pid: pid, candidate: candidates.include?(id), status: stale.status, ends_at: stale.ends_at.iso8601(6))
+  abort "Missing release" unless $stdin.gets
+  stale.close!
+  puts JSON.generate(status: stale.status, winner_id: stale.winner_id, closed_at: stale.closed_at&.iso8601(6), ends_at: stale.ends_at.iso8601(6))
+  exit
+end
+
+bases = ENV.fetch("API_BASE_URLS", "http://127.0.0.1:3001,http://127.0.0.1:3002").split(",")
+abort "Supply at least two independent Rails API URLs" unless bases.uniq.size >= 2
+children = []
+request = lambda do |index, method, path, body, expected|
+  uri = URI.join(bases[index % bases.length], path)
+  klass = { post: Net::HTTP::Post, put: Net::HTTP::Put }.fetch(method)
+  req = klass.new(uri)
+  req["Content-Type"] = "application/json"
+  req.body = JSON.generate(body)
+  response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 10) { |http| http.request(req) }
+  raise "Expected #{expected}, got #{response.code}: #{response.body}" unless response.code.to_i == expected
+  JSON.parse(response.body)
+end
+make = lambda do |label, seconds = 3600|
+  now = AuctionClock.now
+  auction = Auction.create_draft!(title: "Phase 4 smoke #{label} #{now.iso8601}", starting_price: 10_000,
+    minimum_increment: 1_000, starts_at: now - 60, ends_at: now + seconds)
+  auction.schedule!
+  auction.activate!
+  auction
+end
+fixture_end = lambda do |auction, seconds|
+  deadline = AuctionClock.now + seconds
+  auction.update_columns(original_ends_at: deadline, ends_at: deadline)
+  auction.reload.ends_at
+end
+wait_until = lambda do |deadline|
+  Timeout.timeout(10) { sleep 0.01 while AuctionClock.now < deadline }
+end
+wait_blocked = lambda do |pid|
+  ApplicationRecord.connection_pool.with_connection do |connection|
+    holder = connection.select_value("SELECT pg_backend_pid()")
+    Timeout.timeout(5) do
+      sleep 0.01 until connection.select_value("SELECT #{holder.to_i} = ANY(pg_blocking_pids(#{pid.to_i}))")
+    end
+  end
+end
+start_child = lambda do |id|
+  stdin, stdout, stderr, thread = Open3.popen3({ "CLOSING_SMOKE_CHILD" => "1", "CLOSING_SMOKE_AUCTION" => id.to_s }, RbConfig.ruby, File.expand_path(__FILE__))
+  child = { input: stdin, output: stdout, error: stderr, thread: thread }
+  children << child
+  child[:ready] = Timeout.timeout(10) { JSON.parse(stdout.readline) }
+  child
+end
+release = ->(child) { child.fetch(:input).puts("close"); child.fetch(:input).flush }
+finish = lambda do |child|
+  result = Timeout.timeout(10) { JSON.parse(child.fetch(:output).readline) }
+  status = child.fetch(:thread).value
+  raise "Closer failed: #{child.fetch(:error).read}" unless status.success?
+  result
+end
+alice = User.create!(name: "Phase 4 smoke Alice")
+bob = User.create!(name: "Phase 4 smoke Bob")
+
+begin
+  a = make.call("A late manual", 30)
+  original = a.ends_at
+  request.call(0, :post, "/api/v1/auctions/#{a.id}/bids", { bid: { bidder_id: alice.id, amount: 10_000 } }, 201)
+  raise "A extension" unless a.reload.ends_at == original + 90 && a.original_ends_at == original
+  puts "A auction=#{a.id} extension=90 leader=#{a.current_leader_id}"
+
+  b = make.call("B proxy contest")
+  request.call(0, :put, "/api/v1/auctions/#{b.id}/maximum-bid", { maximum_bid: { bidder_id: alice.id, maximum_amount: 30_000 } }, 200)
+  original = fixture_end.call(b, 30)
+  request.call(1, :post, "/api/v1/auctions/#{b.id}/bids", { bid: { bidder_id: bob.id, amount: 20_000 } }, 201)
+  raise "B contest" unless b.reload.ends_at == original + 90 && b.bids.order(:sequence).pluck(:amount) == [ 10_000, 20_000, 21_000 ]
+  puts "B auction=#{b.id} extension=90 history=10000,20000,21000 leader=#{b.current_leader_id}"
+
+  c = make.call("C stale closer")
+  original = fixture_end.call(c, 2)
+  child = nil
+  ApplicationRecord.transaction do
+    c.place_bid!(bidder: alice, amount: 10_000)
+    wait_until.call(original)
+    child = start_child.call(c.id)
+    raise "C not a stale due candidate" unless child[:ready]["candidate"] && Time.iso8601(child[:ready]["ends_at"]) == original
+    release.call(child)
+    wait_blocked.call(child[:ready]["pid"])
+  end
+  result = finish.call(child)
+  raise "C closed extended auction" unless result["status"] == "active" && c.reload.ends_at == original + 90
+  puts "C auction=#{c.id} discovered_old_due=true waited_on_lock=true result=active extension=90"
+
+  d = make.call("D closer wins")
+  d.place_bid!(bidder: alice, amount: 10_000)
+  fixture_end.call(d, -1)
+  response_thread = nil
+  ApplicationRecord.transaction do
+    d.close!
+    response_thread = Thread.new do
+      request.call(1, :post, "/api/v1/auctions/#{d.id}/bids", { bid: { bidder_id: bob.id, amount: 12_000 } }, 422)
+    end
+    # Observe the actual API database session blocked by this process's closer.
+    ApplicationRecord.connection_pool.with_connection do |connection|
+      holder = connection.select_value("SELECT pg_backend_pid()")
+      Timeout.timeout(5) do
+        sleep 0.01 until connection.select_value("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE #{holder.to_i} = ANY(pg_blocking_pids(pid)))")
+      end
+    end
+  end
+  raise "D late bid" unless response_thread.value.dig("error", "code") == "invalid_auction_state"
+  raise "D winner" unless d.reload.winner_id == alice.id && d.bids.count == 1
+  puts "D auction=#{d.id} waiting_http_bid=rejected winner=#{d.winner_id} closed_at=#{d.closed_at.iso8601(6)}"
+
+  e = make.call("E duplicate closers")
+  e.place_bid!(bidder: alice, amount: 10_000)
+  fixture_end.call(e, -1)
+  pair = Array.new(2) { start_child.call(e.id) }
+  raise "E discovery" unless pair.all? { |process| process[:ready]["candidate"] }
+  pair.each { |process| release.call(process) }
+  results = pair.map { |process| finish.call(process) }
+  raise "E disagreement" unless results.uniq.size == 1 && results.first["winner_id"] == alice.id && e.bids.count == 1
+  puts "E auction=#{e.id} closer_sessions=#{pair.map { |process| process[:ready]['pid'] }.join(',')} identical_finalizations=true closed_at=#{results.first['closed_at']}"
+
+  f = make.call("F delayed materialization", 1)
+  deadline = f.ends_at
+  wait_until.call(deadline)
+  raise "F requires autonomous closer stopped" unless f.reload.status == "active"
+  response = request.call(0, :post, "/api/v1/auctions/#{f.id}/bids", { bid: { bidder_id: bob.id, amount: 10_000 } }, 422)
+  raise "F accepted expired active auction" unless response.dig("error", "code") == "auction_ended" && f.reload.status == "active" && f.bids.empty?
+  f.close!
+  raise "F finalization" unless f.reload.status == "closed" && f.winner_id.nil? && f.ends_at == deadline && f.closed_at >= deadline
+  puts "F auction=#{f.id} expired_active_bid=auction_ended eventual_close=closed winner=nil"
+  puts "Phase 4 multi-process smoke passed; labelled rows retained."
+ensure
+  children.each do |child|
+    Process.kill("TERM", child[:thread].pid) if child[:thread].alive?
+    child[:thread].join(5)
+    %i[input output error].each { |key| child[key].close unless child[key].closed? }
+  end
+end

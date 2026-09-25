@@ -18,6 +18,7 @@ services:
       retries: 10
 
   api:
+    image: hammerfall-api
     build:
       context: .
       dockerfile: infrastructure/api.Dockerfile
@@ -46,6 +47,26 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+
+  auction-closer:
+    image: hammerfall-api
+    environment:
+      RAILS_ENV: development
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${PGUSER:-hammerfall}
+      PGPASSWORD: ${PGPASSWORD:?Copy .env.example to .env before starting Compose}
+      AUCTION_CLOSER_INTERVAL: ${AUCTION_CLOSER_INTERVAL:-1}
+      AUCTION_CLOSER_BATCH_SIZE: ${AUCTION_CLOSER_BATCH_SIZE:-100}
+    volumes:
+      - ./apps/api:/app
+      - api_bundle:/usr/local/bundle
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["bin/auction_closer"]
+    restart: on-failure
+    stop_grace_period: 15s
 
   web:
     build:

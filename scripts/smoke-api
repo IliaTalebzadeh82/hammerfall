@@ -21,7 +21,7 @@ end
 
 user = request.call(:post, "/api/v1/users", 201, { user: { name: "Smoke bidder #{Time.now.utc.iso8601}" } }).fetch("data")
 now = Time.now.utc
-ends_at = now + 8
+ends_at = now + 65
 auction = request.call(:post, "/api/v1/auctions", 201, {
   auction: { title: "Smoke auction #{now.iso8601}", starting_price: 10_000, minimum_increment: 500,
              starts_at: (now - 60).iso8601(6), ends_at: ends_at.iso8601(6) }
@@ -37,9 +37,9 @@ low = request.call(:post, "#{path}/bids", 422, { bid: { bidder_id: user.fetch("i
 raise "Wrong low-bid error" unless low.dig("error", "code") == "bid_too_low" && low.dig("error", "details", "minimum_bid") == 11_500
 active = request.call(:get, path, 200).fetch("data")
 raise "Incorrect active state" unless active.values_at("current_price", "current_leader_id", "winner_id") == [ 11_000, user.fetch("id"), nil ]
-sleep([ ends_at - Time.now.utc + 0.1, 0 ].max)
+sleep([ Time.iso8601(active.fetch("ends_at")) - Time.now.utc + 0.1, 0 ].max)
 closed = request.call(:post, "#{path}/close", 200).fetch("data")
-raise "Incorrect winner" unless closed.values_at("status", "winner_id", "current_leader_id") == [ "closed", user.fetch("id"), nil ]
+raise "Incorrect winner" unless closed.values_at("status", "winner_id", "current_leader_id") == [ "closed", user.fetch("id"), user.fetch("id") ]
 request.call(:post, "#{path}/close", 200)
 rejected = request.call(:post, "#{path}/bids", 422, { bid: { bidder_id: user.fetch("id"), amount: 12_000 } })
 raise "Wrong closed-auction error" unless rejected.dig("error", "code") == "invalid_auction_state"

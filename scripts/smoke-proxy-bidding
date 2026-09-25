@@ -38,7 +38,7 @@ inspect_public = lambda do |path, price, leader, amounts|
   state = request.call(:get, path).fetch("data")
   history = request.call(:get, "#{path}/bids?limit=100").fetch("data")
   all = JSON.generate([ state, history ])
-  raise "Private metadata leaked" if all.match?(/maximum_amount|priority_sequence|automatic|origin/)
+  raise "Private metadata leaked" if all.match?(/"(?:maximum_amount|priority_sequence|origin)"\s*:|"automatic"/)
   raise "Wrong price/leader" unless state.values_at("current_price", "current_leader_id", "winner_id") == [ price, leader, nil ]
   raise "Wrong history" unless history.map { |row| row.fetch("amount") } == amounts
   raise "Wrong sequences" unless history.map { |row| row.fetch("sequence") } == (1..history.length).to_a
