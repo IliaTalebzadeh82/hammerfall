@@ -28,3 +28,12 @@ No private maximum read/list/delete endpoints exist. Supplied actor IDs still pe
 impersonation and probing; operators can access plaintext maxima in PostgreSQL.
 An automatic visible offer may reach its ceiling by design, without labelling it as
 that ceiling. Do not expose this unauthenticated local API to untrusted networks.
+
+Phase 5 idempotency scope uses the supplied actor ID and is not authentication.
+Raw keys and private payloads are not persisted in the idempotency table; keys and
+canonical requests use SHA-256 digests, and snapshots use only public API serializers.
+Fingerprints are not encryption or protection against an operator reading the
+plaintext database. Opaque keys should be sufficiently unique; do not encode secrets
+in them. Never reinterpret actor scope or expose retained records as a public list.
+Conflict/replay responses retain the original public privacy boundary. New key,
+fingerprint and response attributes are filtered from ordinary model/bind logging.

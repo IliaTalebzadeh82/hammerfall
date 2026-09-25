@@ -143,3 +143,7 @@ Multi-region PostgreSQL, measured closing throughput bottlenecks, event-driven
 scheduling, tighter materialization SLA or changed clock discipline justify it.
 Phase 5 must ensure replayed accepted commands do not rerun proxy settlement or add
 another extension, even if the response was lost or the auction has since closed.
+
+Phase 5 follow-up: [ADR-006](006-client-command-idempotency.md) now provides that
+retry protection for the two public bidding commands. The risks above describe the
+Phase 4 decision; internal domain calls still require their own command identity.

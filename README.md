@@ -5,7 +5,9 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Current scope: Phase 4 — auction closing and soft close.** PostgreSQL decision
+**Current scope: Phase 5 — client command idempotency.** Required client keys,
+PostgreSQL ownership and atomically stored outcomes make bid/max retries safe across
+Rails processes, including after closure. PostgreSQL decision
 time after the auction lock, fixed final-60-second/+90 extensions and an autonomous
 Rails closer preserve winner finality across processes. Private binding ceilings,
 durable tie priority and synchronous proxy responses preserve PostgreSQL auction
@@ -38,14 +40,14 @@ port overrides, dependency updates, and shutdown.
 ## Correctness and architecture
 
 The [invariants](docs/invariants.md) distinguish implemented concurrency guarantees
-from future retry/delivery requirements. Rails owns business logic and
+from future event-delivery requirements. Rails owns business logic and
 PostgreSQL owns persisted state. Money uses integer EUR cents. Bid insertion and
 current-price update are atomic; explicit close assigns the winner. [ADR-003](docs/adr/003-auction-concurrency-control.md) explains serialization and
 the hot-auction bottleneck. Next.js still serves the original starting page.
 See [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
 [ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
 
-The remaining roadmap investigates idempotency, event delivery, and reconciliation in that order. It does not claim
+The remaining roadmap builds the auction frontend, realtime delivery and later event/reconciliation systems. It does not claim
 these problems are already solved. The current API has no authentication; bidder
 IDs are demo identity only. See [API usage](docs/api.md) and
 [ADR-002](docs/adr/002-core-auction-state.md) for the domain choices.

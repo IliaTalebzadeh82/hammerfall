@@ -887,3 +887,199 @@ Phase 5 — Idempotency, only on a new explicit request.
 Recommended next prompt (exact):
 
 > Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, current domain/API/invariants/architecture/learning-guide/code-map docs, all ADRs, and the bidding/proxy/closing code and tests. Implement Phase 5 only — Idempotency. Add PostgreSQL-backed Idempotency-Key persistence, request fingerprinting and concurrent duplicate handling. Define key scope, conflict responses, retention, replay responses and failure policy. Atomically persist outcomes with auction mutations so retries cannot duplicate bids, private-max changes, proxy settlement or soft-close extensions. Test lost-response retries, concurrent duplicates across Rails processes, conflicting payloads, rollback and replay after deadline/closure. Preserve post-lock PostgreSQL clock authority, auction serialization, winner finality, binding private maxima, priority and public privacy. Add real PostgreSQL concurrency tests and live multi-process evidence. Run full checks, migrations and Docker verification; update ADRs, docs and progress; create coherent commits with a clean working tree. Do not implement Phase 6 or later infrastructure, and stop after Phase 5.
+
+## Phase 5 — Idempotency
+
+Status: COMPLETE
+
+Implemented on 2026-09-25. Earlier phase sections above are historical snapshots;
+this section supersedes their statements about missing retry protection. Phase 6
+has not started. No frontend source or auction/closer domain algorithm was changed.
+
+### Implemented and protected operations
+
+PostgreSQL IdempotencyRecord stores actor FK, constrained operation, key digest,
+request fingerprint, processing/completed status, public JSONB response, HTTP status,
+timestamps and expires_at. SQL checks constrain digest shape, terminal response
+shape/status and retention. Completed records are readonly through normal model
+writes. POST `/api/v1/auctions/:auction_id/bids` and PUT
+`/api/v1/auctions/:id/maximum-bid` require a 1–255 visible-ASCII Idempotency-Key.
+Missing/invalid keys return 400; all existing smoke clients now supply keys.
+
+### Key scope, fingerprinting and conflict semantics
+
+Logical scope is actor + operation + key; exact PostgreSQL uniqueness is
+UNIQUE(actor_id, operation, key_digest), where key_digest is SHA-256 of the raw key.
+The request fingerprint is SHA-256 of fixed-order JSON: api_version v1, operation,
+integer auction_id, integer actor_id and sorted semantic arguments. Parsed scalar
+types are preserved; whitespace, object order and unrelated headers are irrelevant.
+No raw key/request/private maximum is persisted in the idempotency table.
+Same scope/key with a different amount, type or auction returns 409
+idempotency_key_conflict without mutation or disclosure of the original payload.
+Other actors/operations have independent scopes.
+
+### Atomicity, lock ordering and concurrent duplicates
+
+IdempotentBidding resolves the actor, then Executor opens the outer transaction and
+INSERTs ownership before Auction lookup, row lock, deadline clock or evaluation.
+PostgreSQL unique-index conflicts wait for the owning transaction. Matching committed
+outcomes replay; owner rollback lets the waiter acquire ownership and execute.
+Auction's existing requires_new transactions are nested savepoints. Key ownership,
+all proxy/public/private state, priority, price, leader, extension and terminal
+snapshot commit together. Snapshot SQL failure rolls everything back. Processing
+is never deliberately committed; no recovery lease or external lock is needed.
+
+### Replay semantics and failure policy
+
+Both initial and replay responses use the same JSONB-normalized public snapshot,
+including exact response bytes, status, accepted bid ID/sequence and historical
+error details. Replays add Idempotency-Replayed: true and never touch Auction.
+They work after price/leader changes and after closure, even while another session
+holds the Auction row lock. A replay is a past command outcome, not current state.
+
+Retained outcomes: 200/201 success; deterministic domain/validation 422; execution
+404 (missing Auction). Malformed requests, bad keys and missing actor fail before
+claim and are not retained. Conflicts do not replace the original record. Unexpected
+exceptions, SQL/connection failures and snapshot failures roll back and leave the
+key retryable; 500 responses are never cached. Private maxima/priority/origin remain
+absent from public responses; raw keys and ceilings are absent from captured logs.
+
+### Retention
+
+Seven days by default from claim transaction DB time, configurable 1–365 days.
+Expiry means eligible for pruning: an expired row still reserves its key while
+physically present. `bin/rails idempotency:prune` deletes one completed, expired
+batch, default 1000 and maximum 10000, using FOR UPDATE SKIP LOCKED. Only deletion
+allows key reuse. No background scheduling or Sidekiq was added. The actual CLI
+removed one expired fixture, preserved current records and allowed a fresh execution
+under that removed key. Replaying it before pruning returned the stored outcome.
+
+### Concurrency, rollback and lost-response tests
+
+Thirteen new committed PostgreSQL concurrency examples use independent connections:
+ten duplicate manual commands; ten late proxy contests; ten new/increased maxima;
+both operations' conflicting payloads; replay while a closed Auction is locked;
+SQL terminal-write failure for both operations; waiting owner commit/rollback;
+and a fresh key waiting past the actual DB deadline. Assertions cover complete
+state and row counts, not just replay headers. Separate request/model/constraint
+specs cover canonicalization, malformed keys, historical rejections, privacy,
+retention, SQL uniqueness/FKs/checks and unexpected exceptions.
+
+A lost manual response replays the same accepted bid after another bidder changes
+price/leader and after closure. An old maximum acknowledgement replays after a
+later increase and closure without changing priority. A proxy retry creates no
+new contest rows; a late retry adds no second 90-second extension. Snapshot failure
+leaves no key or mutation, and retry succeeds with sequence 1 and one extension.
+
+### Live multi-process evidence
+
+Actual HTTP clients targeted independent Rails APIs on ports 3001 (Compose) and
+3002 (native), sharing PostgreSQL. Development-only labelled fixture setup is
+explicit; production decision clocks were not replaced.
+
+| Scenario | Observed result |
+| --- | --- |
+| Manual auction 82 | Ten duplicates: one execution, nine replays; bid 196, sequence 1; end 09:54:20.794192Z → 09:55:50.794192Z |
+| Proxy auction 83 | One execution, nine replays; bids 197/198/199, sequences 1/2/3, amounts 10000/20000/21000; one extension |
+| Maximum auction 84 | New and increased maxima each executed once across ten requests; one visible bid 200; priority advanced only to 2 |
+| Conflicts auctions 85/86 | Manual statuses 409/201; maximum statuses 409/200; only the winning payload applied |
+| Lost response auction 82 | Original bid 196 replayed after price became 50000 and closure selected winner 73; state unchanged |
+| Old maximum auction 84 | Original 200 replayed after increase and closure; priority remained 2 |
+| Historical rejection auction 87 | Original minimum 10000 replayed while current price was 50000 |
+
+Timestamps above are UTC on 2026-09-25. The existing sequential/manual/proxy smokes
+also passed with mandatory keys. The closing smoke passed again for auctions 96–101:
+manual/proxy extension, stale discovery, lock-blocked late rejection, two closer
+sessions agreeing on finalization, and eventual closure of an expired active row.
+The regular closer was stopped for its controlled scenarios and restarted afterward.
+One-shot closer execution and the container pruning task also passed.
+
+### Sabotage results
+
+Temporary /tmp loaders left production code unchanged. Bypassing coordination
+failed all 13 concurrency examples (seed 505): conflicting manual payloads both
+returned 201 and maximum payloads both returned 200; ten maximum requests executed
+ten times; replays waited on Auction instead of resolving ownership. Moving auction
+validation before replay failed both after-closure request tests: saved 201/200
+became 422. Normal request/concurrency code then passed 31 examples, seed 505.
+
+The first sabotage run exposed a test cleanup defect: worker assertion exceptions
+are not StandardError. Two test fixtures leaked and caused nine collection/seed
+failures in the first final bin/ci run. The shared cleanup now explicitly handles
+RSpec assertion exceptions. Only those identified test rows were removed; sabotage
+was repeated and all five tables were verified empty before final normal checks.
+This was a test harness correction, not a weakened assertion or domain workaround.
+
+### Migrations and preservation
+
+Forward, empty-table rollback and reapply preserved every pre-existing domain row:
+67 users, 36 auctions, 83 bids and 23 private maxima. All-column snapshot SHA-256:
+`9f9dd4e27a78fc0b30c907ff6880de3df38b093d5d323941b3e7dd1574584d76`.
+A later populated downgrade correctly refused to discard retained outcomes. No
+private snapshot values are included here. A live downgrade needs an explicit
+preservation/retention plan.
+
+### Verification results
+
+| Check | Actual result |
+| --- | --- |
+| scripts/check | Passed: full backend 324 examples, seed 20812; frontend checks; Compose config |
+| Final native bin/ci | Passed: setup, 73-file lint, gem audit, Brakeman, autoload, prepare, 324 examples, seed 21790 |
+| Final container full RSpec | 324 examples, zero failures, seed 525; includes real repeated-window test |
+| Final repeated Phase 2–5 concurrency | 820 examples, zero failures, seeds 1–20; 41 examples/run |
+| Repetition breakdown | Manual 180, maximum 200, closing 180, idempotency 260 |
+| Root smoke script lint | All five files passed using the API RuboCop configuration |
+| Security/autoload | Brakeman zero warnings; gem audit no known vulnerabilities in checked database; Zeitwerk passed |
+| Frontend lint / format / types / test / build | All passed; one Vitest test; no frontend source changes |
+| Migration preservation / guarded downgrade | Passed as described above |
+| Compose final config / image build / startup | Passed; api/db/web healthy and closer running |
+| Live two-API idempotency and previous smokes | All passed as described above |
+| Closer one-shot / container prune task | Passed; final prune found zero eligible rows |
+| Sabotage detection / cleanup | Expected failures observed; repeat cleanup left all five test tables empty |
+| git diff --check | Passed |
+
+GitHub-hosted CI was not run. The checked-in workflow runs the full backend suite,
+updated protected-endpoint smokes and now the bounded pruning task. Development
+images use bind-mounted current code; builds used cached layers. No throughput,
+latency, fairness or capacity claim is made.
+
+### Guarantees and known limitations
+
+Client retries under a retained matching key return the original outcome without
+repeating bid/proxy/max/priority/soft-close effects. PostgreSQL uniqueness and one
+transaction provide cross-process coordination and crash atomicity. Phase 2–4
+serialization, post-lock DB wall time, winner finality and privacy remain intact.
+
+Actor IDs remain unauthenticated. Internal Auction methods are intentionally outside
+the HTTP key contract. Digests are not encryption or protection from privileged
+operators; private maxima remain plaintext in their existing table. Expired records
+need operational pruning and storage planning; pruned keys may execute again.
+Hot rows and duplicate-key waits consume connections. Long caller transactions
+delay durability and lock release. Raw SQL bypasses, multi-region writes and API
+snapshot/fingerprint version migration require separate designs. No Redis, Sidekiq,
+Kafka, outbox, realtime, projections or frontend functionality was introduced.
+
+### Commits
+
+- `883c19f` — feat(api): atomically persist and replay bidding command outcomes
+- `0d7c6da` — test(runtime): verify cross-process idempotent bidding and retention
+- Documentation completion commit: `docs: record verified Phase 5 retry guarantees`
+
+Earlier history was not rewritten. The documentation completion commit intentionally
+does not contain its own hash.
+
+### Review before Phase 6 and next phase
+
+Development api/db/web/auction-closer remain running. The temporary port-3002 API
+was stopped after verification; labelled development demonstration rows remain.
+
+Phase 6 — Frontend, only on a new explicit request. Review client command identity:
+generate one key per new intention and retain that same key and payload for an
+ambiguous transport retry. Show historical replay success without treating its
+snapshot as fresh auction state; refetch public auction/history. Do not expose
+private maxima or imply that supplied bidder IDs are authentication. Countdown is
+presentation; server DB time and the returned deadline remain authoritative.
+
+Recommended next prompt (exact):
+
+> Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, apps/web/AGENTS.md, current API/domain/invariants/architecture/learning-guide/code-map/running-locally docs, all ADRs, and the existing frontend and bidding/closing/idempotency code and tests. Implement Phase 6 only — Frontend: auction listing and detail, live countdown, manual bid and automatic-bid forms, public bid history, status indicators, responsive UI and shadcn/ui components using the real Rails API. Generate one Idempotency-Key per new user intention and reuse the same key and payload for transport retries; handle replay, 400/409/422 responses and ambiguous failures clearly, and refresh public state after commands. Preserve server-authoritative deadlines, privacy of maximum amounts/priority/origin, and the explicit unauthenticated demo identity limitation. Add meaningful frontend tests and browser verification, run full checks and Docker verification, update docs/progress and learning material, create coherent commits with a clean working tree, and stop after Phase 6. Do not add fake features, authentication, Action Cable, Redis, Sidekiq, Kafka, outbox or later-phase infrastructure.

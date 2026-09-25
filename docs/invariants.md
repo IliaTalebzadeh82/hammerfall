@@ -1,6 +1,6 @@
 # Invariants
 
-## Implemented through Phase 4
+## Implemented through Phase 5
 
 Unless explicitly marked SQL, these guarantees apply to concurrent calls through
 the documented domain entry points at PostgreSQL READ COMMITTED isolation.
@@ -34,8 +34,9 @@ All 15 original master invariants remain requirements. Their current status is:
 
 1. **Closed auctions cannot accept a new bid:** enforced under the shared auction lock;
    DB time after lock also forbids late bids while status still says active.
-2. **Same idempotency key cannot create multiple bids:** future Phase 5; there is
-   no key handling or retry deduplication now.
+2. **Same scoped idempotency key cannot repeat a bidding command:** implemented
+   for HTTP bid/max endpoints while the record is retained; SQL ownership and
+   terminal response persistence share the auction mutation transaction.
 3. **Every accepted bid belongs to exactly one auction:** enforced structurally
    by SQL NOT NULL/FK.
 4. **At most one authoritative winner:** one winner reference; current close and bid
@@ -105,3 +106,23 @@ These are decision-time guarantees, not a requirement that physical COMMIT occur
 before ends_at. Deadline checks reject without lazy closure; scheduler lateness
 only delays materialized status. Raw SQL, validation bypasses, host clock jumps and
 multi-query snapshot consistency are outside the stronger workflow contract.
+
+## Phase 5 idempotency invariants
+
+| Invariant | Enforcement | Evidence under apps/api/spec |
+| --- | --- | --- |
+| One retained actor/operation/key identifies one semantic command | Composite SQL unique index on actor_id,operation,key_digest; canonical SHA-256 fingerprint | integration/idempotency_constraints_spec.rb; requests/idempotency_spec.rb |
+| Conflicting fingerprint never executes Auction logic | Executor resolves existing ownership first and returns 409 | concurrent_idempotency_spec.rb bid/max conflicting races |
+| Matching replay cannot assign sequences, settle proxies, change max priority or extend | Return stored completed snapshot before Auction lookup | requests/idempotency_spec.rb; concurrent_idempotency_spec.rb ten-way duplicate cases |
+| Success mutation and terminal outcome commit atomically | One Executor outer transaction; Auction requires_new savepoints | real SQL failure when persisting terminal outcome; owner rollback and waiting duplicate takeover |
+| Completed replay never needs auction lock or deadline evaluation | Resolve key before IdempotentBidding block | concurrent_idempotency_spec.rb replay-after-close while another session holds the Auction lock |
+| Failed infrastructure/internal execution leaves key retryable | Unexpected errors propagate and roll back outer transaction | concurrent_idempotency_spec.rb SQL failure; models/idempotency_record_spec.rb unexpected exception |
+| Terminal domain rejection replays its original details | Persist public 422 snapshot after domain savepoint rollback | requests/idempotency_spec.rb changed minimum and expired-active then closed |
+| Snapshot cannot disclose unused maximum or raw key | Public serializers/acknowledgements only; digest-only request identity | requests/idempotency_spec.rb actual database, replay/conflict JSON and debug-log assertions |
+| Expired-but-present keys remain reserved; only expired completed records prune in bounded batches | PostgreSQL retention time and SKIP LOCKED prune command | models/idempotency_record_spec.rb |
+
+These guarantees apply to protected HTTP commands (and IdempotentBidding callers),
+not raw Auction method invocations without a client identity. They last while the
+record exists, assume cryptographic digest collision resistance, and do not create
+an authentication boundary. Processing rows are normally uncommitted; direct SQL
+can violate that workflow despite structural checks. No arbitrary 500 is cached.

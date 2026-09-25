@@ -96,7 +96,6 @@ Add the problem, naive approach, failure modes, chosen implementation, guarantee
 limitations, source files, demonstrative tests, and interview explanation for each
 subsystem when it is built:
 
-- Idempotency (Phase 5)
 - WebSockets (Phase 7)
 - Outbox (Phase 9)
 - Kafka and consumer idempotency (Phase 10)
@@ -123,8 +122,9 @@ status and the time window. No retry loop or external work belongs in the lock.
 
 **Guarantees:** accepted manual bids serialize per auction across database sessions;
 sequences identify that order; failure rolls back bid/price/sequence together.
-**Limits:** no FIFO/fairness, global ordering, clock synchronization, idempotency,
-or throughput guarantee. A hot auction is a serialized resource. Independent
+**Limits of row locking alone:** no FIFO/fairness, global ordering, clock
+synchronization, retry identity or throughput guarantee. Phase 5 adds retry
+identity at the protected HTTP command boundary. A hot auction is a serialized resource. Independent
 auctions can proceed concurrently; a long outer transaction delays lock release.
 
 **Read first:** Auction#place_bid!, the sequence migration, BidPresenter, ADR-003,
@@ -320,3 +320,135 @@ settled leader rather than recomputed from maxima. Discuss host clock changes,
 hot-row contention, duplicate discovery, connection pressure and the lack of a
 materialization SLA. Phase 5 must persist replay outcomes so a lost HTTP response
 cannot cause another bidding contest or extension.
+
+## Client command idempotency — Phase 5
+
+**The classic failure:**
+
+```text
+client -- POST bid / key X --> server -- COMMIT --> PostgreSQL
+client <---- response lost --- server
+client -- retry key X -------> server
+```
+
+A transaction made the first mutation atomic. It did not tell the client that the
+commit happened. Without retained request identity, a retry is another evaluation:
+it can repeat effects or reject a command that already succeeded. Searching for the
+same user/amount is not idempotency: a different user intention can have identical
+values. The client supplies the key so it knows which identity to retry after losing
+the response. A key generated only in the lost server response cannot help.
+
+**The actual protected request flow:**
+
+```text
+HTTP request
+    |
+parse required Idempotency-Key, parameters and actor
+    |
+build canonical semantic SHA-256 fingerprint
+    |
+BEGIN
+    |
+claim / resolve PostgreSQL (actor, operation, key digest)
+    |
+    +-- existing + matching + completed --> replay stored status/body
+    |                                      no Auction lookup, lock or clock
+    |
+    +-- existing + different fingerprint -> 409 conflict
+    |                                      no auction mutation
+    |
+    +-- newly owned processing row
+                    |
+                lock/reload auction
+                    |
+           PostgreSQL clock_timestamp()
+                    |
+              domain validation
+                    |
+          complete bidding/proxy/extension
+                    |
+          store public response snapshot
+                    |
+                  COMMIT both
+```
+
+The scope includes actor and operation, not auction. Alice reusing place_bid/key X
+for another auction is a conflict; using X for set_maximum_bid is a separate scope.
+Actor is still a supplied user ID and therefore not authentication. Canonical data
+contains v1, operation, normalized auction/actor IDs and typed amount arguments.
+JSON whitespace/key order is irrelevant. The fingerprint prevents one identity
+from silently changing its meaning; no old private payload is returned on conflict.
+
+**Why one transaction matters:** committing ownership first creates a zombie key
+if the process crashes. Committing the bid first creates a gap where its outcome
+has no replay record. Here the uncommitted claim, full auction mutation and terminal
+snapshot commit together. Auction methods create savepoints under the wrapper's
+outer transaction. RELEASE SAVEPOINT is not an independent durable commit: a later
+snapshot failure still rolls back all bids, private maxima, leader and extension.
+Expected domain rejections roll back the domain savepoint, then store a terminal
+public error in the outer transaction. Unexpected errors propagate and remove the
+claim with rollback; a retry can try again.
+
+**How duplicates coordinate across processes:**
+
+```text
+Owner A                            Duplicate B
+INSERT processing key X            INSERT same unique scope/key
+owns key                           waits on PostgreSQL uniqueness
+lock auction; decide; settle       (has not evaluated Auction)
+store outcome; COMMIT               INSERT reports conflict
+                                   read completed snapshot; replay
+
+Alternative: A rolls back           B's INSERT can now own X
+                                   execute once; store; COMMIT
+```
+
+A Ruby mutex or process-local cache would coordinate only one API process. Redis
+would not share this database commit boundary. The composite SQL unique index and
+ON CONFLICT DO NOTHING avoid a check-then-insert race and an aborted transaction
+from rescuing a uniqueness violation incorrectly.
+
+**Hammerfall examples:** Bob's manual 200 triggers Alice's automatic 210, creating
+sequences 2 and 3 and one +90 extension. Ten requests with that same key all return
+Bob's original accepted Bid ID/sequence; only one contest occurs. Alice's 300->500
+maximum increase changes priority once and may extend without a visible row; replay
+never changes priority or duration again. A new key repeating max 500 is a new
+command and may be a domain no-op. It is not marked Idempotency-Replayed.
+
+If Bob's successful response was lost, then Alice bids more and the auction closes,
+Bob's retry still returns the saved 201 response. It does not rerun expired-window
+checks and is not a current-state query. GET Auction shows the current leader/winner.
+Likewise, a retained bid_too_low rejection reports its original minimum, even after
+price rises. Missing header or malformed request never establishes ownership;
+known domain 422 and execution-time 404 do. Arbitrary internal/DB failures do not
+become permanently cached 500s.
+
+**Response privacy:** store only the public Bid presenter or amount-free maximum
+acknowledgment and error envelope. Never store record.attributes or raw request JSON.
+Only key/fingerprint digests enter the idempotency table. Keys and hidden ceilings
+must not appear in added logs. Representation privacy still does not authenticate
+actors or protect plaintext database access.
+
+**Retention bounds the promise:** seven days by default marks when a completed row
+may be pruned. An expired-but-present record still reserves its key; only physical
+prune permits reuse. The bounded manual task uses DB time and SKIP LOCKED. Automatic
+scheduling, storage volume and client retry horizons need future operational work.
+CURRENT_TIMESTAMP is fine for conservative retention; it remains wrong for an
+auction deadline decision after waiting on the auction lock.
+
+**Read first:** ADR-006; app/services/idempotent_bidding.rb;
+app/services/idempotency/executor.rb; app/models/idempotency_record.rb under apps/api.
+Follow controllers through claim, domain savepoint, public snapshot and outer commit.
+Study requests/idempotency_spec.rb for lost response/changed state/closed replay and
+privacy, integration/concurrent_idempotency_spec.rb for real duplicate/conflict/rollback
+sessions, models/idempotency_record_spec.rb for prune/reuse, and scripts/smoke-idempotency
+for ten requests across two independent APIs. See progress.md for actual sabotage,
+repetition and live evidence.
+
+**Guarantees and limits:** retained matching keys do not reevaluate auction commands;
+mutations and snapshots share one commit. Extra indexed records/JSON and claim/write
+round trips lengthen transactions; no measured throughput/latency improvement is
+claimed. Duplicate waiters can consume connections. Expiry, authentication changes,
+future API serialization changes and non-idempotent internal callers are boundaries
+that need explicit treatment. Phase 6 should preserve pending keys across uncertain
+network outcomes and generate a fresh key only for a genuinely new intention.

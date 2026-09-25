@@ -17,7 +17,7 @@ Bids/maxima and each qualifying +90 extension commit atomically. The independent
 closer locks/reloads/rechecks; duplicate close preserves winner and closed_at.
 Delayed active status never permits post-deadline decisions. Accepted decisions may
 commit later while holding the lock; closed_at records decision rather than commit
-time. Rejected commands do not lazily close. Idempotent retries are Phase 5.
+time. Rejected commands do not lazily close. Protected HTTP bid/max retries use retained PostgreSQL idempotency outcomes.
 Unexpected database failures are not broadly retried or masked as domain errors.
 
 Reads do not hold a cross-query snapshot. Auction state and separately fetched bid
@@ -32,3 +32,12 @@ maxima and all generated rows with price/leader. Protection-only updates may com
 without any visible bid. The HTTP manual response still identifies its accepted row,
 which can already be outbid. Public auction price/leader now come from one row;
 arbitrary cross-endpoint reads still need not observe the same commit.
+
+Phase 5 stores scoped client-key digests, semantic fingerprints and public terminal
+responses in the same PostgreSQL transaction as bidding. Key ownership precedes
+Auction locking; replay bypasses domain state/time evaluation. Internal Auction
+calls remain unwrapped. Records default to seven-day prune eligibility; expired rows
+reserve their keys until physical deletion. This is bounded retry protection, not
+permanent deduplication or authentication. Retained outcomes add storage and lock
+lifetime; cleanup and API snapshot compatibility need operational ownership. No
+performance improvement is claimed without measurement. See ADR-006.

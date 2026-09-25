@@ -6,7 +6,7 @@ auction can queue requests and exhaust connection capacity. No load measurement
 or throughput claim exists. Long outer transactions retain locks longer.
 
 There is no authentication, authorization,
-idempotency, rate limiting, backup/restore procedure, production deployment or
+rate limiting, backup/restore procedure, production deployment or
 operational runbook. Reads spanning multiple queries are not snapshot-consistent.
 Local Compose credentials are disposable; services bind to loopback. Named volumes
 provide local persistence, not backups. The sequence migration requires stopping
@@ -29,3 +29,12 @@ closers safely overlap but may duplicate work or queue behind the same hot aucti
 Database wall-clock adjustments and outages remain operational dependencies. There
 is no fallback to application clocks. New timing history needs preservation before
 downgrade. ADR-005 records the exact decision-time and delayed-status limits.
+
+Phase 5 stores scoped client-key digests, semantic fingerprints and public terminal
+responses in the same PostgreSQL transaction as bidding. Key ownership precedes
+Auction locking; replay bypasses domain state/time evaluation. Internal Auction
+calls remain unwrapped. Records default to seven-day prune eligibility; expired rows
+reserve their keys until physical deletion. This is bounded retry protection, not
+permanent deduplication or authentication. Retained outcomes add storage and lock
+lifetime; cleanup and API snapshot compatibility need operational ownership. No
+performance improvement is claimed without measurement. See ADR-006.

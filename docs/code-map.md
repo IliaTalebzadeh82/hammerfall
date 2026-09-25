@@ -1,6 +1,6 @@
 # Code map
 
-Paths below are relative to the repository root. Phase 4 coordinates commands through a PostgreSQL auction row lock.
+Paths below are relative to the repository root. Phase 5 resolves client key ownership before the PostgreSQL auction row lock.
 There is no outbox, event publication, or realtime delivery.
 
 ## Creating an auction
@@ -30,7 +30,9 @@ There is no outbox, event publication, or realtime delivery.
 ## Placing a bid
 
 - HTTP entry: `apps/api/app/controllers/api/v1/bids_controller.rb#create`.
-- Actor: find existing User from supplied bidder_id; no authentication yet.
+- Actor: IdempotentBidding finds User from supplied bidder_id; no authentication yet.
+- Protected HTTP wrapper: Idempotency::Executor resolves a required client key before
+  the domain path below; completed retries bypass it entirely.
 - Domain and transaction: `apps/api/app/models/auction.rb#place_bid!`,
   `transaction(requires_new: true)` (a savepoint when nested).
 - Lock and fresh state: `reload(lock: true)` issues SELECT FOR UPDATE before any
@@ -174,3 +176,45 @@ Rejected bids/maxima persist no state; `close!` owns all finalization. The delay
 scenario in concurrent_closing_spec.rb and scripts/smoke-closing proves rejection
 with active status followed by eventual close. requests/bids_spec.rb verifies the
 public error. No duplicated winner logic or exception-after-commit protocol exists.
+
+## Phase 5: idempotent manual/proxy bids and maximum increases
+
+- Header/shape/IDs: `apps/api/app/controllers/api/v1/bids_controller.rb#create` and
+  `maximum_bids_controller.rb#update`; `Idempotency::Executor.validate_key!` checks
+  bounded ASCII key format. BaseController#render_idempotent handles replay marker.
+- Application operation: `apps/api/app/services/idempotent_bidding.rb.call` identifies
+  User, selects typed amount argument and calls Executor before Auction lookup.
+- Canonical fingerprint, ownership and transaction:
+  `apps/api/app/services/idempotency/executor.rb.call`. Fixed v1 semantic JSON is
+  SHA-256 hashed; raw client key is represented by SHA-256 key_digest.
+- Claim: IdempotencyRecord.insert_all with unique_by index_idempotency_records_on_scope
+  emits INSERT ON CONFLICT DO NOTHING RETURNING id. New processing ownership and
+  terminal response share the outer transaction with all domain writes.
+- Newly owned: IdempotentBidding block loads Auction, calls #place_bid! or #set_maximum!,
+  which lock/reload/time-check/settle under their existing requires_new savepoint.
+  ProxyResolver and persist_bidding_action! retain Phase 3/4 behavior.
+- Public result: BidPresenter or explicit maximum acknowledgment; Executor records
+  terminal status/public JSON, reloads normalized JSONB, then commits before HTTP.
+
+## Phase 5: duplicate, conflict, rollback and retry
+
+- Existing claim: Executor compares fingerprint first. Matching completed outcome
+  returns Outcome(replayed: true) without yielding to IdempotentBidding's Auction
+  block. Different payload returns 409 and never replaces the old snapshot.
+- DomainError/RecordInvalid/RecordNotFound inside execution become stored 422/404
+  outcomes after domain savepoint rollback. Other exceptions and terminal-write
+  failures roll back the whole outer transaction, including ownership.
+- SQL schema: `apps/api/db/migrate/20260925000000_create_idempotency_records.rb`:
+  composite uniqueness, actor FK, digest/operation/outcome/retention constraints.
+- Record and prune: `apps/api/app/models/idempotency_record.rb` guards normal terminal
+  updates; #prune_expired! locks a bounded completed/expired batch with SKIP LOCKED.
+  `apps/api/lib/tasks/idempotency.rake` exposes bin/rails idempotency:prune.
+- Privacy filters: `apps/api/config/initializers/filter_parameter_logging.rb`.
+- Tests to study: `apps/api/spec/requests/idempotency_spec.rb` exact response/marker,
+  canonicalization, key scope, conflicts, historical replay and log/database privacy;
+  `integration/concurrent_idempotency_spec.rb` ten duplicates, conflicting payloads,
+  post-close replay while Auction is locked, actual snapshot SQL failure and rollback
+  takeover; `models/idempotency_record_spec.rb` unexpected failure and prune/reuse;
+  `integration/idempotency_constraints_spec.rb` real SQL defenses.
+- Live executable: `scripts/smoke-idempotency`, development-only, requires two API URLs
+  and retains labelled rows. Existing smoke scripts issue fresh keys per intention.

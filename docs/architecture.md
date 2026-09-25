@@ -1,6 +1,6 @@
 # Architecture
 
-## What exists now — Phases 0–4
+## What exists now — Phases 0–5
 
 Next.js in apps/web serves the unchanged starting page. Rails in apps/api owns
 User, Auction, Bid, MaximumBid, explicit lifecycle operations, and a JSON REST API under
@@ -8,7 +8,8 @@ User, Auction, Bid, MaximumBid, explicit lifecycle operations, and a JSON REST A
 the auction API. Compose runs web, api, db and auction-closer.
 
 ```text
-API client → /api/v1 controllers → Auction/User model operations → PostgreSQL
+API client → controllers → IdempotentBidding (bid/max) → Auction → PostgreSQL
+                       → other User/Auction operations → PostgreSQL
                  ↓                         ↓
            JSON presenters        Bid + current_price transaction
 
@@ -17,8 +18,9 @@ Browser → Next.js static starting page
 Auction Closer (same Rails app/process role) → Auction#close! → PostgreSQL
 ```
 
-Controllers validate request shape, locate the resource/actor, invoke explicit
-model operations, and render intentional JSON. Small presenters define auction
+Controllers validate request shape and render intentional JSON. Protected bid/max
+commands resolve the actor, then IdempotentBidding claims the key before locating
+the auction or invoking its model operation. Other endpoints call models directly. Small presenters define auction
 and bid response fields. A shared API controller maps expected errors to a stable
 envelope. There is no repository/service/use-case framework or state-machine gem.
 
@@ -49,7 +51,7 @@ Real PostgreSQL concurrency specs use committed rows and independent sessions.
 
 ## Later phases — not implemented
 
-Idempotency in Phase 5; the auction frontend in Phase 6; Action Cable in Phase 7; Redis/Sidekiq
+The auction frontend in Phase 6; Action Cable in Phase 7; Redis/Sidekiq
 in Phase 8; outbox in Phase 9; Kafka in Phase 10. Projections, reconciliation,
 observability, load testing, and deployment follow the master roadmap.
 No component listed here is present merely because it appears in the future plan.
@@ -81,3 +83,27 @@ closers safely overlap; there is no leader election. Delayed polling leaves stat
 active temporarily, but bid/max deadline checks still reject. We do not lazily
 finalize through rejected bidding transactions. Poll interval is not a closure SLA.
 See ADR-005 and running-locally.md for failure and shutdown behavior.
+
+## Client retry boundary — Phase 5
+
+```text
+Next.js (static starting page)
+
+HTTP clients -> Rails API instances
+                  |
+             IdempotentBidding / Idempotency::Executor
+                  |
+                  +-- PostgreSQL idempotency_records ownership + terminal snapshot
+                  |
+                  +-- same transaction -> Auction row -> bids/maxima/extension
+
+Auction Closer -> same Rails Auction#close! -> same PostgreSQL
+```
+
+This is an application/database capability, not another service. Thin controllers
+parse key/command/IDs and render the returned outcome. Executor owns scoped claim,
+fingerprint, replay/conflict and outer commit. Existing Auction savepoints preserve
+complete domain rollback. Duplicate INSERTs coordinate via PostgreSQL uniqueness;
+completed retries bypass Auction entirely. No mutex, Redis or generic middleware
+pipeline exists. A manual bounded prune task manages expired completed outcomes.
+See ADR-006 for lock order, failure classes, retention and compatibility boundaries.

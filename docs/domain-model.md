@@ -1,7 +1,8 @@
 # Domain model
 
-Phase 4 adds database-clock deadlines, closing and soft close to the PostgreSQL-serialized
-auction domain. See [ADR-005](adr/005-auction-deadlines-and-soft-close.md). Read [ADR-004](adr/004-proxy-bidding.md), including its decision
+Phase 5 adds PostgreSQL-backed HTTP command idempotency around the PostgreSQL-serialized
+auction domain. See [ADR-006](adr/006-client-command-idempotency.md) for retries and
+[ADR-005](adr/005-auction-deadlines-and-soft-close.md) for deadlines. Read [ADR-004](adr/004-proxy-bidding.md), including its decision
 table, for the proxy rules. ADR-003's auction row lock remains authoritative.
 
 ## Entities and money
@@ -171,5 +172,46 @@ unauthenticated supplied bidder IDs permit impersonation/probing. Operators can
 read plaintext private database records. Authentication is not redesigned here.
 
 One hot auction serializes work and queues database connections. No fairness,
-throughput guarantee or arbitrary multi-query snapshot guarantee is made. Idempotency (Phase 5), frontend, messaging and later
+throughput guarantee or arbitrary multi-query snapshot guarantee is made. Frontend, messaging and later
 infrastructure remain deferred.
+
+## Phase 5 logical commands and retained outcomes
+
+The protected HTTP bid/max endpoints require a client Idempotency-Key. Domain
+Auction methods remain available for internal callers; they do not infer retry
+identity from amounts or bidder IDs. The closer is already idempotent and does not
+participate in client key infrastructure.
+
+IdempotencyRecord stores actor_id (User FK), constrained operation, SHA-256 key
+digest, canonical request fingerprint, processing/completed status, response status,
+public JSONB body, timestamps and expires_at. UNIQUE(actor_id,operation,key_digest)
+coordinates all API processes. No raw key, request body or private maximum is stored
+here. Raw MaximumBid state remains private as before. Actor scope is not authentication.
+
+IdempotentBidding identifies the actor, then Idempotency::Executor claims/resolves
+ownership before Auction lookup, lock, DB deadline time or command evaluation.
+Canonical v1 semantic JSON includes operation, integer auction/actor IDs and sorted
+amount arguments with JSON scalar types preserved. Formatting/header order is
+irrelevant. Same scoped key with different auction/amount yields 409 conflict.
+Matching completed records replay their saved HTTP status/body and mark
+Idempotency-Replayed: true, even after price/leader changes or closure.
+
+One outer transaction contains ownership, the existing domain savepoint, complete
+proxy/extension settlement and response persistence. If snapshot writing fails,
+released domain savepoints still roll back with that outer transaction. Owner
+rollback removes the processing row; a waiting duplicate can become owner. No
+normal committed processing record or recovery lease exists.
+
+Success (200/201), domain/validation rejection (422), and execution-time missing
+Auction (404) are terminal snapshots. Key/shape/ID/JSON errors and missing actor
+occur before ownership and are not cached. Unexpected exceptions/database failures
+roll back rather than caching 500. Rejection details are historical; replay is not
+a current auction GET. A new key with the same maximum is a new command and may be
+a domain no-op; the old key bypasses the domain entirely.
+
+Default retention is seven days from DB claim transaction start (configurable
+1..365 days). Expiry permits pruning; an existing expired record still reserves its
+key. Only physical deletion permits reuse. Manual bounded idempotency:prune deletes
+completed expired rows with PostgreSQL time and SKIP LOCKED. Automatic cleanup is
+future operations work. Downgrade refuses to drop retained outcomes. Retention,
+response version compatibility and authentication identity changes require review.

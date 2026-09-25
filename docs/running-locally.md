@@ -233,6 +233,49 @@ normal closer even if the demonstration fails. `scripts/smoke-concurrent-bids` a
 
 Tests: the full backend suite includes a roughly 32-second real repeated-extension
 case. `bundle exec rspec --tag '~slow'` skips only that case for short development
-feedback; full verification must include it. Run the three concurrent_* specs
+feedback; full verification must include it. Run the concurrent_* specs
 serially against the test database (with different seeds for repetitions), never
 parallel full suites sharing that database.
+
+## Phase 5 keys and retention
+
+Both bid and maximum HTTP mutations now require Idempotency-Key. Existing scripts
+supply fresh keys for distinct commands. For retries, keep the same key and exact
+semantic payload; check Idempotency-Replayed: true on a retained matching retry.
+Lifecycle/closer operations remain independent of client keys. See api.md and ADR-006.
+
+Default IDEMPOTENCY_RETENTION_DAYS=7 (integer 1..365) controls prune eligibility from
+claim transaction start. Existing records retain their original expiry; changing
+configuration affects new claims only. Expired-but-present keys still replay/conflict.
+Only physical prune allows reuse. Run one bounded batch manually:
+
+```sh
+cd apps/api
+bin/rails idempotency:prune
+IDEMPOTENCY_PRUNE_BATCH_SIZE=100 bin/rails idempotency:prune
+# Container equivalent:
+docker compose exec -T api bin/rails idempotency:prune
+```
+
+Batch default is 1000, maximum 10000. The task uses database time and skips locked
+rows. It is not automatically scheduled. Keep records for at least the supported
+client retry horizon; after pruning the old identity can execute again. Monitor
+storage/cleanup operationally before production. A populated-table downgrade refuses
+to discard retained outcomes; preserve them or deliberately expire/prune under an
+approved retention policy before downgrade. Do not drop/reset existing domain data.
+
+With a second Rails API running at localhost:3002 and normal PG variables exported:
+
+```sh
+API_BASE_URLS=http://127.0.0.1:3001,http://127.0.0.1:3002 ruby scripts/smoke-idempotency
+```
+
+This development-only script uses real concurrent HTTP requests, compares stored
+state and exact response snapshots, and retains labelled rows. It covers plain
+manual/proxy/new-max/increase duplicates, conflicts, lost responses after price and
+leader changes, replay after closure, and rejection history. Some expiry fixtures
+use explicit setup SQL; production decisions still use the real DB clock.
+
+Run all four concurrent_* suites repeatedly, serially against the test database.
+Idempotency adds no process-local lock or new service. The existing closer remains
+a separate Rails process role and needs no Idempotency-Key.

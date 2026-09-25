@@ -193,3 +193,32 @@ Final review also moved the long repeated-window test out of transactional fixtu
 into its own committed-data group. Independent sessions now observe both actual
 commits across the real 32-second interval. Final native and container suites each
 passed 273 examples after this test refinement.
+
+## Phase 5 — Durable command outcomes (2026-09-25)
+
+A lost HTTP response is a separate problem from transactional bid correctness.
+The new wrapper claims a PostgreSQL unique key before touching Auction, executes
+existing domain savepoints, then commits the public response with all mutations.
+A snapshot CHECK failure proved that releasing an inner savepoint does not commit
+its bid, private maximum, priority, leader or extension independently. A duplicate
+waiting on the INSERT can take ownership after the original outer rollback.
+
+JSONB normalizes object order, so both the first response and replay are rendered
+from the persisted snapshot. Tests compare raw response bodies as well as IDs and
+sequences. Replays return while another session holds the Auction row locked;
+this is a stronger ordering check than observing the same final price.
+
+Brakeman flagged the initial interpolated retention interval despite integer
+validation. Using sanitize_sql_array for that expression removed the warning
+without an ignore or weaker scanner configuration.
+
+Bypassing the wrapper made both conflicting payloads succeed and made maximum
+commands execute ten times. Checking the auction before replay returned 422 for
+saved successes after closure. Both mutations were loaded from /tmp only. The
+first sabotage run also revealed that RSpec's worker assertion exception bypassed
+the shared cleanup rescue, leaving two committed fixtures. Final CI exposed those
+rows through collection/seed assertions. Cleanup now handles that specific RSpec
+exception as well as StandardError; only the identified test fixtures were removed.
+Repeating sabotage verifies that all five domain/idempotency tables are empty
+before running the normal verification suites. Development demonstration data is
+retained separately.
