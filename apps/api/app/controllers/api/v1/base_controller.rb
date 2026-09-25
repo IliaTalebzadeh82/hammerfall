@@ -2,6 +2,8 @@ module Api
   module V1
     class BaseController < ApplicationController
       wrap_parameters false
+      # Presentation calibration only; bidding still uses post-lock PostgreSQL time.
+      after_action :set_presentation_time
 
       rescue_from Idempotency::Executor::InvalidKey do |error|
         render_error(error.code, error.message, :bad_request)
@@ -28,7 +30,12 @@ module Api
         render json: outcome.body, status: outcome.status
       end
 
+      def set_presentation_time
+        response.set_header("X-Server-Time", Time.current.iso8601(3))
+      end
+
       def render_error(code, message, status, details = {})
+        set_presentation_time
         render json: { error: { code: code, message: message, details: details } }, status: status
       end
 
