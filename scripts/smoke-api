@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 require "json"
+require "securerandom"
 require "net/http"
 require "time"
 
@@ -9,6 +10,7 @@ request = lambda do |method, path, expected, body = nil|
   uri = URI.join(base, path)
   klass = { get: Net::HTTP::Get, post: Net::HTTP::Post, patch: Net::HTTP::Patch }.fetch(method)
   http_request = klass.new(uri)
+  http_request["Idempotency-Key"] = SecureRandom.uuid if method != :get && path.match?(%r{/(?:bids|maximum-bid)\z})
   if body
     http_request["Content-Type"] = "application/json"
     http_request.body = JSON.generate(body)

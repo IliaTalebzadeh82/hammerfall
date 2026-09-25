@@ -87,6 +87,8 @@ jobs:
         run: docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-concurrent-bids
       - name: Proxy bidding API smoke
         run: docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-proxy-bidding
+      - name: Bounded idempotency pruning task
+        run: docker compose exec -T api bin/rails idempotency:prune
       - name: Logs
         if: failure()
         run: docker compose logs --no-color

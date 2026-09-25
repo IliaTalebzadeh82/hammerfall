@@ -27,6 +27,8 @@ services:
         LOCAL_GID: ${LOCAL_GID:-1000}
     environment:
       RAILS_ENV: development
+      IDEMPOTENCY_RETENTION_DAYS: ${IDEMPOTENCY_RETENTION_DAYS:-7}
+      IDEMPOTENCY_PRUNE_BATCH_SIZE: ${IDEMPOTENCY_PRUNE_BATCH_SIZE:-1000}
       PGHOST: db
       PGPORT: 5432
       PGUSER: ${PGUSER:-hammerfall}

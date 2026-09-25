@@ -1,0 +1,132 @@
+#!/usr/bin/env ruby
+# Development-only HTTP/SQL correctness demonstration; retains labelled records.
+require_relative "../apps/api/config/environment"
+require "json"
+require "net/http"
+require "securerandom"
+$stdout.sync = true
+abort "Idempotency smoke requires development" unless Rails.env.development?
+bases = ENV.fetch("API_BASE_URLS", "http://127.0.0.1:3001,http://127.0.0.1:3002").split(",")
+abort "Supply two independent API URLs" unless bases.uniq.size >= 2
+request = lambda do |index, auction, operation, actor, amount, key|
+  manual = operation == "place_bid"
+  uri = URI.join(bases[index % bases.size], "/api/v1/auctions/#{auction.id}/#{manual ? 'bids' : 'maximum-bid'}")
+  req = (manual ? Net::HTTP::Post : Net::HTTP::Put).new(uri)
+  req["Content-Type"] = "application/json"
+  req["Idempotency-Key"] = key
+  req.body = JSON.generate(manual ? { bid: { bidder_id: actor.id, amount: amount } } : { maximum_bid: { bidder_id: actor.id, maximum_amount: amount } })
+  response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 20) { |http| http.request(req) }
+  { status: response.code.to_i, raw: response.body, body: JSON.parse(response.body), replayed: response["Idempotency-Replayed"] == "true" }
+end
+make = lambda do |label, seconds = 3600|
+  now = AuctionClock.now
+  a = Auction.create_draft!(title: "Phase 5 smoke #{label} #{now.iso8601}", starting_price: 10_000,
+    minimum_increment: 1_000, starts_at: now - 60, ends_at: now + seconds)
+  a.schedule!
+  a.activate!
+  a
+end
+fixture_end = lambda do |auction, seconds|
+  finish = AuctionClock.now + seconds
+  auction.update_columns(original_ends_at: finish, ends_at: finish)
+  auction.reload.ends_at
+end
+snapshot = lambda do |auction|
+  [ auction.reload.attributes, auction.bids.order(:sequence).map(&:attributes), auction.maximum_bids.order(:id).map(&:attributes) ]
+end
+race = lambda do |auction, operation, actor, amounts, key|
+  ready = Queue.new
+  start = Queue.new
+  workers = amounts.each_with_index.map do |amount, index|
+    Thread.new do
+      ready << true
+      raise "Barrier timed out" unless start.pop(timeout: 10)
+      request.call(index, auction, operation, actor, amount, key)
+    end
+  end
+  amounts.size.times { raise "Barrier timed out" unless ready.pop(timeout: 10) }
+  amounts.size.times { start << true }
+  workers.map(&:value)
+end
+verify_duplicates = lambda do |outcomes, status|
+  raise "Wrong terminal statuses" unless outcomes.map { |o| o[:status] }.uniq == [ status ]
+  raise "Different snapshots" unless outcomes.map { |o| o[:raw] }.uniq.size == 1
+  raise "More than one execution" unless outcomes.count { |o| !o[:replayed] } == 1
+end
+alice = User.create!(name: "Phase 5 smoke Alice")
+bob = User.create!(name: "Phase 5 smoke Bob")
+
+manual = make.call("A manual duplicates", 30)
+manual_key = SecureRandom.uuid
+old_end = manual.ends_at
+outcomes = race.call(manual, "place_bid", alice, Array.new(10, 10_000), manual_key)
+verify_duplicates.call(outcomes, 201)
+original = outcomes.first
+raise "Manual duplicated" unless manual.bids.pluck(:sequence) == [ 1 ] && manual.reload.ends_at == old_end + 90
+before = snapshot.call(manual)
+3.times do |index|
+  result = request.call(index, manual, "place_bid", alice, 10_000, manual_key)
+  raise "Late replay failed" unless result[:replayed] && result[:raw] == original[:raw]
+end
+raise "Late replay mutated state" unless snapshot.call(manual) == before
+puts JSON.generate(scenario: "A manual+soft-close", auction_id: manual.id, bid_id: original[:body].dig("data", "id"),
+  sequence: 1, executions: 1, concurrent_replays: 9, old_ends_at: old_end.iso8601(6), ends_at: manual.ends_at.iso8601(6))
+
+proxy = make.call("B proxy duplicates")
+request.call(0, proxy, "set_maximum_bid", alice, 30_000, SecureRandom.uuid).tap { |o| raise "Setup failed" unless o[:status] == 200 }
+old_end = fixture_end.call(proxy, 30)
+outcomes = race.call(proxy, "place_bid", bob, Array.new(10, 20_000), SecureRandom.uuid)
+verify_duplicates.call(outcomes, 201)
+raise "Proxy repeated" unless proxy.bids.order(:sequence).pluck(:amount) == [ 10_000, 20_000, 21_000 ] && proxy.reload.ends_at == old_end + 90
+puts JSON.generate(scenario: "B proxy", auction_id: proxy.id, executions: 1, replays: 9,
+  history: proxy.bids.order(:sequence).pluck(:id, :sequence, :amount), ends_at: proxy.ends_at.iso8601(6))
+
+maximum = make.call("C maximum duplicates", 30)
+max_key = SecureRandom.uuid
+old_end = maximum.ends_at
+outcomes = race.call(maximum, "set_maximum_bid", alice, Array.new(10, 30_000), max_key)
+verify_duplicates.call(outcomes, 200)
+max_response = outcomes.first
+raise "New maximum repeated" unless maximum.maximum_bids.first.priority_sequence == 1 && maximum.bids.count == 1 && maximum.reload.ends_at == old_end + 90
+old_end = fixture_end.call(maximum, 30)
+outcomes = race.call(maximum, "set_maximum_bid", alice, Array.new(10, 50_000), SecureRandom.uuid)
+verify_duplicates.call(outcomes, 200)
+raise "Increase repeated" unless maximum.maximum_bids.first.priority_sequence == 2 && maximum.bids.count == 1 && maximum.reload.ends_at == old_end + 90
+puts JSON.generate(scenario: "C maximum+increase", auction_id: maximum.id, executions_per_key: 1, replays_per_key: 9,
+  final_priority: 2, history: maximum.bids.order(:sequence).pluck(:id, :sequence, :amount), ends_at: maximum.ends_at.iso8601(6))
+
+%w[place_bid set_maximum_bid].each do |operation|
+  auction = make.call("D conflicting #{operation}")
+  outcomes = race.call(auction, operation, alice, [ 30_000, 40_000 ], SecureRandom.uuid)
+  expected = operation == "place_bid" ? 201 : 200
+  raise "Conflict race failed" unless outcomes.map { |o| o[:status] }.sort == [ expected, 409 ] && auction.bids.count == 1
+  puts JSON.generate(scenario: "D conflict", operation: operation, auction_id: auction.id, statuses: outcomes.map { |o| o[:status] })
+end
+
+# Treat the first manual response as lost, then change public state and close.
+request.call(1, manual, "place_bid", bob, 50_000, SecureRandom.uuid).tap { |o| raise "New bid failed" unless o[:status] == 201 }
+before = snapshot.call(manual)
+replay = request.call(1, manual, "place_bid", alice, 10_000, manual_key)
+raise "Changed-state replay failed" unless replay[:replayed] && replay[:raw] == original[:raw] && snapshot.call(manual) == before
+fixture_end.call(manual, -1)
+manual.close!
+before = snapshot.call(manual)
+replay = request.call(0, manual, "place_bid", alice, 10_000, manual_key)
+raise "Closed replay failed" unless replay[:replayed] && replay[:raw] == original[:raw] && snapshot.call(manual) == before
+puts JSON.generate(scenario: "E lost response after change+close", auction_id: manual.id, replayed_bid_id: replay[:body].dig("data", "id"),
+  replayed_sequence: replay[:body].dig("data", "sequence"), current_price: manual.current_price, winner_id: manual.winner_id, unchanged: true)
+fixture_end.call(maximum, -1)
+maximum.close!
+before = snapshot.call(maximum)
+replay = request.call(1, maximum, "set_maximum_bid", alice, 30_000, max_key)
+raise "Closed maximum replay failed" unless replay[:replayed] && replay[:raw] == max_response[:raw] && snapshot.call(maximum) == before
+puts JSON.generate(scenario: "F old maximum after increase+close", auction_id: maximum.id, status: replay[:status], final_priority: 2, unchanged: true)
+
+rejected = make.call("G rejection replay")
+rejection_key = SecureRandom.uuid
+first = request.call(0, rejected, "place_bid", bob, 9_999, rejection_key)
+request.call(1, rejected, "place_bid", alice, 50_000, SecureRandom.uuid)
+replay = request.call(1, rejected, "place_bid", bob, 9_999, rejection_key)
+raise "Rejection changed" unless first[:status] == 422 && replay[:replayed] && replay[:raw] == first[:raw]
+puts JSON.generate(scenario: "G rejection", auction_id: rejected.id, replayed_minimum: replay[:body].dig("error", "details", "minimum_bid"), current_price: rejected.reload.current_price)
+puts "Phase 5 multi-process idempotency smoke passed; labelled rows retained."

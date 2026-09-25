@@ -3,6 +3,7 @@
 # Run with Compose closer stopped so delayed/stale discovery order is controlled.
 require_relative "../apps/api/config/environment"
 require "json"
+require "securerandom"
 require "net/http"
 require "open3"
 require "timeout"
@@ -28,6 +29,7 @@ request = lambda do |index, method, path, body, expected|
   uri = URI.join(bases[index % bases.length], path)
   klass = { post: Net::HTTP::Post, put: Net::HTTP::Put }.fetch(method)
   req = klass.new(uri)
+  req["Idempotency-Key"] = SecureRandom.uuid if method != :get && path.match?(%r{/(?:bids|maximum-bid)\z})
   req["Content-Type"] = "application/json"
   req.body = JSON.generate(body)
   response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 10) { |http| http.request(req) }

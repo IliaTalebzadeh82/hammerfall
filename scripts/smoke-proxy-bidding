@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 require "json"
+require "securerandom"
 require "net/http"
 require "time"
 
@@ -7,6 +8,7 @@ bases = ENV.fetch("API_BASE_URLS", ENV.fetch("API_BASE_URL", "http://127.0.0.1:3
 request = lambda do |method, path, body = nil, base = bases.first, expected = nil|
   uri = URI.join(base, path)
   message = { get: Net::HTTP::Get, post: Net::HTTP::Post, put: Net::HTTP::Put }.fetch(method).new(uri)
+  message["Idempotency-Key"] = SecureRandom.uuid if method != :get && path.match?(%r{/(?:bids|maximum-bid)\z})
   if body
     message["Content-Type"] = "application/json"
     message.body = JSON.generate(body)
