@@ -1,14 +1,8 @@
-import { render, screen } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
+const redirect = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ redirect }));
 import Home from "./page";
-
-test("introduces Hammerfall without enabling unfinished auction actions", () => {
-  render(<Home />);
-
-  expect(
-    screen.getByRole("heading", { level: 1, name: "Hammerfall" }),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Auctions coming soon" }),
-  ).toBeDisabled();
+test("routes the home page to real auctions", () => {
+  Home();
+  expect(redirect).toHaveBeenCalledWith("/auctions");
 });
