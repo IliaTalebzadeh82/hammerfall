@@ -12,8 +12,12 @@ outermost transaction. See ADR-003. The resolved price equals the latest sequenc
 amount; equal amounts can exist and explicit priority selects the stored leader. Same-auction writers serialize across sessions;
 other auction rows are independent. No FIFO, fairness or global order is promised.
 
-Application clocks and explicit lifecycle actions remain; synchronized clock
-policy, closing workers and soft-close are Phase 4. Idempotent retries are Phase 5.
+Deadline decisions use one uncached PostgreSQL clock_timestamp() after lock acquisition.
+Bids/maxima and each qualifying +90 extension commit atomically. The independent
+closer locks/reloads/rechecks; duplicate close preserves winner and closed_at.
+Delayed active status never permits post-deadline decisions. Accepted decisions may
+commit later while holding the lock; closed_at records decision rather than commit
+time. Rejected commands do not lazily close. Idempotent retries are Phase 5.
 Unexpected database failures are not broadly retried or masked as domain errors.
 
 Reads do not hold a cross-query snapshot. Auction state and separately fetched bid

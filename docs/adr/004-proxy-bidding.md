@@ -2,6 +2,9 @@
 
 Status: Accepted — Phase 3, 2026-09-24
 
+Time, closing and extension details below describe the original phase decision.
+[ADR-005](005-auction-deadlines-and-soft-close.md) supersedes those details in Phase 4.
+
 ## Context
 
 A maximum is permission to spend up to a ceiling, not a visible offer of that

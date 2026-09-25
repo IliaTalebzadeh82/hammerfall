@@ -1,6 +1,6 @@
 # Invariants
 
-## Implemented through Phase 3
+## Implemented through Phase 4
 
 Unless explicitly marked SQL, these guarantees apply to concurrent calls through
 the documented domain entry points at PostgreSQL READ COMMITTED isolation.
@@ -33,7 +33,7 @@ Actual files are mapped in [code-map.md](code-map.md). Tests reside under
 All 15 original master invariants remain requirements. Their current status is:
 
 1. **Closed auctions cannot accept a new bid:** enforced under the shared auction lock;
-   clock authority/scheduling remain Phase 4.
+   DB time after lock also forbids late bids while status still says active.
 2. **Same idempotency key cannot create multiple bids:** future Phase 5; there is
    no key handling or retry deduplication now.
 3. **Every accepted bid belongs to exactly one auction:** enforced structurally
@@ -51,7 +51,7 @@ All 15 original master invariants remain requirements. Their current status is:
    authorization secrecy exists with supplied unauthenticated bidder IDs.
 9. **Concurrent requests cannot lose updates:** enforced by the row lock and atomic bid/price writes.
 10. **Closure and bid acceptance serialize correctly:** current commands share a row lock;
-    distributed time/closing workers and extensions remain Phase 4.
+    post-lock DB time, autonomous closer and atomic extensions are implemented.
 11. **Committed bids eventually produce domain events:** Phase 9 onward; no outbox
     or event publication exists yet.
 12. **Duplicate events do not duplicate downstream effects:** Phase 10 onward.
@@ -86,3 +86,22 @@ leader is explicit, selected by durable priority rather than highest amount/ID.
 A bidder's manual offer may exceed its own old private instruction; the ceiling
 restriction applies to automatic offers. Public price can equal an exhausted
 maximum by the required algorithm; no API labels it as that user's maximum.
+
+## Phase 4 deadline invariants
+
+| Invariant | Enforcement | Evidence under apps/api/spec |
+| --- | --- | --- |
+| Decision time is current DB wall time after serialization, never transaction start or cached SELECT | AuctionClock.now after reload(lock: true) | integration/concurrent_closing_spec.rb real pre-deadline transactions blocked past expiry; models/soft_close_spec.rb query-cache regression |
+| Active is necessary but not sufficient; equality with ends_at is expired | AuctionDeadline.due? and locked eligibility | models/auction_deadline_spec.rb exact arithmetic; requests/bids_spec.rb stale active rejection |
+| ends_at >= original_ends_at, original end is non-null | SQL CHECK/NOT NULL and frozen terms | integration/deadline_constraints_spec.rb; models/soft_close_spec.rb |
+| One qualifying external commitment adds exactly 90 once; no extension for rejected/no-op actions | persist_bidding_action! only after accepted resolution | models/soft_close_spec.rb; exact 60.000/60.001 arithmetic tests |
+| Proxy row count does not multiply extension; protection-only increases can extend | Both Auction entry points own extension | models/soft_close_spec.rb |
+| Price, leader, visible bids, max/priority and deadline commit or roll back together | One savepoint and final auction UPDATE | integration/concurrent_closing_spec.rb SQL rejection of calculated extension for manual and maximum |
+| Stale/duplicate closers recheck fresh state and do not shorten extended deadlines | Auction#close! uses the same lock/time protocol | integration/concurrent_closing_spec.rb both bid/max lock orders and eight closers |
+| Closure emits no bid; winner equals final leader, including nil; closed_at never changes on repeat | close! and SQL null-safe equality, timestamp iff closed and >= end | deadline_constraints_spec.rb, concurrent_closing_spec.rb, soft_close_spec.rb |
+| Repeated external actions may extend again in later windows without a cap | Pure extension arithmetic on effective end | integration/repeated_soft_close_spec.rb real roughly 32-second wait, no clock/deadline changes between commands |
+
+These are decision-time guarantees, not a requirement that physical COMMIT occur
+before ends_at. Deadline checks reject without lazy closure; scheduler lateness
+only delays materialized status. Raw SQL, validation bypasses, host clock jumps and
+multi-query snapshot consistency are outside the stronger workflow contract.

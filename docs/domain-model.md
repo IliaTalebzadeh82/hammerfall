@@ -1,14 +1,14 @@
 # Domain model
 
-Phase 3 adds binding private MaximumBid instructions to the PostgreSQL-serialized
-auction domain. Read [ADR-004](adr/004-proxy-bidding.md), including its decision
+Phase 4 adds database-clock deadlines, closing and soft close to the PostgreSQL-serialized
+auction domain. See [ADR-005](adr/005-auction-deadlines-and-soft-close.md). Read [ADR-004](adr/004-proxy-bidding.md), including its decision
 table, for the proxy rules. ADR-003's auction row lock remains authoritative.
 
 ## Entities and money
 
 - User: ID and nonblank name (up to 100 characters); names are not credentials.
 - Auction: title (nonblank, up to 200), description (up to 10000, default empty),
-  status, starting_price, current_price, minimum_increment, starts_at, ends_at,
+  status, starting_price, current_price, minimum_increment, starts_at, original_ends_at, ends_at, closed_at,
   current_leader_id, winner_id, timestamps.
 - Bid: accepted visible fact with auction_id, bidder_id, amount, sequence,
   created_at and internal origin (manual/automatic). No normal edit/delete path.
@@ -32,20 +32,45 @@ Use create_draft! and edit_draft!; terms freeze after draft. No reopen/reschedul
 | Action | Source | Target | Preconditions |
 | --- | --- | --- | --- |
 | schedule! | draft | scheduled | ends_at has not passed |
-| activate! | scheduled | active | starts_at <= application time < ends_at |
-| close! | active | closed | application time >= ends_at |
+| activate! | scheduled | active | starts_at <= DB decision time < ends_at |
+| close! | active | closed | DB decision time >= ends_at |
 | cancel! | draft, scheduled, active | cancelled | no accepted bids |
 
 Repeating the target state is a no-op. Closed/cancelled are terminal. Existing
 lifecycle and draft commands lock/reload the same auction row used by bidding.
 Close copies current_leader_id into winner_id, including equal-price priority
-winners; without bids both remain null. No automatic activation/closing scheduler.
+winners; without bids both remain null. Already closed and active-not-due close
+calls return unchanged. Other states reject close. Activation remains explicit.
 
-Manual and maximum commands recheck active status and the half-open time window
-inside the lock, sampling Time.current after waiting. Even same-maximum no-ops
-recheck eligibility. Trusted internal at: values support tests/seeds; HTTP cannot
-set authoritative time. Application clocks, explicit closure and unchanged ends_at
-remain Phase 3 limitations. There is no soft close or distributed time redesign.
+Every manual/maximum/close command captures one uncached PostgreSQL
+clock_timestamp() **after** lock/reload. There is no injected production time.
+Even same-maximum no-ops must be eligible. At decision_time >= ends_at, an active
+auction rejects auction_ended with public ends_at. Non-active bidding rejects
+invalid_auction_state. Before starts_at it rejects auction_not_open. Request arrival
+and transaction start cannot authorize bidding after a wait. Accepted decisions can
+commit later while holding the lock; physical commit time is not the eligibility test.
+
+The closer materializes due active auctions independently; rejected bidding does
+not lazily close. **Scheduler delay can delay status, never the legal window.**
+Close records DB decision time in closed_at, preserves the effective ends_at and
+leader, and emits no bid. Duplicate closers preserve winner/closed_at.
+
+### Timing and soft close
+
+starts_at is the earliest eligible time. original_ends_at follows draft edits and
+freezes on scheduling. ends_at is the effective deadline. closed_at is actual DB
+finalization decision time, possibly later than ends_at, not exact commit time.
+All four are public UTC timestamps (closed_at null until closed).
+
+One accepted external manual bid, new max or increased max extends exactly once
+when `0 < ends_at - decision_time <= 60`: add **90 seconds to existing ends_at**.
+An entire proxy contest generating two rows still adds only 90. Protection-only
+increases add 90 even without a visible row. Identical max/rejected commands add
+nothing. Later valid commands in their new final minute can extend again without
+limit. Auction#persist_bidding_action! saves extension/price/leader in the same
+transaction as all private changes and visible rows. Failure rolls everything back.
+Generic PATCH cannot edit scheduled/active/closed/cancelled terms or write original
+end/closure metadata. There is no force-close, reopen, or post-close max mutation.
 
 ## Binding protection and priority
 
@@ -108,7 +133,7 @@ Both entry points use transaction(requires_new: true), SELECT FOR UPDATE/reload,
 fresh eligibility checks, private-state validation/write if applicable, synchronous
 resolution and all visible INSERTs, then final price/leader UPDATE and COMMIT.
 All records share the transaction; SQL failure after a partial resolution rolls
-back maxima, priorities, bids, price and leader. A nested caller owns final outer
+back maxima, priorities, bids, price, leader and effective deadline. A nested caller owns final outer
 commit and lock lifetime. No network work, queues or callbacks resolve contests.
 Maximum association autosave/implicit validation is disabled: the command explicitly
 validates and saves each instruction before resolving, within that same transaction.
@@ -129,6 +154,11 @@ Migration backfills leader from latest Phase 2 sequence and marks old bids manua
 Stop writers for maintenance rollout. Down migration refuses to discard existing
 MaximumBid records; test rollback/reapply uses pre-proxy history. Downgrading a
 populated Phase 3 database requires an explicit data-preservation plan.
+Phase 4 backfills original end from existing end and legacy closed_at with
+GREATEST(updated_at,ends_at), a documented estimate. Its SQL checks require a closure
+timestamp iff closed, closure at/after end, ends_at>=original end, and null-safe
+winner/leader equality at close. Downgrade refuses detectable new timing history;
+export before a live downgrade.
 
 ## Privacy and remaining limits
 
@@ -141,6 +171,5 @@ unauthenticated supplied bidder IDs permit impersonation/probing. Operators can
 read plaintext private database records. Authentication is not redesigned here.
 
 One hot auction serializes work and queues database connections. No fairness,
-throughput guarantee or arbitrary multi-query snapshot guarantee is made. Distributed
-closing/soft-close (Phase 4), idempotency (Phase 5), frontend, messaging and later
+throughput guarantee or arbitrary multi-query snapshot guarantee is made. Idempotency (Phase 5), frontend, messaging and later
 infrastructure remain deferred.

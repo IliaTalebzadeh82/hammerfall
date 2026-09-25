@@ -96,7 +96,6 @@ Add the problem, naive approach, failure modes, chosen implementation, guarantee
 limitations, source files, demonstrative tests, and interview explanation for each
 subsystem when it is built:
 
-- Auction closing and soft-close (Phase 4)
 - Idempotency (Phase 5)
 - WebSockets (Phase 7)
 - Outbox (Phase 9)
@@ -138,7 +137,7 @@ objects, rollback, lifecycle changes and independence, rather than mocking locks
 follow lock acquisition, why uniqueness is insufficient, how rollback affects
 ordering, and why pessimistic locking trades simple correctness for hot-row queues.
 
-## Automatic bidding — Phase 3
+## Automatic bidding — Phase 3 (historical scope)
 
 **Problem:** a private spending ceiling is not a public offer. Setting 500 should
 not cost 500 when the auction can be led for 100. A challenger can trigger several
@@ -205,3 +204,119 @@ real sessions and SQL rollback, and requests/maximum_bids_spec.rb for JSON/log p
 why priority changes on a raise, why asynchronous counters violate atomicity, why
 stored leader is distinct from winner, why dormant maxima need no rebidding loop,
 and why request filtering alone would not prove SQL/model-inspection privacy.
+
+## Deadline decisions and soft close — Phase 4
+
+**Problem:** five API processes cannot safely define one auction deadline using
+five local clocks. `Time.current < auction.ends_at` can produce contradictory
+answers. A punctual scheduler does not fix an API that accepts an expired active
+row, and a row lock does not fix a clock captured before waiting.
+
+**Why transaction time fails:**
+
+```text
+20:59:59  transaction B starts; transaction_timestamp() is 20:59:59
+          B tries SELECT FOR UPDATE and waits
+21:00:00  auction deadline passes
+21:00:02  holder commits; B obtains lock
+          transaction_timestamp() still says 20:59:59  [wrong decision clock]
+          clock_timestamp() now says 21:00:02         [reject]
+```
+
+AuctionClock asks PostgreSQL for actual wall time only after the locking reload
+returns, with Rails query caching disabled. It captures one decision time for the
+entire logical command. The locking query and clock query use the same connection
+and transaction. Database wall time is a shared authority here; it is not immune
+to host clock corrections and does not solve a hypothetical multi-region design.
+
+**The boundary:** active status plus starts_at <= decision_time < ends_at permits
+bidding. Exactly at the end is expired. HTTP arrival and transaction start are
+irrelevant. Acceptance is a locked decision; physical commit can happen later.
+
+**Bid wins the lock first:**
+
+```text
+Bid                                  Closer
+lock auction                         discover old deadline
+DB clock = 20:59:55                   try lock; wait
+valid; resolve entire proxy contest
+ends_at: 21:00:00 -> 21:01:30
+save all state; commit               acquire lock + reload
+                                     DB clock = 21:00:01
+                                     see 21:01:30; not due; no-op
+```
+
+A genuinely due stale discovery can happen while that extension is **uncommitted**:
+at 21:00:01 a READ COMMITTED candidate query still sees the old 21:00:00 end. That
+is why the finalizer must reload after waiting. Candidate IDs are hints, not proof.
+
+**Closer wins after expiry:**
+
+```text
+Closer                               Bid / maximum request
+lock auction; DB clock = 21:00:02     try lock; wait
+closed; winner = current leader
+closed_at = 21:00:02; commit          acquire lock + reload
+                                     see closed; reject; no new bid/max/extension
+```
+
+Every closer uses the same operation. If eight closers discover the same ID, the
+first due transition chooses winner/closed_at; later callers return those exact
+values. Leader election would add machinery without fixing anything the shared
+row lock and fresh revalidation have not already handled.
+
+**Scheduler punctuality is not deadline correctness.** If the closer is stopped,
+status can remain active at 21:00:30, but a request still reads the DB clock under
+lock and rejects auction_ended. This implementation does not commit lazy closure
+through a rejected command. A restarted closer or explicit close finalizes later.
+No-traffic auctions still close because polling is independent of requests.
+
+**The four times:**
+
+```text
+starts_at          earliest eligible time; activation is still explicit
+original_ends_at   scheduled finish frozen after draft
+ends_at            effective legal deadline, including extensions
+closed_at          DB time when finalization was decided; may lag ends_at
+```
+
+closed_at is not exact commit time and never means bids were legal until then.
+Legacy closed_at is an explicitly documented backfill estimate. All public times
+remain UTC; local display belongs to the future frontend.
+
+**One external commitment is the extension unit.** With 37 seconds remaining,
+adding 90 to the old end leaves 127 seconds, not 90. Bob's manual offer plus Alice's
+automatic counter produce two Bid rows but one extension. Alice raising her own
+max without any visible bid still makes a binding commitment and can extend once.
+Repeating the same ceiling or submitting an invalid bid extends nothing. There is
+no extension cap; a later accepted command in the new final minute extends again.
+
+Auction keeps this arithmetic after synchronous resolution and before its final
+UPDATE. Committing a bid before extending would let a closer finalize the old
+deadline between those writes. A real SQL constraint rejection of the extension
+proves rollback removes all generated bids, max changes, priority, price and leader.
+
+**How the tests prove time rather than fake it:** pure AuctionDeadline examples use
+exact rational offsets for 60.001, 60, 37, one microsecond, equality and after-end.
+Integration fixtures use deadlines relative to actual DB time, without mocking
+clocks or locks. Race tests observe pg_blocking_pids, explicitly start transactions
+before expiry, then wait for the real DB clock before releasing the holder. Each
+one-second window is checked to have begun before expiry; a severely overloaded
+runner fails that precondition visibly rather than claiming a false race. The committed-data integration/repeated_soft_close_spec.rb
+observes two successive real windows, roughly 32 seconds apart, with independent
+sessions verifying each commit and no intervening clock or deadline manipulation. Ordinary expired-state fixtures explicitly alter stored
+deadlines; these are fixture construction, not claims that actual time advanced.
+
+**Read first:** ADR-005, Auction#place_bid!/#set_maximum!/#close!, AuctionClock,
+AuctionDeadline, AuctionCloser and bin/auction_closer. Study
+integration/concurrent_closing_spec.rb, models/soft_close_spec.rb and
+models/auction_deadline_spec.rb; scripts/smoke-closing demonstrates separate Rails
+processes, real HTTP requests and two independent closing processes.
+
+**Limits and interview discussion:** explain why scheduler delay is harmless to
+eligibility but harmful to status freshness; why uncached wall time must follow
+the lock; why a proxy contest extends only once; and why winner is copied from the
+settled leader rather than recomputed from maxima. Discuss host clock changes,
+hot-row contention, duplicate discovery, connection pressure and the lack of a
+materialization SLA. Phase 5 must persist replay outcomes so a lost HTTP response
+cannot cause another bidding contest or extension.

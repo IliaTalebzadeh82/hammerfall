@@ -5,7 +5,9 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Current scope: Phase 3 — automatic/maximum bidding.** Private binding ceilings,
+**Current scope: Phase 4 — auction closing and soft close.** PostgreSQL decision
+time after the auction lock, fixed final-60-second/+90 extensions and an autonomous
+Rails closer preserve winner finality across processes. Private binding ceilings,
 durable tie priority and synchronous proxy responses preserve PostgreSQL auction
 row serialization and atomic price/history/leader updates across Rails processes. The real auction frontend is not implemented. [masterprompt.md](masterprompt.md) is the authoritative
 engineering specification; [progress](docs/progress.md) records verified work.
@@ -36,15 +38,14 @@ port overrides, dependency updates, and shutdown.
 ## Correctness and architecture
 
 The [invariants](docs/invariants.md) distinguish implemented concurrency guarantees
-from future closing/delivery requirements. Rails owns business logic and
+from future retry/delivery requirements. Rails owns business logic and
 PostgreSQL owns persisted state. Money uses integer EUR cents. Bid insertion and
 current-price update are atomic; explicit close assigns the winner. [ADR-003](docs/adr/003-auction-concurrency-control.md) explains serialization and
 the hot-auction bottleneck. Next.js still serves the original starting page.
 See [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
 [ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
 
-The remaining roadmap investigates distributed closing,
-idempotency, event delivery, and reconciliation in that order. It does not claim
+The remaining roadmap investigates idempotency, event delivery, and reconciliation in that order. It does not claim
 these problems are already solved. The current API has no authentication; bidder
 IDs are demo identity only. See [API usage](docs/api.md) and
 [ADR-002](docs/adr/002-core-auction-state.md) for the domain choices.

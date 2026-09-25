@@ -1,6 +1,6 @@
 # Code map
 
-Paths below are relative to the repository root. Phase 3 coordinates commands through a PostgreSQL auction row lock.
+Paths below are relative to the repository root. Phase 4 coordinates commands through a PostgreSQL auction row lock.
 There is no outbox, event publication, or realtime delivery.
 
 ## Creating an auction
@@ -20,7 +20,7 @@ There is no outbox, event publication, or realtime delivery.
   schedule, activate, close, cancel.
 - Domain entry: `apps/api/app/models/auction.rb` public bang methods.
 - Transaction, transition table, preconditions, winner selection:
-  `transition_to!`, `check_transition_preconditions!`, `leading_bid` in that model.
+  `transition_to!`, `check_transition_preconditions!`, `close!` in that model.
   The transaction starts with the same `reload(lock: true)` used by bidding.
 - Guard against bypass: `managed_changes` validation (no mutation callbacks).
 - Error translation: `apps/api/app/models/domain_error.rb` and API BaseController.
@@ -38,8 +38,8 @@ There is no outbox, event publication, or realtime delivery.
 - Validation: active/window/minimum checks there; participants and money in
   `apps/api/app/models/bid.rb` and `app/validators/minor_units_validator.rb`.
 - Ordering: compute MAX(sequence)+1 while locked; Bid validates a positive integer.
-- Writes: ProxyResolver inserts accepted/generated Bids, then updates price/leader
-  inside that transaction; see Phase 3 paths below.
+- Writes: ProxyResolver inserts accepted/generated Bids and assigns price/leader;
+  Auction persists them with any extension inside that transaction.
 - COMMIT: return the Bid only when the transaction completes; a nested caller must
   still commit its outer transaction before reporting durable success.
 - Schema defense: `20260924010000_add_authoritative_bid_sequence.rb`, positive
@@ -94,7 +94,7 @@ There is no outbox, event publication, or realtime delivery.
 - Algorithm: `apps/api/app/models/bidding/proxy_resolver.rb#maximum`/`#resolve`.
   A first bidder gets starting_price. Leader protection updates emit nothing.
 - Generated rows: #emit increments auction-local visible sequence and saves Bid
-  with internal origin; #finish saves price and current_leader_id atomically.
+  with internal origin; #finish assigns leader; Auction#persist_bidding_action! saves price/leader/deadline.
 - COMMIT then HTTP: MaximumBidsController acknowledges auction_id/bidder_id/accepted,
   without any maximum/priority/origin serialization.
 
@@ -106,8 +106,8 @@ There is no outbox, event publication, or realtime delivery.
 - #resolve reads the incumbent's current instruction and compares ceilings; equal
   ceilings compare explicit priority. Loser's ceiling precedes winner's minimal
   offer. A winning manual offer retains its exact submitted amount.
-- #emit writes up to two visible rows, including equal-price tie rows; #finish stores
-  the selected leader/price; all changes share the entry-point transaction.
+- #emit writes up to two visible rows, including equal-price tie rows; #finish assigns
+  the selected leader; Auction persists price/leader/end; all changes share the entry-point transaction.
 - Manual API returns its accepted Bid after complete resolution, even when outbid.
   History lists all committed generated rows in sequence order with origin omitted.
 - Existing close! copies current_leader_id to winner_id under the same lock.
@@ -121,3 +121,56 @@ There is no outbox, event publication, or realtime delivery.
   `spec/requests/maximum_bids_spec.rb` under apps/api. Both concurrency groups use
   `spec/support/committed_auction_context.rb` for owned committed data/session helpers.
 - Live demonstration: `scripts/smoke-proxy-bidding` exercises four concrete scenarios.
+
+## Phase 4: late manual bid, maximum increase and soft close
+
+- HTTP remains `app/controllers/api/v1/bids_controller.rb#create` or
+  `maximum_bids_controller.rb#update` under `apps/api`.
+- `apps/api/app/models/auction.rb#place_bid!` / `#set_maximum!`: savepoint,
+  `reload(lock: true)`, **one** `AuctionClock.now`, eligibility and full settlement.
+- `apps/api/app/models/auction_clock.rb#now`: uncached DB clock_timestamp() using
+  the currently checked-out connection; no permanent lease or application time.
+- `apps/api/app/models/auction_deadline.rb`: `due?` and `extended_end` pure arithmetic.
+- `Auction#persist_bidding_action!`: once per accepted external commitment, +90 to
+  effective end within the final 60, then save price/leader/end together. Same-max
+  early return never reaches this method. Protection-only increases do reach it.
+- `Bidding::ProxyResolver#finish` now assigns the leader; the Auction command owns
+  the final save, including extension. Internal `#emit` calls never extend.
+- Tests: `apps/api/spec/models/auction_deadline_spec.rb` exact boundaries;
+  `models/soft_close_spec.rb` zero/two-row, rejected/no-op,
+  frozen fields and query-cache behavior; `integration/concurrent_closing_spec.rb`
+  real SQL rollback of the calculated extension, including private state.
+
+- `apps/api/spec/integration/repeated_soft_close_spec.rb`: two successive real
+  windows with actual separate commits, verified from independent sessions.
+
+## Phase 4: autonomous close, duplicate/stale closer and winner finalization
+
+- Entrypoint `apps/api/bin/auction_closer`: same Rails environment, validated role
+  settings, stdout logging, signal stop flag, --once mode, role PG timeouts.
+- `apps/api/app/services/auction_closer.rb#candidate_ids`: bounded ordered active/due
+  ID discovery against a sampled DB cutoff; `#run_once` invokes domain close;
+  `#run` polls, releases connections, logs/retries known transient failures.
+- `apps/api/app/models/auction.rb#close!`: lock/reload, DB decision time, closed or
+  not-due no-op, due active -> closed/winner=current_leader/closed_at in one save.
+- `apps/api/app/controllers/api/v1/auctions_controller.rb#close` uses that same method;
+  early close returns the unchanged active representation. No force-close operation.
+- Schema: `apps/api/db/migrate/20260924030000_add_auction_deadlines.rb` backfills
+  original/closed times, checks timestamp/winner shape and indexes active ends_at,id.
+- Public times/leader/winner: `app/presenters/api/v1/auction_presenter.rb` under apps/api.
+- Bid-vs-close / max-vs-close races, duplicate eight-session contenders and stale
+  candidate discovery are in `apps/api/spec/integration/concurrent_closing_spec.rb`.
+  `integration/deadline_constraints_spec.rb` proves SQL defenses;
+  `models/auction_closer_spec.rb` covers bounded discovery/configuration/shutdown.
+- Process role/image: `docker-compose.yml` auction-closer reuses hammerfall-api.
+- Live HTTP and independent closing processes: `scripts/smoke-closing` (development
+  only; stop ordinary closer for controlled delayed/stale scenarios).
+
+## Phase 4: lazy expiry detection from bidding
+
+`Auction#validate_bidding_window!` uses the captured post-lock clock and raises
+auction_ended for expired active rows. **Detection is lazy; finalization is not.**
+Rejected bids/maxima persist no state; `close!` owns all finalization. The delayed
+scenario in concurrent_closing_spec.rb and scripts/smoke-closing proves rejection
+with active status followed by eventual close. requests/bids_spec.rb verifies the
+public error. No duplicated winner logic or exception-after-commit protocol exists.

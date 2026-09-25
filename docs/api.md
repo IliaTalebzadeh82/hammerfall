@@ -1,4 +1,4 @@
-# Phase 3 API
+# Phase 4 API
 
 Base path: `/api/v1`. This API is for local development. There is **no authentication
 or authorization**; supplied bidder_id identifies a database row, not the caller.
@@ -17,7 +17,7 @@ Use JSON request bodies with Content-Type: application/json. See
 | PATCH | /auctions/:id | Edit allowed fields while draft |
 | POST | /auctions/:id/schedule | Schedule a draft |
 | POST | /auctions/:id/activate | Activate a scheduled auction within its window |
-| POST | /auctions/:id/close | Close an active auction at/after ends_at |
+| POST | /auctions/:id/close | Finalize if due; active but not due returns unchanged |
 | POST | /auctions/:id/cancel | Cancel an eligible auction with no bids |
 | GET | /auctions/:auction_id/bids | List accepted bid history |
 | POST | /auctions/:auction_id/bids | Place a serialized manual bid |
@@ -57,7 +57,7 @@ Do not submit status, current_price, winner_id, ID, or timestamps of record crea
 The server initializes current_price to starting_price and chooses draft status.
 
 Responses contain id, title, description, status, currency, starting_price,
-current_price, minimum_increment, starts_at, ends_at, current_leader_id, winner_id,
+current_price, minimum_increment, starts_at, original_ends_at, ends_at, closed_at, current_leader_id, winner_id,
 created_at, updated_at. Datetimes are UTC ISO 8601. No model internals are dumped.
 Lifecycle actions take no body and never accept client time as authoritative.
 
@@ -101,7 +101,8 @@ sequence. IDs/timestamps remain metadata.
 | 422 | validation_failed | Model fields are invalid; details maps field names to message arrays |
 | 422 | invalid_state_transition | Edge or transition precondition is invalid |
 | 422 | invalid_auction_state | Bid on non-active auction or edit outside draft |
-| 422 | auction_not_open | Active status but outside bidding window |
+| 422 | auction_not_open | Active status before starts_at |
+| 422 | auction_ended | Active status but DB decision time at/after ends_at; details includes public ends_at |
 | 422 | bid_too_low | Amount below required minimum |
 
 These are expected-error mappings, not a catch-all that hides programming failures.
@@ -119,7 +120,7 @@ docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/
 ```
 
 The script creates a labelled user and auction, edits/schedules/activates it, accepts
-two bids, rejects a low bid, waits about eight seconds for ends_at, closes twice,
+two bids, rejects a low bid, waits about 65 seconds for ends_at, closes twice,
 rejects a post-close bid, and verifies history/leader/winner. It leaves those rows
 for inspection. This is sequential HTTP verification, not a concurrency benchmark.
 
@@ -166,9 +167,34 @@ contracts still apply, including lifecycle checks for repeated same values.
 One command may emit zero, one or two public Bid rows, each with its own sequence.
 Equal ceilings can emit equal amounts with different sequences; the earlier private
 commitment wins. Public auction current_leader_id is explicit state, and winner_id
-remains null until close. Bids do not expose whether they are automatic. No ends_at
-extension occurs. See ADR-004 for examples and docs/domain-model.md for full rules.
+remains null until close. Bids do not expose whether they are automatic. A qualifying external commitment in the final 60 seconds adds exactly 90 seconds
+to ends_at once, even when no visible row is generated. Same-value no-ops never extend. See ADR-004 for examples and docs/domain-model.md for full rules.
 
 Run `./scripts/smoke-proxy-bidding` for manual-vs-proxy, higher/equal proxy and
 simultaneous maximum scenarios. API_BASE_URLS can route the final race across two
 running Rails processes. Script output is public state; labelled records remain.
+
+## Deadline and finalization contract
+
+The server captures DB clock_timestamp() after obtaining the auction lock. Client,
+Rails, request arrival and transaction-start times do not authorize bidding. Exactly
+at ends_at is too late. An expired active auction returns 422 auction_ended with
+`details.ends_at` as UTC ISO 8601; already closed/cancelled bidding retains
+invalid_auction_state. No private values appear in these errors.
+
+POST close returns 200 with unchanged active state if not due, or closed state if
+due/already closed. Draft/scheduled/cancelled close returns 422 invalid_state_transition.
+This endpoint cannot force early closure. The same operation powers the independent
+closer. Rejected late bids do not themselves change lifecycle state. A delayed closer
+can leave active status visible temporarily without permitting any late bid/max.
+
+original_ends_at follows draft edits and freezes on scheduling. ends_at includes
+all +90 extensions. closed_at is null until finalization and then records its DB
+decision time; it can be later than ends_at. current_leader_id remains visible after
+closure, alongside winner_id (both equal, or both null with no bids). These are
+public intentional fields, not exposure of private maxima. PATCH remains draft-only;
+original_ends_at and closed_at are never writable request fields.
+
+Both manual and maximum endpoints extend once per accepted external commitment
+inside `0 < remaining <= 60`. Internal proxy counters do not multiply the extension.
+An HTTP retry is not generally deduplicated yet; Phase 5 will define that contract.

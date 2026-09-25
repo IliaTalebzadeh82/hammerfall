@@ -2,6 +2,9 @@
 
 Status: Accepted — Phase 2, 2026-09-24
 
+Time, closing and extension details below describe the original phase decision.
+[ADR-005](005-auction-deadlines-and-soft-close.md) supersedes those details in Phase 4.
+
 ## Context
 
 Phase 1 wraps bid insertion and price update in a transaction, but reads without

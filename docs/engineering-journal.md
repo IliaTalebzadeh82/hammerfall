@@ -152,3 +152,44 @@ ceilings must cover the leader's own price or strictly exceed another leader's
 price; same-value repeats still no-op after lifecycle/time validation. A dedicated
 regression proves no dormant equal-price priority is created. This tightens the
 initial policy and preserves the resolver's settled-state and equal-ceiling rules.
+
+## Phase 4 — database clock, connection leases and meaningful timing tests
+
+Moved all production deadline decisions to one uncached PostgreSQL clock_timestamp()
+after the locking reload. Removed the old at: override and Rails time-travel wrapper;
+expired fixtures now explicitly arrange stored deadlines, and concurrency tests
+wait on actual DB time. Original/closure timestamps and atomic +90 extension belong
+to the auction transaction, not the number of proxy rows. Closer discovery is only
+a hint; the domain remains the finalizer.
+
+The first clock helper used ApplicationRecord.connection inside worker checkouts.
+That promoted temporary leases to permanent ones and exhausted the default three-
+connection pool in the many-contender tests. Using connection_pool.with_connection
+and connection.uncached fixed it; the existing contention tests caught the issue.
+An accidentally overlapping pair of test runs also produced shared-test-database
+interference; both were stopped and all reported passing suites ran serially.
+
+The first transaction-time sabotage also froze the test's waiting helper because
+it used the same production AuctionClock. That produced timeouts rather than the
+intended bad acceptance. The helper now observes raw, uncached DB wall time
+independently. Rerunning the mutation then proved the actual fault: both pre-expiry
+transactions were incorrectly accepted after waiting past expiry. The normal code
+rejected both. Removing only the closer's row lock separately failed both stale
+candidate examples and duplicate timestamp finality. Mutations lived in /tmp and
+were loaded only in their RSpec processes; production source stayed intact.
+
+Legacy closed_at backfill is an estimate, never retroactive DB-clock evidence.
+A pre-Phase-4 development snapshot matched byte-for-byte before and after rollback/
+reapply across all old columns (48 users, 22 auctions, 52 bids, 14 private maxima).
+The downgrade guard refuses detectable new extension/closure history. Live downgrade
+still needs an explicit export/preservation plan.
+
+The Phase 3 live privacy smoke searched for the substring `origin`, which also
+matched the intentional new public `original_ends_at`. It now checks exact JSON
+keys (and the automatic-origin value), preserving private-field checks. The real
+request privacy suite remained green and the corrected two-process smoke passed.
+
+Final review also moved the long repeated-window test out of transactional fixtures
+into its own committed-data group. Independent sessions now observe both actual
+commits across the real 32-second interval. Final native and container suites each
+passed 273 examples after this test refinement.

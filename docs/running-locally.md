@@ -169,3 +169,70 @@ If a registry lookup fails but the verified development image is cached,
 `docker compose up --no-build --wait` can run the bind-mounted current code with
 unchanged dependencies. This verifies runtime behavior; it does not prove that a
 fresh image can be built while the registry remains unavailable.
+
+## Phase 4 closer process
+
+`docker compose up --build --wait` now starts `auction-closer` alongside api/web/db.
+It runs the same Rails image/application against the same PostgreSQL database.
+No Redis or queue is involved. Override AUCTION_CLOSER_INTERVAL (positive seconds,
+default 1) and AUCTION_CLOSER_BATCH_SIZE (1..10000, default 100) in the environment.
+A poll interval is not a promise that status changes within that interval.
+
+Native, after exporting the usual PG environment:
+
+```sh
+cd apps/api
+bin/auction_closer          # continuous; SIGTERM/SIGINT finishes current work then stops
+bin/auction_closer --once   # one bounded discovery pass
+```
+
+The executable defaults PGOPTIONS to lock_timeout=5s and statement_timeout=10s;
+set PGOPTIONS explicitly to override. Long waits become logged transient failures,
+with another discovery attempt on a later pass. A one-shot sweep with transient
+failures exits unsuccessfully. Unknown per-auction errors log
+auction ID/error class and exit; Compose uses restart:on-failure. Logs deliberately
+omit SQL/exception messages that could contain private data. This is basic process
+operation, not a health/freshness SLA or observability platform.
+
+```sh
+docker compose logs --tail 50 auction-closer
+docker compose stop auction-closer
+docker compose run --rm auction-closer bin/auction_closer --once
+docker compose start auction-closer
+```
+
+Stopping the closer does not reopen deadlines. Late bid/max commands still reject
+auction_ended while a row may remain active. They do not lazily mutate closure.
+
+Maintenance rollout: stop API writers and closers, migrate, deploy matching code,
+then restart. Phase 4 backfills original_ends_at=ends_at and estimates old closed_at
+as GREATEST(updated_at,ends_at). Rollback/reapply was tested with existing Phase 1–3
+records. A downgrade refuses detectable live extensions/closure timestamps because
+removing columns loses this new history. Export and plan preservation before a live
+downgrade; do not reset the development database. Demo seeds now use an explicit
+historical fixture import for the closed example; production methods have no at:
+clock override. Existing seed data is still never overwritten.
+
+The sequential HTTP smoke now waits about 65 seconds (or longer if an unexpectedly
+slow run enters the extension window). For Phase 4 demonstrations, start a second
+Rails API at port 3002, then from the root with native PG variables exported:
+
+```sh
+docker compose stop auction-closer
+API_BASE_URLS=http://127.0.0.1:3001,http://127.0.0.1:3002 ruby scripts/smoke-closing
+docker compose start auction-closer
+```
+
+The development-only script retains labelled rows. It uses fixture SQL to arrange
+some deadlines, actual DB time for decisions, real HTTP calls across both APIs,
+and two independent Ruby/Rails closer processes. Its stale-candidate example holds
+an accepted extension uncommitted until another process discovers the old due row
+and waits for its lock. It does not mock production clocks or locks. Restart the
+normal closer even if the demonstration fails. `scripts/smoke-concurrent-bids` and
+`scripts/smoke-proxy-bidding` remain compatible with API_BASE_URLS.
+
+Tests: the full backend suite includes a roughly 32-second real repeated-extension
+case. `bundle exec rspec --tag '~slow'` skips only that case for short development
+feedback; full verification must include it. Run the three concurrent_* specs
+serially against the test database (with different seeds for repetitions), never
+parallel full suites sharing that database.

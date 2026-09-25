@@ -629,3 +629,261 @@ Phase 4 — Auction Closing + Soft Close, only on a new explicit request.
 Recommended next prompt (exact):
 
 > Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, docs/domain-model.md, docs/invariants.md, docs/architecture.md, docs/learning-guide.md, docs/code-map.md, docs/api.md, all ADRs, and the current lifecycle/manual/proxy code and tests. Implement Phase 4 only — Auction Closing + Soft Close. Define and document authoritative time, closing ownership, delayed and duplicate close behavior, winner finality, and fixed anti-sniping extension rules. Specify how one logical proxy contest with multiple generated bids affects extension. Preserve the PostgreSQL auction-row lock, fresh validation, private binding maxima, deterministic priority, atomic history/price/leader state, and public privacy. Add real separate-connection/process tests for bidding/proxy/closing/extension races and repeated or stale closers. Use only infrastructure justified within Phase 4; do not introduce Phase 5 idempotency keys or later Redis, Sidekiq, Kafka, outbox, WebSockets, observability, authentication redesign, Kubernetes or Terraform. Run relevant full checks, repeated concurrency tests, migrations, Docker and live multi-process demonstrations. Update ADRs, invariants, learning guide, code map and progress, make coherent commits, report actual evidence and limitations, and stop after Phase 4.
+
+## Phase 4 — Auction Closing + Soft Close
+
+Status: COMPLETE
+
+Implemented and verified on 2026-09-24/25. Phase 5 has not begun. The Phase 0–3
+sections above are historical snapshots; ADR-005 and current domain/API docs govern
+new time and closing behavior.
+
+### Implemented
+
+PostgreSQL decision clock; half-open deadlines; exactly-once-per-command soft close;
+original and closure timestamps; due-only idempotent close; finalized winner;
+independent Rails closer role and Compose process; real concurrency, arithmetic,
+rollback, process and HTTP demonstrations. No later-phase infrastructure or frontend
+auction/countdown UI was introduced. Pricing, private binding maxima, durable priority,
+auction-local sequence, explicit leader and representation privacy remain intact.
+
+### Authoritative time and deadline semantics
+
+AuctionClock.now reads uncached PostgreSQL clock_timestamp() on the current
+connection **after** Auction reload(lock: true). Each bid/max/close command captures
+one value. Schedule/activate use the same source; production at: overrides were
+removed. NOW()/CURRENT_TIMESTAMP/transaction_timestamp() are unsuitable because they
+retain transaction-start time after a lock wait. The mutation experiment below proves
+both kinds of expired waiter would be accepted with that stale clock.
+
+Active status and starts_at <= decision_time < ends_at permit bidding; at equality
+or later an active row rejects auction_ended with public ends_at. Before start it
+rejects auction_not_open; inactive rows retain invalid_auction_state. HTTP arrival,
+Rails time and transaction start confer no eligibility. Legality is assessed at the
+locked decision, not at physical COMMIT. Outer callers still own the outer commit
+and lock lifetime.
+
+### Soft-close rule and extension unit
+
+`0 < ends_at - decision_time <= 60 seconds` adds exactly **90 seconds to existing
+ends_at**. At 37 seconds remaining this leaves 127 seconds, not 90. Manual bids,
+new maxima and actual maximum increases are accepted external commitments. Each
+qualifying command extends once, independently of whether resolution emits zero,
+one or two Bid rows. A leader's protection increase can extend with no price/history
+change. Identical max, decreases, insufficient bids and other rejections do not
+extend. There is no arbitrary cap; later commands in later windows can extend again.
+
+Auction#persist_bidding_action! runs after synchronous resolution and saves final
+price/leader/end within the same transaction as all max/priority and Bid changes.
+ProxyResolver no longer independently saves Auction. Real SQL rejection of the
+calculated extension rolls back the entire manual or maximum contest.
+
+### Schema, timing fields and migration evidence
+
+- starts_at remains the earliest eligible time; activation remains explicit.
+- original_ends_at is initialized/synchronized through draft creation/editing and
+  frozen when scheduled. Generic updates cannot change live effective deadlines.
+- ends_at is the effective legal deadline after extensions.
+- closed_at is the DB finalization decision timestamp, not physical commit time;
+  delayed closure can record it later than ends_at without legalizing late bids.
+- Public Auction JSON includes all four UTC fields and retains current_leader_id
+  after closure, separately from winner_id.
+- SQL requires original end non-null, ends_at>=original end, closed_at iff closed,
+  closure at/after effective end, and null-safe winner/leader equality when closed.
+  The partial active (ends_at,id) index supports bounded due discovery/order.
+
+Migration 20260924030000 locks auctions and backfills original end from old ends_at.
+Legacy closed_at uses GREATEST(updated_at,ends_at), an explicit **estimate**, because
+older phases never recorded authoritative closure time. No historical clock accuracy
+is claimed. Forward, rollback and reapply preserved every old column byte-for-byte
+across **48 users, 22 auctions, 52 bids and 14 private maxima**. Snapshot SHA-256:
+`0b9bef823cfd6d8258605f6dfadb7a1a6711e22f56d962275732c20d572a38fc`.
+After live Phase 4 activity, rollback correctly refused detectable timing-history
+loss and retained schema version 20260924030000. Export/preserve new timing history
+before a real downgrade. Development seeds still skip existing data; the closed
+example uses an explicit fixture import instead of a production clock override.
+
+### Closing ownership and winner finality
+
+Auction#close! is the only finalizer. It begins a transaction/savepoint, locks and
+reloads, reads DB time, and returns unchanged for closed or active-not-due auctions.
+A due active row stores status=closed, winner=current_leader and closed_at in one
+save. Other states reject invalid_state_transition. The close API means finalize
+if due (200 unchanged active when early), never force close. Closing emits no Bid,
+never chooses a winner from raw maxima, and preserves the explicit leader. No bids
+means nil leader/winner. Duplicate calls preserve winner/closed_at/updated_at.
+Closed auctions cannot reopen, bid, change max or extend through normal commands.
+
+**No lazy finalization through rejected bidding.** Late bid/max requests reject
+without persisting changes, even if status is still active. The closer or explicit
+close later materializes lifecycle. Scheduler delay can delay status, never the
+legal bidding window. This avoids an exception rolling back intended lazy closure.
+
+### Scheduler/closer behavior
+
+bin/auction_closer boots the same Rails application/image, a process role rather
+than a microservice. AuctionCloser discovers up to 100 active/due IDs, ordered by
+end/id against a sampled DB cutoff, then invokes close! for each. Candidate discovery
+is only a hint; locked fresh state/time decide. The fixed cutoff supports an index
+range scan instead of a volatile per-row clock predicate.
+
+Default poll interval is 1 second; interval and batch size are configurable.
+--once runs one bounded pass and fails if transient candidate errors made it partial.
+SIGINT/SIGTERM stop after in-flight work; poll sleeps check the stop flag every
+100ms. The executable defaults lock/statement timeouts to 5s/10s using PGOPTIONS.
+Known transient failures log/retry on later discovery; unknown per-auction failures
+log ID/class and propagate. Startup/shutdown logs were observed. Compose restarts
+on failure. No exact materialization SLA, leader election, Redis or Sidekiq exists.
+Multiple closers may duplicate discovery, but row serialization and no-op close
+preserve one final winner/timestamp.
+
+### Race tests, boundaries and repeated runs
+
+Nine new PostgreSQL race/atomicity examples cover:
+
+- Manual bid or protection increase holds the first lock, extends before commit,
+  then a different session discovers the old **due** committed deadline and waits.
+  Its stale Auction reloads after the extension commits and safely skips closure.
+- Closer holds first after expiry; waiting manual/max commands reject closed state.
+- Manual/max transactions demonstrably start before expiry, wait on a real row lock
+  until the DB deadline passes, then reject auction_ended despite stale transaction
+  time. The still-active row subsequently closes normally.
+- Eight independent closer contenders produce identical winner/closed_at/updated_at
+  and no synthetic Bid.
+- Real SQL failure on the calculated extension rolls back private state, priority,
+  both visible rows, price, leader and deadline, for manual and maximum commands.
+
+Exact pure-arithmetic cases pass: 60.001 seconds -> no extension; 60.000, 37 and one
+microsecond -> +90; equality and after deadline -> expired, no extension. Integration
+uses real DB time and observed pg_blocking_pids, with no mocked locks/clocks. Ordinary
+expired fixtures explicitly arrange deadlines rather than pretending Rails travel_to
+controls PostgreSQL. Waiting helpers independently query actual DB time so clock
+sabotage cannot also freeze the observation mechanism.
+
+The slow repeated-extension test uses **separate committed transactions**, two real
+successive windows roughly 32 seconds apart, and independent sessions verifying
+each committed end. No deadline/clock manipulation occurs between the two bids.
+Final review moved it out of RSpec's outer fixture transaction to establish this
+stronger claim. Other tests cover empty first maxima, two-row maximum contests,
+protection-only creation/increase, identical max, rejected bids/decreases, frozen
+fields, query caching and closer configuration/failure/shutdown behavior.
+
+Repeated Phase 2/3/4 concurrent_* groups with **seeds 1–20**: **28 examples per run,
+560 examples, zero failures** (180 manual, 200 maximum, 180 closing). The long
+committed repeated-window case runs in the full suite rather than these repetitions.
+These are bounded correctness exercises, not load or reliability/throughput claims.
+
+### Sabotage results
+
+Separate /tmp definitions were loaded only into RSpec; source was never unlocked.
+
+- Replace the production DB wall-clock with transaction_timestamp(): **2/2 selected
+  pre-expiry waiter tests fail**, seed 404. They incorrectly return an accepted Bid
+  or MaximumBid after expiry. The observation helper still uses real DB wall time.
+- Remove only close!'s locking reload: **3/9 closing tests fail**, seed 404: manual
+  stale candidate, max stale candidate and duplicate closed_at stability.
+- Restore normal definitions: **9/9 closing examples pass**, seed 404; final full
+  native/container suites also use the normal implementation.
+
+Early failures from connection leases, overlapping test invocations, and the first
+sabotage observation helper were corrected rather than counted as successful
+verification. See engineering-journal.md for those findings.
+
+### Live multi-process verification
+
+Two independent APIs (Compose localhost:3001 and temporary native localhost:3002)
+shared PostgreSQL. scripts/smoke-closing used real HTTP requests and additional
+independent Ruby/Rails closer processes. Ordinary closer was stopped for controlled
+stale/delayed scenarios and restarted afterward. Labelled records were retained.
+
+| Scenario | Actual result |
+| --- | --- |
+| A, auction 68 | Late manual bid adds exactly 90; leader 53 |
+| B, auction 69 | Proxy history 10000,20000,21000; exactly +90, leader 53 |
+| C, auction 70 | Another process discovers old due row while accepted extension is uncommitted; observed lock wait; reload leaves active at old end+90 |
+| D, auction 71 | Closer first; blocked HTTP bidder rejects; winner 53; closed_at 2026-09-24T13:29:50.499212Z |
+| E, auction 72 | Two closer sessions 20419/20420 discover the same due row; identical winner and closed_at 2026-09-24T13:29:51.308929Z; one visible bid remains |
+| F, auction 73 | Real deadline passes with ordinary closer stopped; active late bid returns auction_ended; eventual close has nil winner and unchanged end |
+
+Existing concurrent HTTP smoke also passed across both APIs: auction 74 accepted
+6/12 increasing bids, final price 15500; auction 75 accepted 1/8 equal bids, final
+price 10000. Sequential lifecycle smoke passed on auction 77, including repeated
+closure and post-close rejection. Corrected proxy privacy smoke passed on auctions
+78–81: respective histories 10000/20000/21000, 10000/30000/31000,
+10000/30000/30000 and concurrent 10000/30000/31000. Its old substring search for
+origin falsely matched original_ends_at; exact JSON-key checks retain the privacy
+assertion. Maxima/priority/origin remain omitted. Native SIGINT and Compose SIGTERM
+both logged clean shutdown; a separate bin/auction_closer --once ran successfully
+while the ordinary closer was also running.
+
+### Full verification
+
+| Check | Actual result |
+| --- | --- |
+| Final native full RSpec | 273 examples, zero failures, seed 425; includes separate-commit real repeated windows |
+| Final container full RSpec | 273 examples, zero failures, seed 426; same final source |
+| bin/ci | Passed: setup, Ruby lint, bundler-audit, Brakeman, Zeitwerk, test prepare, 273 examples (seed 11652), before the final test-only transaction-wrapper refinement |
+| Repeated Phase 2/3/4 concurrency | 560 examples, zero failures, seeds 1–20 |
+| Arithmetic boundary tests | Six exact cases passed |
+| SQL failure/constraints | Passed in native/container suites |
+| Forward / rollback / reapply | Passed with identical pre-existing records; live-history downgrade guard separately refused |
+| Ruby lint | 64 API files and all three changed root smoke scripts passed |
+| Security/autoload | Brakeman zero warnings; bundler-audit no known vulnerabilities in checked database; Zeitwerk passed |
+| scripts/check | Passed full backend (then 271 examples), frontend and Compose checks |
+| Frontend lint / format / types / test / production build | Passed; one frontend test; no frontend source changes |
+| Compose config / image build / startup | Passed; both images built with cached layers; api/db/web healthy and closer running |
+| API and closer process smoke | Passed, live scenarios above; one-shot and clean signals verified |
+| git diff --check | Passed |
+
+GitHub-hosted CI was not run. Local/native/container equivalents were run; CI now
+also executes an independent closer one-shot. Development images use mounted current
+application code. No no-cache build, capacity claim or exact scheduling SLA is made.
+
+### Commits
+
+- `6fd8fde` — feat(domain): enforce database-clock closing and atomic soft close
+- `4c2533b` — feat(runtime): run and verify the Rails auction closer
+- `a6e5058` — test(domain): verify repeated extensions across committed transactions
+- Documentation completion commit: `docs: record verified Phase 4 deadline and closing guarantees`
+
+The documentation commit intentionally does not contain its own hash.
+
+Phase 0–3 history was not amended or rewritten.
+
+### Guarantees and known limitations
+
+One PostgreSQL auction row serializes bid/max/close decisions across processes;
+post-lock DB wall time defines legality; complete proxy settlement and extension
+are atomic; stale/duplicate closers revalidate; winner/closed_at are final. Active
+status may lag, never the bidding deadline. Source constraints and domain tests
+support these claims without relying on scheduler punctuality.
+
+A hot row and waiting connections remain bottlenecks. Duplicate closers can duplicate
+work or wait behind hot candidates. No throughput, fairness, FIFO or status-freshness
+SLA exists. PostgreSQL wall-clock corrections and outages remain operational risks.
+Long outer transactions delay commit/lock release. Raw SQL/validation bypasses are
+outside workflow guarantees. Private maxima remain plaintext and supplied actor IDs
+are unauthenticated; there is no identity secrecy or production readiness claim.
+No retry deduplication, realtime, event publication, projections, notifications,
+metrics stack or later infrastructure has been added. Legacy closed_at is an estimate.
+
+### Review before Phase 5
+
+Persist replay outcomes with the authoritative mutation so a lost response cannot
+run settlement or extend again. Define key scope, fingerprinting, conflict errors,
+retention and what failures are persisted. Replays after closure must not rerun
+current deadline validation and accidentally replace a prior accepted response.
+Keep lock order coherent between idempotency records and the auction row; preserve
+private maximum filtering. Close itself is idempotent, but bidding retries are not.
+No Phase 5 implementation has begun.
+
+### Next phase
+
+Development api/db/web/auction-closer remain running. The temporary port-3002 API
+was stopped after verification; labelled live demonstration records remain.
+
+Phase 5 — Idempotency, only on a new explicit request.
+
+Recommended next prompt (exact):
+
+> Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, current domain/API/invariants/architecture/learning-guide/code-map docs, all ADRs, and the bidding/proxy/closing code and tests. Implement Phase 5 only — Idempotency. Add PostgreSQL-backed Idempotency-Key persistence, request fingerprinting and concurrent duplicate handling. Define key scope, conflict responses, retention, replay responses and failure policy. Atomically persist outcomes with auction mutations so retries cannot duplicate bids, private-max changes, proxy settlement or soft-close extensions. Test lost-response retries, concurrent duplicates across Rails processes, conflicting payloads, rollback and replay after deadline/closure. Preserve post-lock PostgreSQL clock authority, auction serialization, winner finality, binding private maxima, priority and public privacy. Add real PostgreSQL concurrency tests and live multi-process evidence. Run full checks, migrations and Docker verification; update ADRs, docs and progress; create coherent commits with a clean working tree. Do not implement Phase 6 or later infrastructure, and stop after Phase 5.

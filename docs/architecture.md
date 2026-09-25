@@ -1,11 +1,11 @@
 # Architecture
 
-## What exists now — Phases 0–3
+## What exists now — Phases 0–4
 
 Next.js in apps/web serves the unchanged starting page. Rails in apps/api owns
 User, Auction, Bid, MaximumBid, explicit lifecycle operations, and a JSON REST API under
 `/api/v1`. PostgreSQL stores all domain state. The frontend does not yet consume
-the auction API. Compose still runs exactly web, api, and db.
+the auction API. Compose runs web, api, db and auction-closer.
 
 ```text
 API client → /api/v1 controllers → Auction/User model operations → PostgreSQL
@@ -13,6 +13,8 @@ API client → /api/v1 controllers → Auction/User model operations → Postgre
            JSON presenters        Bid + current_price transaction
 
 Browser → Next.js static starting page
+
+Auction Closer (same Rails app/process role) → Auction#close! → PostgreSQL
 ```
 
 Controllers validate request shape, locate the resource/actor, invoke explicit
@@ -37,7 +39,7 @@ lifecycle endpoints are also unauthenticated. This is not a deployable public AP
 
 Rails is the business authority; Next.js handles presentation; PostgreSQL owns
 persisted state. [ADR-001](adr/001-modular-monolith.md) still governs service
-boundaries. The in-database winner is exposed only after explicit closure. A current
+boundaries. The in-database winner is exposed only after authoritative closure. A current
 leader is stored explicitly after proxy resolution, separately from winner.
 
 `/up` is Rails liveness, not a database readiness guarantee. Compose separately
@@ -47,9 +49,7 @@ Real PostgreSQL concurrency specs use committed rows and independent sessions.
 
 ## Later phases — not implemented
 
-Distributed closing/time authority and
-soft-close in Phase 4; idempotency
-in Phase 5; the auction frontend in Phase 6; Action Cable in Phase 7; Redis/Sidekiq
+Idempotency in Phase 5; the auction frontend in Phase 6; Action Cable in Phase 7; Redis/Sidekiq
 in Phase 8; outbox in Phase 9; Kafka in Phase 10. Projections, reconciliation,
 observability, load testing, and deployment follow the master roadmap.
 No component listed here is present merely because it appears in the future plan.
@@ -65,3 +65,19 @@ there is no intermediate committed challenger followed by an asynchronous counte
 MaximumBidsController acknowledges writes without exposing private state. Public
 presenters never expose maximum/priority/origin. ADR-004 records the decision table,
 settled-state proof, binding policy and representation-versus-authorization limit.
+
+## Deadline authority and closer
+
+AuctionClock reads uncached PostgreSQL clock_timestamp() after the auction row
+lock. AuctionDeadline contains pure half-open deadline and final-60/+90 arithmetic.
+Auction persists extension with each accepted command's complete settlement.
+Auction#close! finalizes if due and copies leader to winner without another Bid.
+The closer is a separate process role of this modular Rails app, not a microservice:
+no API hop or separate datastore sits between it and the same domain operation.
+
+AuctionCloser discovers bounded active/due IDs using the partial (ends_at,id) index,
+then revalidates each under the domain lock. Discovery is not authority. Multiple
+closers safely overlap; there is no leader election. Delayed polling leaves status
+active temporarily, but bid/max deadline checks still reject. We do not lazily
+finalize through rejected bidding transactions. Poll interval is not a closure SLA.
+See ADR-005 and running-locally.md for failure and shutdown behavior.
