@@ -10,17 +10,19 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_24_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_24_030000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
   create_table "auctions", force: :cascade do |t|
+    t.datetime "closed_at"
     t.datetime "created_at", null: false
     t.bigint "current_leader_id"
     t.bigint "current_price", null: false
     t.text "description", default: "", null: false
     t.datetime "ends_at", null: false
     t.bigint "minimum_increment", null: false
+    t.datetime "original_ends_at", null: false
     t.bigint "starting_price", null: false
     t.datetime "starts_at", null: false
     t.string "status", default: "draft", null: false
@@ -28,13 +30,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_020000) do
     t.datetime "updated_at", null: false
     t.bigint "winner_id"
     t.index ["current_leader_id"], name: "index_auctions_on_current_leader_id"
+    t.index ["ends_at", "id"], name: "index_auctions_due", where: "((status)::text = 'active'::text)"
     t.index ["winner_id"], name: "index_auctions_on_winner_id"
+    t.check_constraint "(status::text = 'closed'::text) = (closed_at IS NOT NULL)", name: "auctions_closure_timestamp"
+    t.check_constraint "closed_at IS NULL OR closed_at >= ends_at", name: "auctions_closure_after_deadline"
     t.check_constraint "current_price >= 1 AND current_price <= '1000000000000'::bigint", name: "auctions_current_price_range"
     t.check_constraint "current_price >= starting_price", name: "auctions_price_floor"
     t.check_constraint "ends_at > starts_at", name: "auctions_time_window"
+    t.check_constraint "ends_at >= original_ends_at", name: "auctions_original_deadline"
     t.check_constraint "minimum_increment >= 1 AND minimum_increment <= '1000000000000'::bigint", name: "auctions_minimum_increment_range"
     t.check_constraint "starting_price >= 1 AND starting_price <= '1000000000000'::bigint", name: "auctions_starting_price_range"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'scheduled'::character varying::text, 'active'::character varying::text, 'closed'::character varying::text, 'cancelled'::character varying::text])", name: "auctions_valid_status"
+    t.check_constraint "status::text <> 'closed'::text OR NOT winner_id IS DISTINCT FROM current_leader_id", name: "auctions_final_winner"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'scheduled'::character varying, 'active'::character varying, 'closed'::character varying, 'cancelled'::character varying]::text[])", name: "auctions_valid_status"
     t.check_constraint "title::text ~ '[^[:space:]]'::text", name: "auctions_title_present"
     t.check_constraint "winner_id IS NULL OR status::text = 'closed'::text", name: "auctions_winner_only_when_closed"
   end

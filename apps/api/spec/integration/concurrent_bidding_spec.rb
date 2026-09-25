@@ -173,7 +173,7 @@ RSpec.describe "PostgreSQL concurrent bidding", type: :model do
   end
 
   it "samples time after waiting, rejecting a bid whose window expired" do
-    auction = active_auction
+    auction = active_auction(ends_at: AuctionClock.now + 1)
     ready = Queue.new
     waiting = nil
     ApplicationRecord.transaction do
@@ -183,18 +183,16 @@ RSpec.describe "PostgreSQL concurrent bidding", type: :model do
         Auction.find(auction.id).place_bid!(bidder: User.find(@bidder.id), amount: 12_000)
       end
       wait_for_lock(take(ready))
-      travel_to(auction.ends_at + 1.second)
+      wait_until_database_time(auction.ends_at)
     end
     error = result(waiting)
     expect(error).to be_a(DomainError)
-    expect(error.code).to eq("auction_not_open")
+    expect(error.code).to eq("auction_ended")
     expect(auction.bids).to be_empty
     expect(auction.reload.current_price).to eq(10_000)
-  ensure
-    travel_back
   end
 
-  it "makes a waiting close select the last committed bidder as winner" do
+  it "makes an early waiting close retain the committed leader without finalizing" do
     auction = active_auction
     ready = Queue.new
     closing = nil
@@ -203,13 +201,13 @@ RSpec.describe "PostgreSQL concurrent bidding", type: :model do
       closing = worker do |connection|
         stale = Auction.find(auction.id)
         ready << connection.select_value("SELECT pg_backend_pid()")
-        stale.close!(at: stale.ends_at)
+        stale.close!
       end
       wait_for_lock(take(ready))
       auction.place_bid!(bidder: User.find(@bidder.id), amount: 15_000)
     end
     expect(result(closing)).to be_a(Auction)
-    expect(auction.reload).to have_attributes(status: "closed", winner_id: @bidder.id, current_price: 15_000)
+    expect(auction.reload).to have_attributes(status: "active", winner_id: nil, current_leader_id: @bidder.id, current_price: 15_000)
     expect(auction.bids.pluck(:sequence)).to eq([ 1 ])
   end
 end

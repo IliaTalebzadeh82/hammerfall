@@ -37,7 +37,7 @@ RSpec.describe "Core domain database constraints", :domain do
     id = auction.id
     user_id = bidder.id
     expect_database_rejection(PG::CheckViolation) { Auction.where(id: id).update_all(winner_id: user_id) }
-    expect_database_rejection(PG::ForeignKeyViolation) { Auction.where(id: id).update_all(status: "closed", winner_id: -1) }
+    expect_database_rejection(PG::ForeignKeyViolation) { Auction.where(id: id).update_all(status: "closed", winner_id: -1, current_leader_id: -1, closed_at: auction.ends_at) }
   end
 
   it "enforces nonblank, non-null user names independently of validation" do

@@ -4,7 +4,7 @@ if Rails.env.development?
     if User.exists? || Auction.exists? || Bid.exists?
       puts "Demo seed skipped: domain data already exists."
     else
-      now = Time.current
+      now = AuctionClock.now
       alice = User.create!(name: "Demo Alice")
       bob = User.create!(name: "Demo Bob")
       User.create!(name: "Demo Carol")
@@ -20,14 +20,16 @@ if Rails.env.development?
       active.place_bid!(bidder: alice, amount: 10_000)
       active.place_bid!(bidder: bob, amount: 11_000)
 
-      # Trusted internal time arguments exercise a historical lifecycle; no HTTP
-      # endpoint accepts them. created_at remains insertion metadata.
+      # Development fixture import: first settle real commands in an open window,
+      # then import historical deadlines with explicit SQL before normal closure.
+      # There is no production command with an injectable decision clock.
       closed = Auction.create_draft!(title: "Demo: mechanical watch", starting_price: 20_000,
-        minimum_increment: 1_000, starts_at: now - 2.hours, ends_at: now - 1.hour)
-      closed.schedule!(at: closed.starts_at)
-      closed.activate!(at: closed.starts_at)
-      closed.place_bid!(bidder: bob, amount: 20_000, at: closed.starts_at + 5.minutes)
-      closed.place_bid!(bidder: alice, amount: 22_000, at: closed.starts_at + 10.minutes)
+        minimum_increment: 1_000, starts_at: now - 2.hours, ends_at: now + 1.hour)
+      closed.schedule!
+      closed.activate!
+      closed.place_bid!(bidder: bob, amount: 20_000)
+      closed.place_bid!(bidder: alice, amount: 22_000)
+      closed.update_columns(original_ends_at: now - 1.hour, ends_at: now - 1.hour)
       closed.close!
 
       puts "Created 3 demo users, 3 auctions, and 4 bids."

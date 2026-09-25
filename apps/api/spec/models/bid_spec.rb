@@ -42,11 +42,17 @@ RSpec.describe Bid, :domain, type: :model do
     end
   end
 
-  it "rejects bids outside the half-open time window even if status is active" do
-    [ auction.starts_at - 1.second, auction.ends_at, auction.ends_at + 1.second ].each do |at|
-      expect { auction.place_bid!(bidder: bidder, amount: 10_000, at: at) }.to raise_error(DomainError) { |e| expect(e.code).to eq("auction_not_open") }
-    end
-    expect(auction.place_bid!(bidder: bidder, amount: 10_000, at: auction.starts_at)).to be_persisted
+  it "rejects an elapsed window while status is still active" do
+    expire_fixture(auction)
+    expect { auction.place_bid!(bidder: bidder, amount: 10_000) }.to raise_error(DomainError) { |e| expect(e.code).to eq("auction_ended") }
+    expect(auction.reload.status).to eq("active")
+    expect(auction.bids).to be_empty
+  end
+
+  it "rejects an active fixture whose start is still in the future" do
+    auction.update_columns(starts_at: AuctionClock.now + 30)
+    expect { auction.place_bid!(bidder: bidder, amount: 10_000) }.to raise_error(DomainError) { |e| expect(e.code).to eq("auction_not_open") }
+    expect(auction.bids).to be_empty
   end
 
   [ nil, 0, -1, 10_000.5, 10_000.0, "10000", "10000.5", false, MinorUnitsValidator::MAXIMUM + 1 ].each do |amount|

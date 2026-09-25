@@ -35,7 +35,7 @@ RSpec.describe Auction, :domain, type: :model do
 
   it "stores equivalent offset times in UTC" do
     auction = create_auction(starts_at: "2026-09-24T15:30:00+03:30", ends_at: "2026-09-24T16:30:00+03:30")
-    expect(auction.reload.starts_at).to eq(Time.current)
+    expect(auction.reload.starts_at).to eq(Time.utc(2026, 9, 24, 12))
   end
 
   it "updates draft terms and keeps the no-bid current price equal to the start" do
@@ -69,12 +69,12 @@ RSpec.describe Auction, :domain, type: :model do
     actions.each do |target, action|
       it "#{source} -> #{target} follows the documented lifecycle" do
         auction = create_auction(state: source)
-        args = action == :cancel! ? {} : { at: target == "closed" ? auction.ends_at : Time.current }
+        expire_fixture(auction) if source == "active" && target == "closed"
         if targets.include?(target) || source == target
-          auction.public_send(action, **args)
+          auction.public_send(action)
           expect(auction.reload.status).to eq(target)
         else
-          expect { auction.public_send(action, **args) }.to raise_error(DomainError) { |e| expect(e.code).to eq("invalid_state_transition") }
+          expect { auction.public_send(action) }.to raise_error(DomainError) { |e| expect(e.code).to eq("invalid_state_transition") }
           expect(auction.reload.status).to eq(source)
         end
       end
@@ -86,19 +86,24 @@ RSpec.describe Auction, :domain, type: :model do
     expect { auction.schedule! }.to raise_error(DomainError)
   end
 
-  it "activates at starts_at, but not before starts_at or at ends_at" do
-    auction = create_auction(state: "scheduled")
-    expect { auction.activate!(at: auction.starts_at - 1.second) }.to raise_error(DomainError)
-    expect { auction.activate!(at: auction.ends_at) }.to raise_error(DomainError)
-    auction.activate!(at: auction.starts_at)
-    expect(auction.reload.status).to eq("active")
+  it "requires an open database-time window for activation" do
+    future = create_auction(state: "scheduled", starts_at: AuctionClock.now + 600)
+    expect { future.activate! }.to raise_error(DomainError)
+    ended = create_auction(state: "scheduled")
+    expire_fixture(ended)
+    expect { ended.activate! }.to raise_error(DomainError)
+    open = create_auction(state: "scheduled")
+    open.activate!
+    expect(open.reload.status).to eq("active")
   end
 
-  it "closes only at/after ends_at and has no winner without bids" do
+  it "leaves an early close unchanged and closes a due auction without a winner" do
     auction = create_auction(state: "active")
-    expect { auction.close!(at: auction.ends_at - 1.second) }.to raise_error(DomainError)
-    auction.close!(at: auction.ends_at)
+    auction.close!
+    expect(auction.reload).to have_attributes(status: "active", closed_at: nil)
+    expire_fixture(auction).close!
     expect(auction.reload).to have_attributes(status: "closed", winner_id: nil)
+    expect(auction.closed_at).to be >= auction.ends_at
     expect(auction.current_price).to eq(auction.starting_price)
   end
 
@@ -111,16 +116,16 @@ RSpec.describe Auction, :domain, type: :model do
     expect(auction.reload.winner).to be_nil
     expect(auction.leading_bid.bidder).to eq(bob)
     expect { auction.cancel! }.to raise_error(DomainError)
-    auction.close!(at: auction.ends_at)
+    expire_fixture(auction).close!
     expect(auction.reload.winner).to eq(bob)
     timestamp = auction.updated_at
-    auction.close!(at: auction.ends_at + 1.hour)
+    auction.close!
     expect(auction.reload).to have_attributes(winner_id: bob.id, updated_at: timestamp)
   end
 
   it "leaves an expired active auction active until explicitly closed" do
     auction = create_auction(state: "active")
-    travel_to(auction.ends_at + 1.minute)
+    expire_fixture(auction)
     expect(auction.reload.status).to eq("active")
     auction.close!
     expect(auction.reload.status).to eq("closed")

@@ -87,7 +87,7 @@ RSpec.describe MaximumBid, :domain, type: :model do
     a = maximum(alice, 30_000)
     expect(a.priority_sequence).to be > b.priority_sequence
     assert_state([ 10_000, 20_000, 21_000, 30_000, 30_000 ], bob)
-    auction.close!(at: auction.ends_at)
+    expire_fixture(auction).close!
     expect(auction.reload.winner_id).to eq(bob.id)
   end
 
@@ -129,9 +129,9 @@ RSpec.describe MaximumBid, :domain, type: :model do
   it "rejects insufficient first protection and rechecks time even for same amount" do
     expect { maximum(alice, 9_999) }.to raise_error(DomainError) { |e| expect(e.code).to eq("maximum_bid_too_low") }
     maximum(alice, 30_000)
-    travel_to(auction.ends_at)
-    expect { maximum(alice, 30_000) }.to raise_error(DomainError) { |e| expect(e.code).to eq("auction_not_open") }
-    expect(auction.ends_at).to eq(Time.current)
+    expire_fixture(auction)
+    expect { maximum(alice, 30_000) }.to raise_error(DomainError) { |e| expect(e.code).to eq("auction_ended") }
+    expect(auction.ends_at).to be < AuctionClock.now
   end
 
   it "preserves invariants across a reproducible mixed-operation stream" do

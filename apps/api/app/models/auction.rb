@@ -5,7 +5,6 @@ class Auction < ApplicationRecord
   TRANSITIONS = {
     "scheduled" => %w[draft],
     "active" => %w[scheduled],
-    "closed" => %w[active],
     "cancelled" => %w[draft scheduled active]
   }.freeze
 
@@ -19,13 +18,14 @@ class Auction < ApplicationRecord
   validates :description, length: { maximum: 10_000 }, exclusion: { in: [ nil ] }
   validates :status, inclusion: { in: STATES }
   validates :starting_price, :current_price, :minimum_increment, minor_units: true
-  validates :starts_at, :ends_at, presence: true
+  validates :starts_at, :ends_at, :original_ends_at, presence: true
   validate :valid_time_window
   validate :valid_price_and_winner
   validate :managed_changes
 
   def self.create_draft!(attributes)
     auction = new(attributes)
+    auction.original_ends_at = auction.ends_at
     auction.current_price = auction.starting_price_before_type_cast
     auction.save!
     auction
@@ -38,34 +38,51 @@ class Auction < ApplicationRecord
         raise DomainError.new("invalid_auction_state", "Only draft auctions can be edited.")
       end
       assign_attributes(attributes)
+      self.original_ends_at = ends_at
       self.current_price = starting_price_before_type_cast
       save!(context: :draft_edit)
       self
     end
   end
 
-  def schedule!(at: nil)
-    transition_to!("scheduled", at: at)
+  def schedule!
+    transition_to!("scheduled")
   end
 
-  def activate!(at: nil)
-    transition_to!("active", at: at)
+  def activate!
+    transition_to!("active")
   end
 
-  def close!(at: nil)
-    transition_to!("closed", at: at)
+  # Finalize if due. Discovery and callers cannot force an early close.
+  def close!
+    transaction(requires_new: true) do
+      reload(lock: true)
+      decision_time = AuctionClock.now
+      return self if status == "closed"
+      unless status == "active"
+        raise DomainError.new("invalid_state_transition", "Only active auctions can close.")
+      end
+      return self unless AuctionDeadline.due?(ends_at, decision_time)
+
+      self.winner_id = current_leader_id
+      self.closed_at = decision_time
+      self.status = "closed"
+      save!(context: :transition)
+      self
+    end
   end
 
   def cancel!
-    transition_to!("cancelled", at: nil)
+    transition_to!("cancelled")
   end
 
   # PostgreSQL owns serialization across all Rails processes.
-  def place_bid!(bidder:, amount:, at: nil)
+  def place_bid!(bidder:, amount:)
     # Preserve atomicity even if a caller rescues failure inside an outer transaction.
     transaction(requires_new: true) do
       reload(lock: true)
-      validate_bidding_window!(at || Time.current)
+      decision_time = AuctionClock.now
+      validate_bidding_window!(decision_time)
 
       bid = Bid.new(auction_id: id, bidder: bidder, amount: amount, sequence: (bids.maximum(:sequence) || 0) + 1)
       raise ActiveRecord::RecordInvalid.new(bid) unless bid.valid?(:placement)
@@ -75,14 +92,17 @@ class Auction < ApplicationRecord
         raise DomainError.new("bid_too_low", "Bid must be at least #{minimum} cents.", details: { minimum_bid: minimum, current_price: current_price })
       end
 
-      Bidding::ProxyResolver.new(self).manual(bidder, bid.amount)
+      accepted_bid = Bidding::ProxyResolver.new(self).manual(bidder, bid.amount)
+      persist_bidding_action!(decision_time)
+      accepted_bid
     end
   end
 
-  def set_maximum!(bidder:, maximum_amount:, at: nil)
+  def set_maximum!(bidder:, maximum_amount:)
     transaction(requires_new: true) do
       reload(lock: true)
-      validate_bidding_window!(at || Time.current)
+      decision_time = AuctionClock.now
+      validate_bidding_window!(decision_time)
       instruction = MaximumBid.find_or_initialize_by(auction_id: id, bidder_id: bidder&.id)
       instruction.bidder = bidder
       previous = instruction.maximum_amount
@@ -102,6 +122,7 @@ class Auction < ApplicationRecord
       instruction.priority_sequence = (maximum_bids.maximum(:priority_sequence) || 0) + 1
       instruction.save!(context: :maximum_configuration)
       Bidding::ProxyResolver.new(self).maximum(instruction)
+      persist_bidding_action!(decision_time)
       instruction
     end
   end
@@ -120,12 +141,15 @@ class Auction < ApplicationRecord
     unless status == "active"
       raise DomainError.new("invalid_auction_state", "Bids require an active auction.", details: { status: status })
     end
-    unless starts_at <= at && at < ends_at
+    if AuctionDeadline.due?(ends_at, at)
+      raise DomainError.new("auction_ended", "The auction has ended.", details: { ends_at: ends_at.utc.iso8601(6) })
+    end
+    unless starts_at <= at
       raise DomainError.new("auction_not_open", "The bidding window is not open.")
     end
   end
 
-  def transition_to!(target, at:)
+  def transition_to!(target)
     transaction(requires_new: true) do
       reload(lock: true)
       return self if status == target
@@ -133,8 +157,7 @@ class Auction < ApplicationRecord
       unless TRANSITIONS.fetch(target).include?(status)
         raise DomainError.new("invalid_state_transition", "Cannot transition from #{status} to #{target}.", details: { from: status, to: target })
       end
-      check_transition_preconditions!(target, at || Time.current)
-      self.winner_id = current_leader_id if target == "closed"
+      check_transition_preconditions!(target, AuctionClock.now)
       self.status = target
       save!(context: :transition)
       self
@@ -149,11 +172,15 @@ class Auction < ApplicationRecord
       unless starts_at <= at && at < ends_at
         raise DomainError.new("invalid_state_transition", "Activation requires an open bidding window.")
       end
-    when "closed"
-      raise DomainError.new("invalid_state_transition", "Cannot close before ends_at.") if at < ends_at
     when "cancelled"
       raise DomainError.new("invalid_state_transition", "Cannot cancel an auction with accepted bids.") if bids.exists?
     end
+  end
+
+  # One accepted external commitment, independently of generated Bid count.
+  def persist_bidding_action!(decision_time)
+    self.ends_at = AuctionDeadline.extended_end(ends_at, decision_time)
+    save!(context: :bid_placement)
   end
 
   def valid_time_window
@@ -161,6 +188,13 @@ class Auction < ApplicationRecord
   end
 
   def valid_price_and_winner
+    errors.add(:ends_at, "must not precede original_ends_at") if ends_at && original_ends_at && ends_at < original_ends_at
+    if status == "closed"
+      errors.add(:closed_at, "must be present") unless closed_at
+      errors.add(:winner, "must match current leader") unless winner_id == current_leader_id
+    elsif closed_at
+      errors.add(:closed_at, "is only assigned on closure")
+    end
     if current_price && starting_price && current_price < starting_price
       errors.add(:current_price, "must not be below starting_price")
     end
@@ -188,7 +222,16 @@ class Auction < ApplicationRecord
     if will_save_change_to_current_price? && ![ :draft_edit, :bid_placement ].include?(validation_context)
       errors.add(:current_price, "must be changed through draft editing or bid placement")
     end
-    if EDITABLE_FIELDS.any? { |field| will_save_change_to_attribute?(field) }
+    if will_save_change_to_ends_at? && ![ :draft_edit, :bid_placement ].include?(validation_context)
+      errors.add(:ends_at, "must be changed through draft editing or soft close")
+    end
+    if will_save_change_to_closed_at? && validation_context != :transition
+      errors.add(:closed_at, "must be assigned through closure")
+    end
+    if will_save_change_to_original_ends_at? && !(status_in_database == "draft" && validation_context == :draft_edit)
+      errors.add(:original_ends_at, "must be changed through draft editing")
+    end
+    if EDITABLE_FIELDS.any? { |field| will_save_change_to_attribute?(field) && !(field == "ends_at" && validation_context == :bid_placement) }
       errors.add(:base, "Auction terms can only change while draft") unless status_in_database == "draft"
       if will_save_change_to_starting_price? && validation_context != :draft_edit
         errors.add(:starting_price, "must be changed through draft editing")

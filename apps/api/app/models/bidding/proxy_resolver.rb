@@ -57,7 +57,6 @@ module Bidding
 
     def finish(leader_id)
       @auction.current_leader_id = leader_id
-      @auction.save!(context: :bid_placement)
     end
   end
 end

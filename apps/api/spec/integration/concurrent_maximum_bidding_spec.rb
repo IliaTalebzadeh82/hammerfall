@@ -117,7 +117,7 @@ RSpec.describe "PostgreSQL concurrent maximum bidding", type: :model do
           stale.set_maximum!(bidder: User.find(@other.id), maximum_amount: 40_000)
         end
         wait_for_lock(take(ready))
-        state == "closed" ? auction.close!(at: auction.ends_at) : auction.cancel!
+        state == "closed" ? expire_fixture(auction).close! : auction.cancel!
       end
       error = result(waiting)
       expect(error).to be_a(DomainError)

@@ -5,22 +5,49 @@ module DomainHelpers
       description: "A working film camera.",
       starting_price: 10_000,
       minimum_increment: 500,
-      starts_at: 1.minute.ago,
-      ends_at: 1.hour.from_now
+      starts_at: AuctionClock.now - 60,
+      ends_at: AuctionClock.now + 3600
     }.merge(overrides)
   end
 
   def create_auction(state: "draft", **overrides)
     auction = Auction.create_draft!(auction_attributes(**overrides))
     if %w[scheduled active closed].include?(state)
-      auction.schedule!(at: auction.starts_at)
+      auction.schedule!
     end
     if %w[active closed].include?(state)
-      auction.activate!(at: auction.starts_at)
+      auction.activate!
     end
-    auction.close!(at: auction.ends_at) if state == "closed"
+    expire_fixture(auction).close! if state == "closed"
     auction.cancel! if state == "cancelled"
     auction
+  end
+
+  # Fixture-only SQL: construct a historical deadline; never inject a fake clock
+  # into production commands. Concurrency expiry tests instead wait for DB time.
+  def deadline_fixture(auction, deadline)
+    auction.update_columns(original_ends_at: deadline, ends_at: deadline)
+    auction
+  end
+
+  def expire_fixture(auction)
+    deadline_fixture(auction, AuctionClock.now - 1)
+  end
+
+  # Observe the real DB clock independently of the production helper so a
+  # transaction-time sabotage cannot also freeze the test's waiting mechanism.
+  def database_wall_time
+    ApplicationRecord.connection_pool.with_connection do |connection|
+      connection.uncached { connection.select_value("SELECT clock_timestamp()") }
+    end
+  end
+
+  def wait_until_database_time(time)
+    timeout = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 40
+    while database_wall_time < time
+      raise "Database clock failed to reach fixture deadline" if Process.clock_gettime(Process::CLOCK_MONOTONIC) > timeout
+      sleep 0.01
+    end
   end
 
   def json

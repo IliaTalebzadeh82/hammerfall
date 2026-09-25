@@ -9,10 +9,6 @@ ActiveRecord::Migration.maintain_test_schema!
 
 RSpec.configure do |config|
   config.include DomainHelpers
-  config.include ActiveSupport::Testing::TimeHelpers
-  config.around(:each, :domain) do |example|
-    travel_to(Time.utc(2026, 9, 24, 12)) { example.run }
-  end
   config.use_transactional_fixtures = true
   config.filter_rails_from_backtrace!
 end

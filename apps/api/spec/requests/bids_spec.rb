@@ -15,9 +15,9 @@ RSpec.describe "Bidding API", :domain, type: :request do
     expect(json.fetch("data")).to eq([ data ])
     get "/api/v1/auctions/#{auction.id}"
     expect(json.fetch("data")).to include("current_price" => 10_000, "current_leader_id" => bidder.id, "winner_id" => nil)
-    travel_to(auction.ends_at)
+    expire_fixture(auction)
     post "/api/v1/auctions/#{auction.id}/close"
-    expect(json.fetch("data")).to include("status" => "closed", "current_leader_id" => nil, "winner_id" => bidder.id)
+    expect(json.fetch("data")).to include("status" => "closed", "current_leader_id" => bidder.id, "winner_id" => bidder.id)
     post path, params: { bid: { bidder_id: bidder.id, amount: 11_000 } }, as: :json
     expect(response).to have_http_status(:unprocessable_content)
     expect(json.dig("error", "code")).to eq("invalid_auction_state")
@@ -60,10 +60,10 @@ RSpec.describe "Bidding API", :domain, type: :request do
   end
 
   it "rejects an elapsed window even while status remains active" do
-    travel_to(auction.ends_at)
+    expire_fixture(auction)
     post path, params: { bid: { bidder_id: bidder.id, amount: 10_000 } }, as: :json
     expect(response).to have_http_status(:unprocessable_content)
-    expect(json.dig("error", "code")).to eq("auction_not_open")
+    expect(json.dig("error", "code")).to eq("auction_ended")
   end
 
   it "paginates history by authoritative sequence and scopes it to one auction" do

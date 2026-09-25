@@ -1,0 +1,8 @@
+#!/usr/bin/env ruby
+ENV["PGOPTIONS"] ||= "-c lock_timeout=5s -c statement_timeout=10s"
+$stdout.sync = true
+require_relative "../config/environment"
+abort "Usage: bin/auction_closer [--once]" unless ARGV.empty? || ARGV == [ "--once" ]
+closer = AuctionCloser.new(logger: ActiveSupport::Logger.new($stdout))
+%w[TERM INT].each { |signal| Signal.trap(signal) { closer.stop } }
+closer.run(once: ARGV.include?("--once"))
