@@ -2,11 +2,11 @@ module Api
   module V1
     class MaximumBidsController < BaseController
       def update
-        auction = find_auction
+        key = Idempotency::Executor.validate_key!(request.headers["Idempotency-Key"])
         attributes = resource_params(:maximum_bid, %w[bidder_id maximum_amount])
-        bidder = User.find(positive_integer(attributes.fetch(:bidder_id) { raise ActionController::ParameterMissing, :bidder_id }))
-        auction.set_maximum!(bidder: bidder, maximum_amount: attributes[:maximum_amount])
-        render json: { data: { auction_id: auction.id, bidder_id: bidder.id, accepted: true } }
+        actor_id = positive_integer(attributes.fetch(:bidder_id) { raise ActionController::ParameterMissing, :bidder_id })
+        render_idempotent(IdempotentBidding.call(key: key, actor_id: actor_id,
+          auction_id: positive_integer(params[:id]), operation: "set_maximum_bid", amount: attributes[:maximum_amount]))
       end
     end
   end

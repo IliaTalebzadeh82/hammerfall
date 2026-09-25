@@ -12,10 +12,11 @@ RSpec.shared_context "committed auction concurrency" do
       thread.kill if thread.alive?
       begin
         thread.join
-      rescue StandardError
+      rescue StandardError, RSpec::Expectations::ExpectationNotMetError
         # result already surfaces worker failures; cleanup must still run.
       end
     end
+    IdempotencyRecord.where(actor_id: @user_ids).delete_all
     MaximumBid.where(auction_id: @auction_ids).delete_all
     Bid.where(auction_id: @auction_ids).delete_all
     Auction.where(id: @auction_ids).delete_all

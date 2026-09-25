@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_24_030000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_25_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -61,6 +61,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_030000) do
     t.check_constraint "sequence > 0", name: "bids_sequence_positive"
   end
 
+  create_table "idempotency_records", force: :cascade do |t|
+    t.bigint "actor_id", null: false
+    t.datetime "created_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.datetime "expires_at", null: false
+    t.string "key_digest", limit: 64, null: false
+    t.string "operation", null: false
+    t.string "request_fingerprint", limit: 64, null: false
+    t.jsonb "response_body"
+    t.integer "response_status"
+    t.string "status", default: "processing", null: false
+    t.datetime "updated_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.index ["actor_id", "operation", "key_digest"], name: "index_idempotency_records_on_scope", unique: true
+    t.index ["expires_at", "id"], name: "index_idempotency_records_for_pruning", where: "((status)::text = 'completed'::text)"
+    t.check_constraint "expires_at > created_at", name: "idempotency_retention"
+    t.check_constraint "key_digest::text ~ '^[0-9a-f]{64}$'::text AND request_fingerprint::text ~ '^[0-9a-f]{64}$'::text", name: "idempotency_digests"
+    t.check_constraint "operation::text = ANY (ARRAY['place_bid'::character varying, 'set_maximum_bid'::character varying]::text[])", name: "idempotency_operation"
+    t.check_constraint "status::text = 'processing'::text AND response_status IS NULL AND response_body IS NULL OR status::text = 'completed'::text AND (response_status = ANY (ARRAY[200, 201, 404, 422])) AND response_status IS NOT NULL AND response_body IS NOT NULL AND jsonb_typeof(response_body) = 'object'::text", name: "idempotency_outcome"
+  end
+
   create_table "maximum_bids", force: :cascade do |t|
     t.bigint "auction_id", null: false
     t.bigint "bidder_id", null: false
@@ -86,6 +105,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_030000) do
   add_foreign_key "auctions", "users", column: "winner_id"
   add_foreign_key "bids", "auctions"
   add_foreign_key "bids", "users", column: "bidder_id"
+  add_foreign_key "idempotency_records", "users", column: "actor_id"
   add_foreign_key "maximum_bids", "auctions"
   add_foreign_key "maximum_bids", "users", column: "bidder_id"
 end

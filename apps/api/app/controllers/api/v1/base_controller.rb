@@ -3,6 +3,10 @@ module Api
     class BaseController < ApplicationController
       wrap_parameters false
 
+      rescue_from Idempotency::Executor::InvalidKey do |error|
+        render_error(error.code, error.message, :bad_request)
+      end
+
       rescue_from DomainError do |error|
         render_error(error.code, error.message, :unprocessable_content, error.details)
       end
@@ -18,6 +22,11 @@ module Api
       end
 
       private
+
+      def render_idempotent(outcome)
+        response.set_header("Idempotency-Replayed", "true") if outcome.replayed
+        render json: outcome.body, status: outcome.status
+      end
 
       def render_error(code, message, status, details = {})
         render json: { error: { code: code, message: message, details: details } }, status: status

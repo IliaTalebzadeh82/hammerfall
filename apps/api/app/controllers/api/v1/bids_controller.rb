@@ -7,11 +7,11 @@ module Api
       end
 
       def create
-        auction = find_auction
+        key = Idempotency::Executor.validate_key!(request.headers["Idempotency-Key"])
         attributes = resource_params(:bid, %w[bidder_id amount])
-        bidder = User.find(positive_integer(attributes.fetch(:bidder_id) { raise ActionController::ParameterMissing, :bidder_id }))
-        bid = auction.place_bid!(bidder: bidder, amount: attributes[:amount])
-        render json: { data: BidPresenter.new(bid).as_json }, status: :created
+        actor_id = positive_integer(attributes.fetch(:bidder_id) { raise ActionController::ParameterMissing, :bidder_id })
+        render_idempotent(IdempotentBidding.call(key: key, actor_id: actor_id,
+          auction_id: positive_integer(params[:auction_id]), operation: "place_bid", amount: attributes[:amount]))
       end
     end
   end
