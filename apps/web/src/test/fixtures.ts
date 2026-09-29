@@ -1,6 +1,7 @@
 import type { Auction, PublicBid } from "@/lib/api/types";
 export const auction: Auction = {
   id: 42,
+  public_revision: 0,
   title: "Braun Atelier receiver",
   description: "Brushed aluminium. A considered piece of audio design.",
   status: "active",

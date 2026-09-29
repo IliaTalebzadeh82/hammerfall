@@ -1,3 +1,6 @@
+vi.mock("@/lib/realtime/auction-subscription", () => ({
+  subscribeAuction: () => () => {},
+}));
 import {
   act,
   fireEvent,
@@ -71,7 +74,7 @@ it("handles no auctions and no users", async () => {
   await screen.findByText("No auctions available");
   await screen.findByText("No demo users available.");
 });
-it("does not let an older GET overwrite a newer refresh; history follows sequence pagination", async () => {
+it("coalesces a queued refresh after an older GET; history follows sequence pagination", async () => {
   let auctionReads = 0;
   let releaseOld!: (response: Response) => void;
   const older = new Promise<Response>((resolve) => {
@@ -111,8 +114,9 @@ it("does not let an older GET overwrite a newer refresh; history follows sequenc
   await screen.findByText("02");
   fireEvent.click(screen.getByRole("button", { name: "Refresh auction" }));
   fireEvent(document, new Event("visibilitychange"));
-  await screen.findByText("€400.00");
+  expect(auctionReads).toBe(2);
   await act(async () => releaseOld(json({ data: auction })));
+  await screen.findByText("€400.00");
   expect(screen.queryByText("€300.00")).not.toBeInTheDocument();
   expect(screen.getByText("€400.00")).toBeInTheDocument();
   expect(screen.queryByText("02")).not.toBeInTheDocument();

@@ -27,6 +27,8 @@ services:
         LOCAL_GID: ${LOCAL_GID:-1000}
     environment:
       RAILS_ENV: development
+      CABLE_WORKER_THREADS: ${CABLE_WORKER_THREADS:-2}
+      CABLE_ALLOWED_ORIGINS: ${CABLE_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       IDEMPOTENCY_RETENTION_DAYS: ${IDEMPOTENCY_RETENTION_DAYS:-7}
       IDEMPOTENCY_PRUNE_BATCH_SIZE: ${IDEMPOTENCY_PRUNE_BATCH_SIZE:-1000}
       PGHOST: db
@@ -80,6 +82,7 @@ services:
     environment:
       NEXT_TELEMETRY_DISABLED: "1"
       API_ORIGIN: http://api:3000
+      NEXT_PUBLIC_CABLE_URL: ${NEXT_PUBLIC_CABLE_URL:-ws://localhost:3001/cable}
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
     volumes:

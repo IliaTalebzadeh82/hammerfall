@@ -22,6 +22,8 @@ export function isAuction(v: unknown): v is Auction {
   return (
     object(v) &&
     positive(v.id) &&
+    Number.isSafeInteger(v.public_revision) &&
+    Number(v.public_revision) >= 0 &&
     typeof v.title === "string" &&
     typeof v.description === "string" &&
     ["draft", "scheduled", "active", "closed", "cancelled"].includes(
@@ -81,7 +83,9 @@ async function request(
   const response = await fetch(`/api/v1${path}`, {
     ...init,
     cache: "no-store",
-    signal: init.signal ?? AbortSignal.timeout(15_000),
+    signal: init.signal
+      ? AbortSignal.any([init.signal, AbortSignal.timeout(15_000)])
+      : AbortSignal.timeout(15_000),
     headers: { Accept: "application/json", ...init.headers },
   });
   const receivedAt = Date.now();

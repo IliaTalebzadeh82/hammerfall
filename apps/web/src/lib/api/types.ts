@@ -6,6 +6,7 @@ export type AuctionStatus =
   | "cancelled";
 export type Auction = {
   id: number;
+  public_revision: number;
   title: string;
   description: string;
   status: AuctionStatus;

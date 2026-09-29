@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { ApiFailure, getAuction, getBids } from "@/lib/api/client";
 import type { Auction, PublicBid } from "@/lib/api/types";
 import { formatEuroCents } from "@/lib/money";
+import {
+  subscribeAuction,
+  type ConnectionState,
+} from "@/lib/realtime/auction-subscription";
+import { RefreshCoordinator } from "@/lib/realtime/refresh-coordinator";
 import { BiddingPanel } from "./bidding-panel";
 import {
   AuctionTiming,
@@ -24,44 +29,69 @@ export function AuctionDetail({ id }: { id: number }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [offset, setOffset] = useState(0);
-  const request = useRef<AbortController | null>(null);
+  const [connection, setConnection] = useState<ConnectionState>("connecting");
+  type Snapshot = {
+    revision: number;
+    auction: Auction;
+    bids: PublicBid[];
+    next: number | null;
+    offset: number;
+  };
+  const coordinator = useRef<RefreshCoordinator<Snapshot> | null>(null);
   const generation = useRef(0);
   const historyBusy = useRef(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(false);
-  const refresh = useCallback(async () => {
-    request.current?.abort();
-    const controller = new AbortController();
-    request.current = controller;
-    ++generation.current;
-    setLoading(true);
-    setError("");
-    setHistoryError(false);
-    try {
-      const [detail, history] = await Promise.all([
-        getAuction(id, controller.signal),
-        getBids(id, undefined, controller.signal),
-      ]);
-      if (controller.signal.aborted) return;
-      setAuction(detail.body);
-      setBids(history.items);
-      setNext(history.next);
-      setOffset(detail.offset ?? 0);
-    } catch (failure) {
-      if (!controller.signal.aborted)
+  const refresh = useCallback(() => coordinator.current?.refresh(), []);
+  useEffect(() => {
+    const current = new RefreshCoordinator<Snapshot>({
+      read: async (signal) => {
+        ++generation.current;
+        setError("");
+        setHistoryError(false);
+        const [detail, history] = await Promise.all([
+          getAuction(id, signal),
+          getBids(id, undefined, signal),
+        ]);
+        return {
+          revision: detail.body.public_revision,
+          auction: detail.body,
+          bids: history.items,
+          next: history.next,
+          offset: detail.offset ?? 0,
+        };
+      },
+      accept: (snapshot) => {
+        setAuction(snapshot.auction);
+        setBids(snapshot.bids);
+        setNext(snapshot.next);
+        setOffset(snapshot.offset);
+      },
+      error: (failure) =>
         setError(
           failure instanceof ApiFailure && failure.status === 404
             ? "Auction not found."
             : "Couldn’t refresh this auction. The displayed state may be out of date.",
-        );
-    } finally {
-      if (!controller.signal.aborted) setLoading(false);
-    }
+        ),
+      loading: setLoading,
+    });
+    coordinator.current = current;
+    current.refresh();
+    return () => current.dispose();
   }, [id]);
+  const loadedId = auction?.id;
   useEffect(() => {
-    void refresh();
-    return () => request.current?.abort();
-  }, [refresh]);
+    if (loadedId !== id) return;
+    try {
+      return subscribeAuction(id, {
+        state: setConnection,
+        confirmed: refresh,
+        changed: (revision) => coordinator.current?.invalidate(revision),
+      });
+    } catch {
+      setConnection("unavailable");
+    }
+  }, [id, loadedId, refresh]);
   const outcomeRevision =
     session.outcome?.auctionId === id ? session.outcome.revision : 0;
   useEffect(() => {
@@ -111,6 +141,17 @@ export function AuctionDetail({ id }: { id: number }) {
           {loading ? "Refreshing…" : "Refresh auction"}
         </Button>
       </div>
+      <p className="fine-print" role="status" aria-live="polite">
+        {
+          {
+            connecting: "Connecting live updates…",
+            connected: "Live updates connected",
+            reconnecting: "Reconnecting live updates…",
+            unavailable:
+              "Live updates unavailable — refresh to check the latest state.",
+          }[connection]
+        }
+      </p>
       <div className="detail-title">
         <p className="eyebrow">Auction {String(auction.id).padStart(3, "0")}</p>
         <h1>{auction.title}</h1>
@@ -195,7 +236,8 @@ export function AuctionDetail({ id }: { id: number }) {
             <h2>A little time to respond.</h2>
             <p>
               An accepted bid or increased maximum in the final minute adds 90
-              seconds. Refresh to see changes from other bidders.
+              seconds. Live updates check for changes from other bidders. You
+              can also refresh.
             </p>
           </div>
         </div>

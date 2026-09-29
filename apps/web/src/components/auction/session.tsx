@@ -384,7 +384,9 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
       <footer className="shell site-footer">
         <span className="wordmark">Hammerfall.</span>
         <p>Considered objects. Committed bids.</p>
-        <p>Updates appear when you refresh. This demo has no authentication.</p>
+        <p>
+          Auction details support live updates. This demo has no authentication.
+        </p>
       </footer>
     </>
   );

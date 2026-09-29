@@ -1,3 +1,6 @@
+vi.mock("@/lib/realtime/auction-subscription", () => ({
+  subscribeAuction: () => () => {},
+}));
 import {
   act,
   fireEvent,
