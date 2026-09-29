@@ -42,7 +42,16 @@ performance improvement is claimed without measurement. See ADR-006.
 Phase 6 now provides a working browser auction UI with session-based retry recovery
 and real-API browser evidence. It still has no authentication, authorization or
 real-money readiness. Reads become stale between explicit/visibility/command/expiry
-refreshes; there is no realtime transport. Browser storage can be lost and clocks
+refreshes; Phase 7 also adds best-effort Cable invalidations. Browser storage can
+be lost and clocks
 can move. The one-hour client retry horizon is conservative, not a durability SLA.
 Separate auction/history GETs are not one consistent snapshot. No exhaustive
 accessibility audit, cross-browser certification or performance benchmark is claimed.
+
+## Phase 7 review gates
+
+Implemented public invalidations do not imply production readiness. Review exact
+origin/WSS/proxy configuration, authentication and authorization, connection limits,
+PostgreSQL listener connections, shared HTTP/Cable pool contention, hot-auction
+fanout and REST amplification. LISTEN/NOTIFY is ephemeral and has a commit/broadcast
+crash gap. No outbox, replay, delivery guarantee or measured capacity exists yet.

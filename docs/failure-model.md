@@ -20,3 +20,12 @@ availability promise is made. Later phases must document Redis/Kafka outages, wo
 crashes, dropped WebSockets, publication delays, duplicate events, latency spikes,
 and delayed/concurrent closing workers using the master specification's questions:
 what remains correct, unavailable or stale, and how recovery happens.
+
+## Phase 7 transport failure
+
+Broadcast failure after commit is logged without undoing acceptance or idempotency
+completion. Commit-before-process-crash can lose a notification. Disconnect/reconnect
+recovers by current REST state, not message replay. REST errors are shown separately
+from Cable connection status; a pending ambiguous command remains pending even when
+new revisions arrive. A stale connected client needs a later hint, visibility/manual
+refresh or reconnection. No durable delivery or periodic reconciliation is claimed.

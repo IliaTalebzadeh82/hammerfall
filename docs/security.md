@@ -46,3 +46,12 @@ is temporarily stored in same-tab sessionStorage for retry; resolved storage is
 removed, unsubmitted inputs clear on actor changes, and no confirmed ceiling is
 inferred from acknowledgements. Storage access is not an authentication boundary.
 Local host allowances are explicit; production CORS was not broadened. See ADR-007.
+
+## Phase 7 public transport boundary
+
+Cable exposes only public auction ID/revision/type. Maxima, priority, bid origin,
+actor identity, idempotency keys and command outcomes never enter notifications.
+Malformed/unknown subscriptions are rejected. Exact allowed origins remain enabled;
+production has no implicit same-host allowance. No private actor channel exists.
+Demo identity and lifecycle APIs are still unauthenticated; origin checks do not
+replace authentication, authorization, rate limits or connection capacity controls.

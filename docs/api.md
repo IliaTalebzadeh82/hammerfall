@@ -274,3 +274,16 @@ This header is fresh transport metadata on replay, not part of the saved Phase 5
 logical response. Status/body replay contracts and all domain semantics are unchanged.
 The frontend uses a transparent same-origin Next rewrite; no CORS-wide production
 policy or new maximum read endpoint was added.
+
+## Phase 7 public revision and subscription
+
+Auction responses include `public_revision`, a nonnegative bigint (JSON number).
+Creation/legacy rows start at zero. A committed logical public mutation increments
+once; private-only protection changes do not. Clients compare revisions, not
+updated_at or bid sequence. Revision is server-managed and rejected in command input.
+
+`/cable` accepts public `AuctionChannel` subscriptions with a valid existing positive
+`auction_id`. There is no actor parameter or private maximum stream. The only domain
+message is `{"type":"auction.changed.v1","auction_id":42,"revision":17}`.
+It requests a fresh GET; it is neither a command acknowledgement nor a snapshot.
+See [realtime](realtime.md) for ordering, privacy and missed-message recovery.

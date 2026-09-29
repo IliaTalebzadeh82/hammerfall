@@ -1,7 +1,7 @@
 # Code map
 
 Paths below are relative to the repository root. Phase 5 resolves client key ownership before the PostgreSQL auction row lock.
-There is no outbox, event publication, or realtime delivery.
+Phase 7 adds ephemeral public invalidations; no outbox or durable event publication exists.
 
 ## Creating an auction
 
@@ -276,3 +276,18 @@ All paths in this section begin under `apps/web` unless otherwise noted.
   countdown/closure and 390/768/1440 screenshots with long titles/large amounts.
 - Commands: `npm test`, lint, format:check, typecheck, build, test:e2e. CI's Compose
   job starts real Rails/PostgreSQL/closer and runs the browser scenarios.
+
+## Phase 7 implementation map
+
+- `apps/api/db/migrate/20260929000000_add_public_auction_revision.rb`: revision schema and guarded downgrade.
+- `apps/api/app/models/auction.rb`: locked public-save/revision boundary.
+- `apps/api/app/services/auction_publication.rb`: outermost-commit publication and transport failure isolation.
+- `apps/api/app/channels/auction_channel.rb`, `config/cable.yml`, `config/application.rb`: public subscription, PostgreSQL adapter, origins/workers.
+- `apps/api/spec/integration/public_revision_spec.rb`: actual commits, rollback/savepoints, independent visibility, privacy, replay and concurrent closure.
+- `apps/api/spec/channels/auction_channel_spec.rb`: stream selection and invalid subscriptions.
+- `apps/web/src/lib/realtime/auction-subscription.ts`: owned official Cable consumer and envelope validation.
+- `apps/web/src/lib/realtime/refresh-coordinator.ts`: revision ordering, coalescing, bounded recovery and cleanup.
+- `apps/web/src/components/auction/realtime.test.tsx`: connection/REST separation and pending-command preservation.
+- `apps/web/e2e/realtime.spec.ts`: real two-client proxy/extension/closure/reconnect.
+- `apps/web/scripts/verify-realtime.mjs`: independent API/Cable process proof and origin checks.
+- `docs/realtime.md`, `docs/adr/008-realtime-auction-invalidations.md`: protocol, rationale and limitations.

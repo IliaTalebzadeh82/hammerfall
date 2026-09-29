@@ -142,3 +142,12 @@ These are client behavior guarantees, not replacements for the database invarian
 
 Actor IDs are still unauthenticated. Browser storage/clock loss, separate GET
 snapshots and absence of realtime remain explicit limits. See ADR-007.
+
+## Public observation ordering — Phase 7
+
+A committed public mutation and its incremented public_revision are atomic. A
+private-only maximum cannot change public_revision or public updated_at. Rollbacks,
+replays and no-ops emit no new invalidation. Publication occurs after the outermost
+commit; savepoint rollback drops its callback. A notification contains only type,
+auction_id and revision. The browser cannot derive acceptance or winner from it,
+and never replaces displayed auction state with an older REST revision.

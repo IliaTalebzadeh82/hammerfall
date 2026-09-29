@@ -1241,3 +1241,126 @@ Phase 7 — Real-Time Updates, only on a new explicit request.
 Recommended next prompt (exact):
 
 > Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, apps/web/AGENTS.md, all ADRs, docs/frontend.md, and the current architecture, domain-model, invariants, API, consistency-model, learning-guide, code-map and running-locally documents. Inspect the frontend command/recovery code, public serializers, bidding/closing/idempotency services and tests. Implement Phase 7 only — Real-Time Updates, following the master plan. Add real server-pushed auction updates with Action Cable while preserving Rails/PostgreSQL authority, maximum/priority/origin privacy, stable idempotency intentions, historical replay semantics and fresh REST recovery. Handle connection loss, reconnects and stale/out-of-order updates explicitly; never infer acceptance, closure or winners from transport state or browser time. Do not add later-phase infrastructure or silently change domain semantics. Add meaningful backend/frontend/browser tests, run full regression/security/build and Docker verification, document actual evidence and remaining delivery limitations, update progress/learning/code-map/ADRs, create coherent commits with a clean working tree, and stop after Phase 7. Do not begin Phase 8.
+
+## Phase 7 — Real-Time Updates
+
+Status: COMPLETE — verified 2026-09-29
+
+### Implemented and protocol
+
+Action Cable now uses PostgreSQL in development/production and the isolated test
+adapter in specs. `/cable` hosts a validated public AuctionChannel; exact origin
+allowlists stay enabled, with production default deny. No Redis/Sidekiq was added.
+The adapter carries invalidations across Rails processes with no new infrastructure.
+
+Auction.public_revision is a nonnegative NOT NULL bigint, default zero for creation
+and legacy rows. The existing locked explicit mutation advances it once for public
+draft edits, lifecycle transitions, bidding settlement or extension. Proxy rows and
+an extension are one logical action. Private-only protection changes, identical
+maxima, rejected/rolled-back actions, replay, pruning and early/duplicate closes do
+not advance or publish; private-only timestamps also remain unchanged.
+
+The only application payload is `{type:"auction.changed.v1",auction_id,revision}`.
+One central publisher runs through the current transaction's outermost after_commit;
+rollback drops savepoint callbacks. Broadcast failure cannot change committed domain
+or idempotency outcome. Maxima, priorities, bid origins, actor/command information
+and keys never enter the notification. See ADR-008 and realtime.md.
+
+### Browser recovery
+
+The detail page owns one consumer after its first GET, refreshes on every subscription
+confirmation/reconfirmation, ignores stale/equal hints and coalesces bursts into
+serial REST reads. Older REST revisions cannot regress the display. Cleanup aborts
+reads and disconnects the consumer. Cable health, REST errors and command state are
+independent. Events never resolve an ambiguous intention; safe retry and historical
+replay semantics remain intact. Listing pages retain explicit REST pagination.
+
+### Actual multi-process and browser evidence
+
+Independent Compose Rails A/3001 and native Rails B/3002 share PostgreSQL. HTTP
+mutations through A reached actual sockets attached to B. Restored final protocol
+proof: auction 133, revision 2 -> notification 3 -> REST 3; exact three-field payload,
+stream isolation, malformed subscription rejection and disallowed-origin rejection
+passed. The reusable script is apps/web/scripts/verify-realtime.mjs.
+
+Initial separate-process two-client run passed all three realtime scenarios through
+native frontend 3100 (HTTP A, Cable B). Auction 125 observed revisions 3,4, missed 5
+while disconnected, then recovered 5 through reconfirmation REST with no replayed
+event. Manual 100 and a challenge 200 against private protection 300 settled at 210
+with three public rows. Auction 126 deadline advanced exactly 90 seconds, revision
+2 -> 3. Auction 127 closed via the ordinary closer, revision 3 -> 4, winner 1; an
+actual closure notification was observed. Tests use real deadlines, not clock overrides.
+
+The final production Next frontend on 3100 also passed **3/3** realtime browser
+scenarios against HTTP A/3001 and Cable B/3002: auctions 148–150 proved proxy
+settlement/reconnect, 90-second extension and winner publication. Temporary native
+servers were stopped afterward; the Compose stack remains running.
+
+### Sabotage evidence
+
+- Two independent temporary Rails processes on 3003/3004 with async adapter: the
+  cross-process notification wait timed out (8 seconds). Restored PostgreSQL passed.
+- Immediate publication replacing after_commit: 9 examples, 3 failures, exposing
+  uncommitted visibility, outer rollback phantom and savepoint phantom messages.
+  Runtime-only override was removed; normal tests pass.
+- Removed stale/equal revision guard: stale-hint/coalescing test failed. Original
+  source was restored and the complete frontend suite passes.
+
+No sabotage is retained. The heartbeat capture bug found during the first full
+browser run was fixed separately; that failed run is not successful evidence.
+
+### Regression and operational checks
+
+The full scripts/check run passed 349 backend examples and 73 frontend tests across
+10 files, RuboCop, Brakeman, eager loading, lint, formatting, typecheck and production
+build. An additional explicit maximum-replay notification spec was added afterward;
+final native bin/ci passed **350 examples, 0 failures** (seed 38784), including
+RuboCop, bundler-audit, Brakeman and eager loading. Frontend recheck passed
+**73 tests / 10 files**, lint, formatting and typecheck. Complete Compose browser
+suite passed **7/7** (1.7 minutes): auction 145 recovered missed revision 5,
+146 extended exactly 90 seconds, and 147 closed with winner 1. Explicit npm audit
+reported **0 vulnerabilities**. Five randomized repetitions of the
+Phase 2–5 concurrency groups passed 41 examples each (205 total).
+
+Docker image rebuild/startup passed; PostgreSQL/API/web health checks passed and the
+ordinary closer runs. npm install reported zero vulnerabilities; backend bin/ci
+includes bundler-audit and Brakeman. Production Next build also succeeded with HTTP
+A and Cable B configuration. Migration down/up in a rolled-back test transaction
+preserved all prior row fields, backfilled zero, and rejected nonzero downgrade.
+No development database reset or hosted CI execution is claimed. Installed Chrome
+was used through the documented executable fallback. Responsive screenshots at
+390/768/1440 were captured; the 390px detail was visually inspected with connected
+status, long title, large price and field error visible without horizontal overflow.
+
+### Delivery and scaling limitations
+
+Notifications are best-effort and ephemeral. Commit-before-broadcast crash can lose
+a hint; a live connection is not proof of freshness. No durable log, replay, outbox,
+queue, periodic reconciliation or exactly-once delivery exists. REST reads recover
+current state but auction/history are separate observations. PostgreSQL listener
+connections, shared pool contention and hot-auction fanout/read amplification need
+measurement. Demo actor/lifecycle APIs remain unauthenticated.
+
+### Review before Phase 8
+
+Review WSS/proxy/origin settings, connection budgets, public-only privacy, revision
+migration/downgrade policy, ephemeral delivery and retained command intentions.
+Phase 8 must preserve synchronous PostgreSQL bid/deadline/winner authority and
+safe retry; introducing a job queue does not make notifications durable automatically.
+
+Next phase: **Phase 8 — Sidekiq + Redis**, only on a new explicit request.
+
+Recommended prompt:
+
+> Work in /home/uncleili/dev/ruby/hammerfall. Read masterprompt.md, docs/progress.md, apps/web/AGENTS.md, all ADRs, and the architecture, domain-model, invariants, API, consistency-model, realtime, frontend, learning-guide, code-map and running-locally documents. Inspect the auction locking, proxy, deadline/closer, idempotency and Phase 7 publication/recovery code and tests. Implement Phase 8 only — Sidekiq + Redis, following the master plan: add application background jobs, a notification pipeline and a scheduled reconciliation framework with explicit failure semantics. Keep PostgreSQL authoritative and bid acceptance, price resolution, deadline legality and winner finalization synchronous and atomic; Redis availability must not decide auction correctness. Make every job safely retryable and define duplicate, delayed, lost, reordered and failed-job behavior, bounded retries and operational recovery. Preserve public revision semantics, after-commit privacy, ambiguous client intentions and REST reconnect recovery. Explain any Action Cable adapter change with real multi-process evidence. Do not imply durable publication across the commit/enqueue gap, and do not add Phase 9 outbox or Phase 10 Kafka early. Test worker/Redis failure and recovery plus duplicate delivery; rerun all domain concurrency, backend/frontend/browser, security, production build and Docker checks. Update ADRs, progress, learning diagrams, code-map and operating instructions with actual evidence, create coherent commits and leave a clean working tree. Stop after Phase 8; do not begin Phase 9.
+
+Implementation commits: `a21e28d` (transactional revisions/Cable) and `f0eff33`
+(browser recovery, live verification and runtime configuration). Documentation is
+committed separately after final verification. Phase 8 has not begun.
+
+Final container RSpec passed **350 examples, 0 failures** (seed 59140). Applying
+the final Compose setting had interrupted the first extra container run (exit 137),
+leaving one auction/two users; the next run exposed that leftover test fixture.
+After explicitly verifying hammerfall_test and clearing only its domain tables,
+the full container rerun passed. Final Compose services are running; configured
+health checks are healthy. Git diff whitespace checks passed.

@@ -1,4 +1,4 @@
-# Frontend — Phase 6
+# Frontend — Phase 7
 
 Hammerfall is a text-focused auction interface backed entirely by Rails. It uses
 Next.js App Router, React, TypeScript, Tailwind v4 and shadcn Base UI primitives.
@@ -53,7 +53,8 @@ provide that state. Changing actors clears unsubmitted form inputs.
 `X-Server-Time` estimates an app-server/browser offset for countdown display. The
 post-lock PostgreSQL clock still decides legality. At zero, one refresh per ends_at
 is triggered. Explicit refresh, tab visibility return and terminal commands also
-refresh; no polling or pushed updates exist. Updated ends_at resets the countdown.
+refresh; Cable invalidations and subscription confirmations also refresh.
+Updated ends_at resets the countdown.
 A delayed closer can leave Checking status visible until the next refresh.
 
 Money inputs are strings, parsed as bounded integer EUR cents. Decimal point/comma
@@ -72,12 +73,16 @@ certification or exhaustive assistive-technology coverage is claimed.
 ## Verification
 
 Vitest/Testing Library cover money, public data validation, clocks, sequence paging,
-stale-read cancellation, empty/not-found states, privacy, immutable retries, reload
+revision-based stale-read rejection, refresh coalescing, empty/not-found states,
+privacy, immutable retries, reload
 recovery, terminal refresh, errors, actor switching and storage failure. Playwright
 uses the real running API for browsing, user selection, bids/maxima, stale rejection,
 a real committed response deliberately dropped before safe recovery, closing, and
 390/768/1440 layouts with long titles and large prices. See progress.md for actual
 results, installed-browser fallback and screenshots inspected.
 
-Phase 7 should add actual server-pushed updates and reconnect recovery while
-preserving these client command guarantees. See ADR-007 for alternatives and limits.
+Phase 7 adds actual server-pushed invalidations and reconnect recovery while
+preserving these client command guarantees. See [realtime](realtime.md) and ADR-008.
+Connection status is separate from REST errors and command state; disconnected
+clients can still bid. One owned consumer is cleaned up on detail unmount. Listing
+pages retain explicit REST refresh and do not open auction subscriptions.

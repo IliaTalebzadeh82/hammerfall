@@ -285,9 +285,9 @@ a separate Rails process role and needs no Idempotency-Key.
 Open http://localhost:3000/auctions. Choose a real demo user in the header; the
 selector is explicitly unauthenticated. Browse a detail page, enter EUR strings,
 and submit a manual or binding private maximum bid. The API still decides acceptance,
-leadership, extensions and closure. Use Refresh auction to see other bidders' changes;
-there is no realtime subscription yet. Initial load, visible-tab return, command
-completion and countdown expiry also refresh.
+leadership, extensions and closure. Detail pages now subscribe to public auction
+invalidations. Initial load, subscription confirmation/reconfirmation, visible-tab
+return, command completion, explicit refresh and countdown expiry request REST state.
 
 All browser API calls use `/api/v1`. `next.config.ts` transparently rewrites to
 API_ORIGIN: native default http://127.0.0.1:3001; Compose sets http://api:3000.
@@ -333,3 +333,39 @@ The complete native check remains scripts/check. Frontend-only: npm test, lint,
 format:check, typecheck and build. A production smoke can use `npm run build` then
 `npm run start -- --hostname 127.0.0.1 --port 3100` while Rails remains running.
 The next build reads API_ORIGIN; it requires no database access to generate pages.
+
+## Phase 7 Cable verification
+
+Normal development/production use the PostgreSQL adapter; tests use the isolated
+Cable test adapter. `CABLE_ALLOWED_ORIGINS` is a comma-separated exact origin list.
+Development defaults allow localhost/127.0.0.1 port 3000; production defaults deny
+all origins. Add the actual frontend origin for another port. Do not disable origin
+checks. `NEXT_PUBLIC_CABLE_URL` is public build-time configuration (Compose defaults
+to ws://localhost:3001/cable); production needs WSS and a proxy supporting WebSocket
+upgrade, or the client's default same-origin `/cable` route. Rebuild after changing
+NEXT_PUBLIC variables. Never put credentials in the URL.
+
+For a cross-process proof, keep Compose API A on 3001 and start an independent B:
+
+```sh
+# Repository root; load local PG environment without printing credentials.
+set -a
+. .env
+set +a
+(cd apps/api && bin/rails server -b 127.0.0.1 -p 3002 -P /tmp/hammerfall-cable-b.pid)
+# In another shell, from repository root:
+API_BASE_URLS=http://127.0.0.1:3001,http://127.0.0.1:3002 \
+  PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/google/chrome/chrome \
+  node apps/web/scripts/verify-realtime.mjs
+```
+
+The script writes through A, subscribes through B, compares the exact notification
+and REST revision, tests stream isolation, malformed IDs and rejected origins.
+It retains labelled demo fixtures. Browser tests additionally cover two users,
+proxy contests, 90-second extension, ordinary closer publication and missed-message
+reconnect recovery. The closure scenario intentionally waits for a real deadline.
+For full browser tests routed through B, build/start a frontend with
+NEXT_PUBLIC_CABLE_URL=ws://127.0.0.1:3002/cable and an allowed frontend origin.
+Cable defaults to two workers; each Rails listener also uses a dedicated PostgreSQL
+connection outside the ordinary pool. Size total connection capacity across API and
+closer processes before increasing workers. This is not a production sizing result.

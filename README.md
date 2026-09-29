@@ -5,12 +5,14 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Current scope: Phase 6 — Frontend.** Browse real auctions, inspect public bid
+**Current scope: Phase 7 — Real-Time Updates.** Browse real auctions, inspect public bid
 history, select an explicit demo bidder, and submit manual or private maximum bids.
 The responsive Next.js interface preserves stable client intentions for safe retry
 after lost responses, including tab reload. Rails/PostgreSQL still owns price,
-leader, deadline extensions and final winner. Updates use request/response and
-explicit refresh; realtime delivery is Phase 7. [masterprompt.md](masterprompt.md)
+leader, deadline extensions and final winner. Auction details receive PostgreSQL-backed
+Action Cable invalidations and recover
+current state through REST on confirmation/reconnect. Delivery is best-effort;
+[realtime](docs/realtime.md) documents the commit/broadcast gap. [masterprompt.md](masterprompt.md)
 is the specification; [progress](docs/progress.md) records actual verification.
 
 ## Run locally

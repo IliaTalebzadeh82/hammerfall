@@ -1,6 +1,6 @@
 # Architecture
 
-## What exists now — Phases 0–6
+## What exists now — Phases 0–7
 
 Next.js in apps/web provides the auction listing/detail and command UI. Rails in apps/api owns
 User, Auction, Bid, MaximumBid, explicit lifecycle operations, and a JSON REST API under
@@ -14,6 +14,7 @@ API client → controllers → IdempotentBidding (bid/max) → Auction → Postg
            JSON presenters        Bid + current_price transaction
 
 Browser / Next.js → REST reads and commands → Rails API → PostgreSQL
+Browser ← public revision hint ← Rails Cable B ← PostgreSQL NOTIFY ← Rails A after commit
 
 Auction Closer (same Rails app/process role) → Auction#close! → PostgreSQL
 ```
@@ -51,8 +52,7 @@ Real PostgreSQL concurrency specs use committed rows and independent sessions.
 
 ## Later phases — not implemented
 
-Action Cable in Phase 7; Redis/Sidekiq
-in Phase 8; outbox in Phase 9; Kafka in Phase 10. Projections, reconciliation,
+Redis/Sidekiq in Phase 8; outbox in Phase 9; Kafka in Phase 10. Projections, reconciliation,
 observability, load testing, and deployment follow the master roadmap.
 No component listed here is present merely because it appears in the future plan.
 
@@ -121,6 +121,7 @@ fresh auction/history reads. No optimistic price, leader or local closure exists
 X-Server-Time is application-clock presentation metadata only. The ticking countdown
 refreshes at zero and follows the returned effective deadline.
 
-Phase 6 refresh model: initial request/response, explicit refresh, visible-tab return,
-terminal command and countdown expiry. Phase 7: actual server-pushed auction updates
-and reconnect recovery, not implemented yet. See frontend.md and ADR-007.
+The Phase 7 detail page adds Action Cable invalidations through PostgreSQL
+LISTEN/NOTIFY. Confirmation/reconfirmation and higher revisions request fresh REST
+state. Explicit, visibility, command and countdown refreshes remain independent.
+See [realtime](realtime.md), frontend.md and ADR-008 for ordering and delivery limits.

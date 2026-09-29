@@ -215,3 +215,12 @@ key. Only physical deletion permits reuse. Manual bounded idempotency:prune dele
 completed expired rows with PostgreSQL time and SKIP LOCKED. Automatic cleanup is
 future operations work. Downgrade refuses to drop retained outcomes. Retention,
 response version compatibility and authentication identity changes require review.
+
+## Phase 7 revision metadata
+
+Auction.public_revision is bigint, NOT NULL, default zero, CHECK >= 0. The existing
+locked explicit mutation paths advance it atomically with public state, once per
+logical action even when multiple proxy bids and an extension are generated.
+Draft edits use edit_draft!; ordinary model updates cannot bypass revision handling.
+Direct privileged SQL remains outside the domain workflow. No domain pricing,
+priority, deadline, winner or idempotency semantics changed. See realtime.md.

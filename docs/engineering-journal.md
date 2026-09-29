@@ -259,3 +259,33 @@ a regression test proves refresh retry replaces the first page without duplicate
 cards. Another read test resolves an older GET after a newer one and confirms the
 newer state remains visible. This is local request ordering, not a promise that
 independent Rails GETs share one database snapshot.
+
+## 2026-09-29 — Phase 7 public invalidations
+
+Chose PostgreSQL Action Cable for real multi-process fanout without introducing
+Phase 8 Redis. Public revisions belong to the existing logical locked mutation,
+not each generated Bid. Rails transaction-owned callbacks preserve outermost-commit
+semantics through savepoints; transport failure is downstream of acceptance.
+
+Verified separate A/3001 writes and B/3002 sockets, two browsers, private-only
+silence, proxy settlement, extension, closer publication and reconnect REST recovery.
+The async-adapter sabotage confirmed why same-process tests are insufficient.
+Publishing immediately made three rollback/visibility specs fail; removing the
+stale-hint guard failed the coalescing test. All mutations were restored.
+
+Test development exposed two harness errors: rejected channel subscriptions cannot
+use RSpec's subscribed-only stream matcher, and WebSocket capture must distinguish
+Next development traffic and Cable heartbeat frames from application notifications.
+The final captures filter `/cable` and `auction.changed.v1`; actual notification
+fields remain checked exactly. Initial failed runs are not counted as successes.
+
+The migration was exercised down/up inside a rolled-back test-only transaction:
+all existing row fields were preserved, zero was backfilled, and a nonzero revision
+blocked downgrade. No development data reset was used. A small committed maximum
+replay test also verifies that replay produces neither revision nor publication.
+
+Applying the final Compose worker setting interrupted an extra container RSpec run
+(exit 137), leaving a committed concurrency fixture before its cleanup hook could
+run. The next run exposed that fixture in collection/seed/closer tests. We inspected
+the failures and reset only the explicitly checked hammerfall_test domain tables,
+then reran the container suite. Development data was untouched.

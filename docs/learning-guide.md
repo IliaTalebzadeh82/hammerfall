@@ -558,3 +558,53 @@ clock, and no cross-tab coordination exists. No instant freshness, consistent
 multi-query snapshot, production security, capacity or accessibility certification
 is claimed. Explain these limits alongside the successful recovery timeline in
 an interview, rather than calling the entire UI strongly consistent.
+
+## Phase 7 — Invalidations, authority and missed messages
+
+A WebSocket is a transport, not an authority:
+
+```text
+WebSocket: something changed (revision 12)
+REST:      this is the public state now (perhaps revision 14)
+PostgreSQL: this is what actually committed
+```
+
+Full snapshots put more sensitive data and domain interpretation into messages.
+Their arrival order can regress a browser, and a proxy contest could appear half
+finished. A tiny revision hint avoids that contract. `public_revision` orders every
+public mutation; bid sequence misses cancellation/closure/protection-only extension.
+`updated_at` can tie and is unsuitable for separating private writes from public
+changes. Private-only maxima emit nothing, including no public timestamp/revision
+change, so subscription activity does not expose that private action.
+
+The locked transaction updates state and revision together. Publishing before
+commit lets a subscriber GET old state or see a phantom action that rolls back.
+Rails transaction callbacks defer publication until the outermost commit, including
+when the command runs in a savepoint. The database still cannot atomically commit
+and complete a later external broadcast:
+
+```text
+lock -> mutate + revision -> COMMIT -> [crash gap] -> broadcast
+                                  authoritative     best effort
+```
+
+Action Cable/NOTIFY is ephemeral: disconnected consumers have no retained messages
+to replay. Reconnection therefore reads current REST state. It need not reproduce
+each missed intermediate auction display. Subscribe-confirm-refresh also closes
+the initial GET-to-subscribe race:
+
+```text
+GET 10 -> commit 11 missed -> subscription confirmed -> GET 11
+connected -> disconnect -> commits 12,13 -> reconfirm -> GET 13
+```
+
+Out-of-order/equal hints are harmless when ignored at or below the highest known
+revision. Bursts become serial coalesced REST reads, and older REST snapshots cannot
+regress displayed auction state. An unmet unchanged hint has bounded retries;
+transport health and REST errors are different signals.
+
+A public event cannot confirm your command: another bidder may have caused it, and
+an accepted command may have been immediately outbid. Keep the opaque intention
+until a terminal response or safe idempotent replay resolves it. This remains true
+when an invalidation arrives before a lost command response. See realtime.md for the
+commit-to-Cable diagram and the exact protocol, and progress.md for sabotage evidence.

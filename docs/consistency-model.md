@@ -47,3 +47,13 @@ separates historical command outcomes (including replay) from fresh auction/hist
 GETs, rejects late superseded read completions, and retains immutable pending keys
 for explicit retries. This does not make multi-query reads snapshot-consistent or
 provide realtime delivery. See ADR-007 and frontend.md.
+
+## Phase 7 invalidation consistency
+
+PostgreSQL transactions and row locks remain authoritative. Action Cable's
+PostgreSQL adapter transports ephemeral revision hints across application processes.
+The notification runs after the outermost commit, so an independent reader can see
+its revision. A crash between commit and broadcast loses the hint; connection loss
+has no replay. Confirmation/reconfirmation always triggers REST recovery. A live
+socket does not imply current state or database health. Auction/history GETs remain
+separate observations and may straddle another commit. See realtime.md and ADR-008.
