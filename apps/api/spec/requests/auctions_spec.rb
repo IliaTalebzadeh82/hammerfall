@@ -8,7 +8,7 @@ RSpec.describe "Auction API", :domain, type: :request do
     expect(response).to have_http_status(:created)
     data = json.fetch("data")
     expect(data).to include("title" => "Vintage camera", "status" => "draft", "currency" => "EUR", "current_price" => 10_000, "current_leader_id" => nil, "winner_id" => nil)
-    expect(data.keys).to match_array(%w[id title description status currency starting_price current_price minimum_increment starts_at ends_at original_ends_at closed_at current_leader_id winner_id created_at updated_at])
+    expect(data.keys).to match_array(%w[id public_revision title description status currency starting_price current_price minimum_increment starts_at ends_at original_ends_at closed_at current_leader_id winner_id created_at updated_at])
     expect(data["starts_at"]).to end_with("Z")
     get "#{path}/#{data.fetch('id')}", as: :json
     expect(response).to have_http_status(:ok)
@@ -92,7 +92,7 @@ RSpec.describe "Auction API", :domain, type: :request do
     expect(Auction.count).to eq(0)
   end
 
-  %w[status current_price winner_id id original_ends_at closed_at].each do |field|
+  %w[status current_price winner_id id original_ends_at closed_at public_revision].each do |field|
     it "rejects client-written #{field} during both create and update" do
       post path, params: { auction: auction_attributes.merge(field => "closed") }, as: :json
       expect(response).to have_http_status(:bad_request)

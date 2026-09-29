@@ -8,6 +8,7 @@ module Api
       def as_json
         {
           id: @auction.id,
+          public_revision: @auction.public_revision,
           title: @auction.title,
           description: @auction.description,
           status: @auction.status,

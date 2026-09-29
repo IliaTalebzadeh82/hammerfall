@@ -40,7 +40,7 @@ class Auction < ApplicationRecord
       assign_attributes(attributes)
       self.original_ends_at = ends_at
       self.current_price = starting_price_before_type_cast
-      save!(context: :draft_edit)
+      persist_public_change!(:draft_edit)
       self
     end
   end
@@ -67,7 +67,7 @@ class Auction < ApplicationRecord
       self.winner_id = current_leader_id
       self.closed_at = decision_time
       self.status = "closed"
-      save!(context: :transition)
+      persist_public_change!(:transition)
       self
     end
   end
@@ -159,7 +159,7 @@ class Auction < ApplicationRecord
       end
       check_transition_preconditions!(target, AuctionClock.now)
       self.status = target
-      save!(context: :transition)
+      persist_public_change!(:transition)
       self
     end
   end
@@ -180,7 +180,19 @@ class Auction < ApplicationRecord
   # One accepted external commitment, independently of generated Bid count.
   def persist_bidding_action!(decision_time)
     self.ends_at = AuctionDeadline.extended_end(ends_at, decision_time)
-    save!(context: :bid_placement)
+    persist_public_change!(:bid_placement)
+  end
+
+  # Called once per logical command, while its auction lock/transaction is held.
+  # Private-only maximum changes leave this row entirely unchanged (including time).
+  def persist_public_change!(context)
+    changed = (changes_to_save.keys & (EDITABLE_FIELDS + %w[current_price current_leader_id status winner_id original_ends_at closed_at])).any?
+    self.public_revision += 1 if changed
+    @persisting_public_change = true
+    save!(context: context)
+    AuctionPublication.after_commit(id, public_revision) if changed
+  ensure
+    @persisting_public_change = false
   end
 
   def valid_time_window
@@ -208,7 +220,16 @@ class Auction < ApplicationRecord
 
   # Validation guards only; lifecycle writes happen explicitly in the methods above.
   def managed_changes
-    return if new_record?
+    if new_record?
+      errors.add(:public_revision, "must start at zero") unless public_revision == 0
+      return
+    end
+    if will_save_change_to_public_revision? && !@persisting_public_change
+      errors.add(:public_revision, "must be assigned by a public command")
+    end
+    if EDITABLE_FIELDS.any? { |field| will_save_change_to_attribute?(field) } && !@persisting_public_change
+      errors.add(:base, "Auction terms must change through a public command")
+    end
 
     if will_save_change_to_current_leader_id? && validation_context != :bid_placement
       errors.add(:current_leader, "must be changed through bidding")

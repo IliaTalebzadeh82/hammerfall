@@ -11,7 +11,7 @@ require "action_controller/railtie"
 # require "action_mailbox/engine"
 # require "action_text/engine"
 require "action_view/railtie"
-# require "action_cable/engine"
+require "action_cable/engine"
 # require "rails/test_unit/railtie"
 
 # Require the gems listed in Gemfile, including any gems
@@ -41,6 +41,11 @@ module Hammerfall
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
     config.time_zone = "UTC"
+    config.action_cable.mount_path = "/cable"
+    config.action_cable.allow_same_origin_as_host = false
+    config.action_cable.allowed_request_origins = ENV.fetch("CABLE_ALLOWED_ORIGINS",
+      Rails.env.production? ? "" : "http://localhost:3000,http://127.0.0.1:3000").split(",").map(&:strip).reject(&:empty?)
+    config.action_cable.worker_pool_size = Integer(ENV.fetch("CABLE_WORKER_THREADS", "2"))
     config.generators.test_framework :rspec
   end
 end

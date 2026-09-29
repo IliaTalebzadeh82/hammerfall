@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_25_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_29_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -23,6 +23,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_000000) do
     t.datetime "ends_at", null: false
     t.bigint "minimum_increment", null: false
     t.datetime "original_ends_at", null: false
+    t.bigint "public_revision", default: 0, null: false
     t.bigint "starting_price", null: false
     t.datetime "starts_at", null: false
     t.string "status", default: "draft", null: false
@@ -39,9 +40,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_000000) do
     t.check_constraint "ends_at > starts_at", name: "auctions_time_window"
     t.check_constraint "ends_at >= original_ends_at", name: "auctions_original_deadline"
     t.check_constraint "minimum_increment >= 1 AND minimum_increment <= '1000000000000'::bigint", name: "auctions_minimum_increment_range"
+    t.check_constraint "public_revision >= 0", name: "auctions_public_revision_nonnegative"
     t.check_constraint "starting_price >= 1 AND starting_price <= '1000000000000'::bigint", name: "auctions_starting_price_range"
     t.check_constraint "status::text <> 'closed'::text OR NOT winner_id IS DISTINCT FROM current_leader_id", name: "auctions_final_winner"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'scheduled'::character varying, 'active'::character varying, 'closed'::character varying, 'cancelled'::character varying]::text[])", name: "auctions_valid_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'scheduled'::character varying::text, 'active'::character varying::text, 'closed'::character varying::text, 'cancelled'::character varying::text])", name: "auctions_valid_status"
     t.check_constraint "title::text ~ '[^[:space:]]'::text", name: "auctions_title_present"
     t.check_constraint "winner_id IS NULL OR status::text = 'closed'::text", name: "auctions_winner_only_when_closed"
   end
@@ -57,7 +59,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_000000) do
     t.index ["auction_id", "sequence"], name: "index_bids_on_auction_id_and_sequence", unique: true
     t.index ["bidder_id"], name: "index_bids_on_bidder_id"
     t.check_constraint "amount >= 1 AND amount <= '1000000000000'::bigint", name: "bids_amount_range"
-    t.check_constraint "origin::text = ANY (ARRAY['manual'::character varying, 'automatic'::character varying]::text[])", name: "bids_valid_origin"
+    t.check_constraint "origin::text = ANY (ARRAY['manual'::character varying::text, 'automatic'::character varying::text])", name: "bids_valid_origin"
     t.check_constraint "sequence > 0", name: "bids_sequence_positive"
   end
 
@@ -76,7 +78,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_000000) do
     t.index ["expires_at", "id"], name: "index_idempotency_records_for_pruning", where: "((status)::text = 'completed'::text)"
     t.check_constraint "expires_at > created_at", name: "idempotency_retention"
     t.check_constraint "key_digest::text ~ '^[0-9a-f]{64}$'::text AND request_fingerprint::text ~ '^[0-9a-f]{64}$'::text", name: "idempotency_digests"
-    t.check_constraint "operation::text = ANY (ARRAY['place_bid'::character varying, 'set_maximum_bid'::character varying]::text[])", name: "idempotency_operation"
+    t.check_constraint "operation::text = ANY (ARRAY['place_bid'::character varying::text, 'set_maximum_bid'::character varying::text])", name: "idempotency_operation"
     t.check_constraint "status::text = 'processing'::text AND response_status IS NULL AND response_body IS NULL OR status::text = 'completed'::text AND (response_status = ANY (ARRAY[200, 201, 404, 422])) AND response_status IS NOT NULL AND response_body IS NOT NULL AND jsonb_typeof(response_body) = 'object'::text", name: "idempotency_outcome"
   end
 

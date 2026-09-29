@@ -1,0 +1,11 @@
+development:
+  adapter: postgresql
+  channel_prefix: hammerfall_development
+
+test:
+  adapter: test
+  channel_prefix: hammerfall_test
+
+production:
+  adapter: postgresql
+  channel_prefix: hammerfall_production
