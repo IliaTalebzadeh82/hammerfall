@@ -1,6 +1,11 @@
 # Current handoff — after Phase 8
 
-Updated: 2026-09-30. **Phase 8 is complete. Phase 9 — Transactional Outbox has not begun** and needs a new explicit request. This is the compact current-state entry point; [progress](../progress.md#phase-8--sidekiq--redis) holds actual run evidence.
+Updated: 2026-09-30. **Phase 8 is complete. Phase 9 — Transactional Outbox has
+not begun** and needs a new explicit request. This is the compact current-state
+entry point; [progress](../progress.md#phase-8--sidekiq--redis) holds actual run
+evidence. There is no active phase ExecPlan; [Phase 8's completed
+plan](../plans/phase-08-execplan.md) is historical. Follow the
+[context lifecycle](../context-lifecycle.md) for Phase 9 kickoff and checkpoints.
 
 ## Current system and authority
 
@@ -25,4 +30,4 @@ Final full container RSpec: **359 examples, zero failures**. Native `scripts/che
 
 - Commit followed by crash before enqueue, failed enqueue, Redis loss, exhausted retries or Cable failure can lose a hint; Sidekiq/AOF is not an outbox. Connected clients can remain stale until another REST recovery trigger. Sidekiq queue drain is not delivery proof. Separate auction/history GETs are not one snapshot.
 - The read-only sweep has no repair authority. It can repeat drift logs; Redis persistence/HA, Dead-set ownership, job and PostgreSQL connection capacity, backups and production monitoring remain unresolved. There is no authentication, authorization, rate limiting, real-money readiness or performance claim.
-- Phase 9 should design an OutboxEvent write inside the existing authoritative transaction, a publisher/retry/order policy and failure tests **without changing bid, deadline, winner or idempotency semantics**. Read [Phase 9](../phases/phase-09.md), [async architecture](../architecture/async-events.md), [ADR-009](../adr/009-sidekiq-public-notifications-and-sweeps.md), and only the relevant auction/idempotency/transaction code. Create a Phase 9 ExecPlan before implementation. Do not introduce Kafka (Phase 10) early.
+- Phase 9 should design an OutboxEvent write inside the existing authoritative transaction, a publisher/retry/order policy and failure tests **without changing bid, deadline, winner or idempotency semantics**. Read [Phase 9](../phases/phase-09.md), [async architecture](../architecture/async-events.md), [ADR-009](../adr/009-sidekiq-public-notifications-and-sweeps.md), and only the relevant auction/idempotency/transaction code. Create a Phase 9 ExecPlan before implementation; if context grows, checkpoint after the main outbox implementation before extensive failure/sabotage/regression work. Do not introduce Kafka (Phase 10) early.

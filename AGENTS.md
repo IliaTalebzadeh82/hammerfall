@@ -7,9 +7,10 @@
   [docs/context-map.md](docs/context-map.md) to route it.
 - Start substantial phase work with
   [docs/handoffs/latest.md](docs/handoffs/latest.md), that phase's
-  `docs/phases/phase-XX.md`, and the relevant architecture/ADR
-  documents. The archived master prompt and chronological progress log
-  are audit material, not routine startup context.
+  `docs/phases/phase-XX.md`, and the active ExecPlan if resuming. Use
+  [docs/context-map.md](docs/context-map.md) to select relevant
+  architecture/ADR/source. The archived master prompt and chronological
+  progress log are audit material, not routine startup context.
 - Batch related repository inspection. Do not repeatedly reread
   unchanged files. Inspect implementation and tests before changing a
   claimed contract; distinguish intended future architecture from what
@@ -19,8 +20,30 @@
   listed technology early merely because it is on the roadmap.
 - For substantial work, create or update a concise
   `docs/plans/<topic>-execplan.md` with decisions, progress,
-  verification and unresolved items. Remove stale execution detail from
-  active plans when done.
+  verification and unresolved items, following
+  [docs/context-lifecycle.md](docs/context-lifecycle.md). Remove stale
+  execution detail from active plans when done.
+
+## Context lifecycle
+
+- Normally start a substantial new phase in a fresh Codex session. For a
+  resumed phase, read this file, the latest handoff, the active ExecPlan and
+  current phase specification; then load only material needed for remaining
+  work. Do not carry a previous phase's full conversation as working memory.
+- Treat context as a finite engineering resource: maximize relevance per
+  token without reducing reasoning, tests, failure/concurrency/security
+  checks, or documentation quality. Search first, read targeted sections,
+  reuse unchanged understanding, inspect diffs after edits, and keep command
+  output bounded while retaining evidence.
+- After a substantial milestone or accumulated tool/log history, checkpoint
+  decisions, changed files, completed verification, failures and remaining
+  work in the ExecPlan; update the compact handoff when needed. End with
+  `CONTEXT CHECKPOINT READY` and resume significant remaining work in a fresh
+  session. Do not split every small task into a new session.
+- Context-safety invariant: after a checkpoint, any substantial Codex session
+  is safely discardable because the repository holds the implementation
+  state, decisions, evidence and unresolved work needed to continue. Follow
+  the detailed [checkpoint, resume and ExecPlan convention](docs/context-lifecycle.md).
 
 ## Engineering rules
 
@@ -98,9 +121,9 @@
   work.
 - [docs/architecture/](docs/architecture/) contains durable domain
   boundaries; [docs/adr/](docs/adr/) records adopted choices. Current
-  details and evidence live in
-  [docs/handoffs/latest.md](docs/handoffs/latest.md) and
-  `docs/progress.md` respectively.
+  working detail and evidence live in the active ExecPlan; the
+  [latest handoff](docs/handoffs/latest.md) is the compact entry point and
+  `docs/progress.md` is historical evidence.
 - The original master prompt is preserved in
   `docs/archive/masterprompt-original.md` for audit only. Do not load it
   by default.

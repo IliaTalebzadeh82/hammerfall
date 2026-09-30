@@ -1,10 +1,11 @@
 # Progress
 
 > Historical phase log. Older recommended prompts below mention `masterprompt.md`;
-> those are retained as evidence, not current context instructions. Start with
-> `AGENTS.md`, `docs/handoffs/latest.md`, `docs/context-map.md`, and the relevant
-> `docs/phases/` specification. The original is archived at
-> `docs/archive/masterprompt-original.md`.
+> those are evidence, not current instructions. Start with `AGENTS.md`,
+> `docs/handoffs/latest.md`, the current `docs/phases/` specification and the
+> active ExecPlan when resuming; use `docs/context-map.md` for targeted reads.
+> Search this file's phase headings for specific historical evidence only.
+> The original is archived at `docs/archive/masterprompt-original.md`.
 
 ## Phase 0 — Repository Foundation
 

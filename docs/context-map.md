@@ -1,10 +1,11 @@
 # Context routing and migration map
 
-`AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the current-state entry point. The [archived original](archive/masterprompt-original.md) exists for audit and should not be loaded by default. Existing root `docs/*.md` and ADRs provide deeper adopted contracts and evidence; `docs/progress.md` is a chronological log, not a normal startup document. `docs/plans/phase-08-execplan.md` records the completed Phase 8 execution; create a new plan only when substantial Phase 9 work is requested.
+`AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the compact current-state entry point. The [context lifecycle and ExecPlan convention](context-lifecycle.md) governs checkpoints and resumption; `docs/plans/phase-08-execplan.md` records completed Phase 8 work. [Phase specifications](phases/) hold the scope for each requested phase. [Progress](progress.md) is historical evidence, not startup context; the [archived original](archive/masterprompt-original.md) is for a specific missing historical fact only. Create a Phase 9 plan at kickoff, not before.
 
 | Working on | Required context | Optional targeted context |
 |---|---|---|
 | Any repository task | `AGENTS.md` | This map |
+| Substantial phase kickoff or resume | Latest handoff, current phase spec, active ExecPlan if resuming | Context lifecycle convention; targeted architecture/ADR/source |
 | Starting Phase 9 | `AGENTS.md`, `docs/handoffs/latest.md`, `docs/phases/phase-09.md` | `docs/architecture/async-events.md`, auction/idempotency boundaries, ADR-009 |
 | Auction lifecycle or schema | `docs/architecture/auction-state.md`, current phase spec | `docs/domain-model.md`, `docs/invariants.md`, ADR-002/003 |
 | Bidding/proxy/concurrency | `docs/architecture/bidding.md`, auction state | ADR-003/004, relevant tests |
@@ -15,16 +16,14 @@
 | Redis projection/reconciliation | `docs/architecture/projections-and-reconciliation.md`, applicable phase spec | `docs/consistency-model.md` |
 | Security/operations/load/deployment | `docs/architecture/operations-and-security.md`, applicable phase spec | Current production/readiness/runbook/benchmark evidence |
 | Final phase verification | Current phase spec, latest handoff, changed architecture/ADR | `docs/progress.md` for prior actual evidence |
+| Historical evidence | Relevant `docs/progress.md` phase heading/anchor | Completed ExecPlan or specific Git commit |
 
 ## Recommended Codex session lifecycle
 
-1. Start a fresh thread for a substantial new phase, only when explicitly requested.
-2. Read `AGENTS.md`, then `docs/handoffs/latest.md` and the current phase specification.
-3. Load only the architecture, ADR, code and tests relevant to that phase.
-4. Create/update an ExecPlan in `docs/plans/` for substantial work.
-5. Implement, use focused checks, then broad regression and adversarial review.
-6. Update durable architecture/ADR/invariants when behavior changes; record actual evidence in `docs/progress.md`.
-7. Rewrite `docs/handoffs/latest.md` and end at the phase boundary.
+1. Start a fresh session for a substantial new phase, only when explicitly requested. Read `AGENTS.md`, the latest handoff and current phase spec; read the active ExecPlan when resuming.
+2. Use this map for targeted architecture/ADR/source/tests, then create or update the phase ExecPlan. Follow the [checkpoint and evidence convention](context-lifecycle.md).
+3. Implement and verify rigorously. At a substantial milestone, persist state and evidence, mark `CONTEXT CHECKPOINT READY`, and resume significant remaining work in a fresh session.
+4. At phase end, update durable docs/ADRs and actual progress evidence, rewrite the compact handoff, leave a clean tree and stop at the phase boundary.
 
 ## Master prompt migration trace
 
@@ -128,7 +127,7 @@ The rows below cover every top-level numbered section and each named roadmap pha
 
 - The original suggested unnumbered `docs/adr/auction-concurrency-control.md` and `docs/adr/auction-closing.md`; adopted decisions are `docs/adr/003-auction-concurrency-control.md` and `docs/adr/005-auction-deadlines-and-soft-close.md`. The adopted Phase 4 rule uses final-60/+90, rather than the illustrative final-30/+30 text in section 11.
 - The original `AutomaticBid` concept is implemented as `MaximumBid`, with binding increase-only semantics; the original optional cancellation question was resolved as unsupported in ADR-004. OutboxEvent, Kafka, Redis projection and reconciliation requirements remain planned, not implemented.
-- Original section 64 instructed continuing through every phase. The current repository records Phase 7 completion and explicitly requires a new request for Phase 8; this migration also expressly forbids feature work. Treat section 64's Phase 0 startup and unconditional continuation as historical.
+- Original section 64 instructed continuing through every phase. The earlier migration occurred after Phase 7 and required a new request for Phase 8. Treat section 64's Phase 0 startup and unconditional continuation as historical; the current handoff records Phase 8 completion and the Phase 9 gate.
 - Old prompts and diagnostic narratives in `docs/progress.md` and `docs/engineering-journal.md` are retained for audit, excluded from the normal context route. Do not treat their old `masterprompt.md` references as active instructions. No debugging transcript was copied into the new handoff or architecture docs.
 - A normal Phase 8 startup loads `AGENTS.md`, `docs/handoffs/latest.md`, `docs/phases/phase-08.md` and three targeted architecture files: 264 lines at migration time, versus 2,644 newline-terminated lines for the old master prompt. Further ADR/code reads depend on the actual subtask. This reduction routes detail rather than deleting it.
 
