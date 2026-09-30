@@ -34,23 +34,31 @@ RSpec.describe "Auction projection reconciliation" do
 
   it "accepts equal revision and data regardless of projection source" do
     expect(projection.seed(auction)).to eq(:applied)
-    expect(reconciler.check(auction)).to eq(:healthy)
+    before = redis.call("GET", key)
+    2.times { expect(reconciler.check(auction)).to eq(:healthy) }
+    expect(redis.call("GET", key)).to eq(before)
   end
 
   it "escalates equal-revision conflict without changing the key" do
+    messages = []
+    allow(logger).to receive(:info) { |message| messages << JSON.parse(message) }
     event = OutboxEvent.where(auction_id: auction.id).order(:public_revision).last.kafka_envelope.stringify_keys
     event.fetch("data")["description"] = "Other public text"
     projection.apply_event(event)
     before = redis.call("GET", key)
     expect(reconciler.check(auction)).to eq(:operator_review)
     expect(redis.call("GET", key)).to eq(before)
+    expect(messages).to include(include("auction_id" => auction.id, "result" => "operator_review", "drift" => "conflicting"))
+    expect(JSON.generate(messages)).not_to match(/maximum_amount|priority_sequence|bid_origin|key_digest|request_fingerprint/)
   end
 
   it "escalates a key ahead of a fresh PostgreSQL row" do
     event = OutboxEvent.where(auction_id: auction.id).order(:public_revision).last.kafka_envelope.stringify_keys
     event["aggregate_version"] = auction.public_revision + 1
     projection.apply_event(event)
+    before = redis.call("GET", key)
     expect(reconciler.check(auction)).to eq(:operator_review)
+    expect(redis.call("GET", key)).to eq(before)
     expect(auction.reload.public_revision).to be < projection.read(auction.id).fetch("public_revision")
   end
 
@@ -97,6 +105,7 @@ RSpec.describe "Auction projection reconciliation" do
     metrics = messages.select { |entry| entry["event"] == "auction_projection_reconciliation_metrics" }
     expect(metrics.map { |entry| entry["auction_projection_drift_total"] }).to eq([ 1, 0 ])
     expect(metrics.map { |entry| entry["auction_projection_repair_total"] }).to eq([ 1, 0 ])
+    expect(metrics.map { |entry| entry["healthy"] }).to eq([ 0, 1 ])
     expect(metrics.all? { |entry| entry.keys.grep(/auction_id/).empty? }).to be(true)
   end
 

@@ -30,6 +30,7 @@ class AuctionProjectionReconciliationJob
           counts[:unavailable] += 1
           raise
         end
+        counts[:healthy] += 1 if result == :healthy
         counts[:drift] += 1 unless result == :healthy
         counts[:repair_attempt] += 1 if %i[repaired raced repair_failed_review].include?(result)
         counts[:repair] += 1 if result == :repaired
@@ -39,7 +40,7 @@ class AuctionProjectionReconciliationJob
     ensure
       reconciler.close
       Rails.logger.info(JSON.generate(event: "auction_projection_reconciliation_metrics",
-        after_id: cursor, up_to_id: ceiling, checked: counts[:checked],
+        after_id: cursor, up_to_id: ceiling, checked: counts[:checked], healthy: counts[:healthy],
         auction_projection_drift_total: counts[:drift],
         auction_projection_repair_attempt_total: counts[:repair_attempt],
         auction_projection_repair_total: counts[:repair],
