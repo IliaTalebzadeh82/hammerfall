@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+$stdout.sync = true
+require_relative "../config/environment"
+abort "Usage: bin/outbox_publisher [--once]" unless ARGV.empty? || ARGV == [ "--once" ]
+publisher = OutboxPublisher.new(logger: ActiveSupport::Logger.new($stdout))
+%w[TERM INT].each { |signal| Signal.trap(signal) { publisher.stop } }
+publisher.run(once: ARGV.include?("--once"))

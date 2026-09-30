@@ -1,18 +1,7 @@
-# One home for best-effort public invalidations; never part of domain acceptance.
+# Public Cable invalidations; outbox publisher owns durable enqueue intent.
 class AuctionPublication
   def self.stream(auction_id)
     "auction:#{auction_id}"
-  end
-
-  def self.after_commit(auction_id, revision)
-    Auction.current_transaction.after_commit { publish(auction_id, revision) }
-  end
-
-  def self.publish(auction_id, revision)
-    AuctionChangedJob.perform_async(auction_id, revision)
-  rescue StandardError => error
-    # COMMIT already succeeded. Redis/enqueue loss cannot change command outcome.
-    Rails.logger.warn("auction_notification enqueue_failed auction_id=#{auction_id} revision=#{revision} error=#{error.class}")
   end
 
   def self.broadcast(auction_id, revision)

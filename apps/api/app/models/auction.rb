@@ -190,7 +190,7 @@ class Auction < ApplicationRecord
     self.public_revision += 1 if changed
     @persisting_public_change = true
     save!(context: context)
-    AuctionPublication.after_commit(id, public_revision) if changed
+    OutboxEvent.record_auction_change!(auction_id: id, revision: public_revision) if changed
   ensure
     @persisting_public_change = false
   end

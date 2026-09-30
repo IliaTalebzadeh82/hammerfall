@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_29_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_30_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -94,6 +94,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_000000) do
     t.index ["bidder_id"], name: "index_maximum_bids_on_bidder_id"
     t.check_constraint "maximum_amount >= 1 AND maximum_amount <= '1000000000000'::bigint", name: "maximum_bids_amount_range"
     t.check_constraint "priority_sequence > 0", name: "maximum_bids_priority_positive"
+  end
+
+  create_table "outbox_events", force: :cascade do |t|
+    t.integer "attempts", default: 0, null: false
+    t.bigint "auction_id", null: false
+    t.uuid "event_id", default: -> { "gen_random_uuid()" }, null: false
+    t.string "event_type", null: false
+    t.string "last_error"
+    t.datetime "next_attempt_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.datetime "occurred_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.bigint "public_revision", null: false
+    t.datetime "published_at"
+    t.integer "schema_version", null: false
+    t.index ["auction_id", "public_revision"], name: "index_outbox_events_on_auction_id_and_public_revision", unique: true
+    t.index ["event_id"], name: "index_outbox_events_on_event_id", unique: true
+    t.index ["next_attempt_at", "id"], name: "index_outbox_events_due", where: "(published_at IS NULL)"
+    t.check_constraint "auction_id > 0 AND public_revision > 0 AND attempts >= 0", name: "outbox_events_positive_values"
+    t.check_constraint "event_type::text = 'auction.changed.v1'::text AND schema_version = 1", name: "outbox_events_known_version"
   end
 
   create_table "users", force: :cascade do |t|

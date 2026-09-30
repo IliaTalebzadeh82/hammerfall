@@ -6,10 +6,12 @@ RSpec.describe "Committed public auction changes", type: :model do
   include_context "committed auction concurrency"
 
   def messages(auction)
+    OutboxPublisher.new.run_once if ApplicationRecord.connection.open_transactions.zero?
     ActionCable.server.pubsub.broadcasts(AuctionPublication.stream(auction.id)).map { |raw| JSON.parse(raw) }
   end
 
   def clear(auction)
+    OutboxPublisher.new.run_once
     ActionCable.server.pubsub.clear_messages(AuctionPublication.stream(auction.id))
   end
 
@@ -70,16 +72,18 @@ RSpec.describe "Committed public auction changes", type: :model do
     clear(auction)
     before = auction.public_revision
     observed = []
-    allow(AuctionPublication).to receive(:publish).and_wrap_original do |original, id, revision|
-      observed << result(worker { Auction.find(id).public_revision })
-      original.call(id, revision)
-    end
     ApplicationRecord.transaction do
       auction.place_bid!(bidder: @bidder, amount: 10_000)
       expect(messages(auction)).to be_empty
       expect(observed).to be_empty
       expect(result(worker { Auction.find(auction.id).public_revision })).to eq(before)
+      expect(result(worker { OutboxEvent.where(auction_id: auction.id, public_revision: before + 1).count })).to eq(0)
     end
+    allow(AuctionChangedJob).to receive(:perform_async).and_wrap_original do |original, id, revision|
+      observed << result(worker { Auction.find(id).public_revision })
+      original.call(id, revision)
+    end
+    OutboxPublisher.new.run_once
     expect(observed).to eq([ before + 1 ])
     expect(messages(auction).size).to eq(1)
   end
@@ -153,21 +157,33 @@ RSpec.describe "Committed public auction changes", type: :model do
 
   it "keeps a committed idempotent success when Cable publication fails" do
     auction = active_auction
-    allow(ActionCable.server).to receive(:broadcast).and_raise(IOError, "transport failed")
-    result = IdempotentBidding.call(key: "lost-broadcast", actor_id: @bidder.id, auction_id: auction.id, operation: "place_bid", amount: 10_000)
-    expect(result.status).to eq(201)
-    expect(auction.reload.public_revision).to eq(3)
-    expect(auction.bids.count).to eq(1)
-    expect(IdempotencyRecord.where(actor_id: @bidder.id).first.status).to eq("completed")
+    OutboxPublisher.new.run_once
+    Sidekiq.testing!(:fake) do
+      AuctionChangedJob.clear
+      result = IdempotentBidding.call(key: "lost-broadcast", actor_id: @bidder.id, auction_id: auction.id, operation: "place_bid", amount: 10_000)
+      expect(OutboxPublisher.new.run_once[:published]).to eq(1)
+      allow(ActionCable.server).to receive(:broadcast).and_raise(IOError, "transport failed")
+      expect { AuctionChangedJob.new.perform(auction.id, 3) }.to raise_error(IOError)
+      expect(result.status).to eq(201)
+      expect(auction.reload.public_revision).to eq(3)
+      expect(auction.bids.count).to eq(1)
+      expect(IdempotencyRecord.where(actor_id: @bidder.id).first.status).to eq("completed")
+      expect(OutboxEvent.where(auction_id: auction.id, public_revision: 3).pick(:published_at)).to be_present
+    ensure
+      AuctionChangedJob.clear
+    end
   end
 
   it "keeps a committed idempotent success when Redis enqueue fails" do
     auction = active_auction
+    OutboxPublisher.new.run_once
     allow(AuctionChangedJob).to receive(:perform_async).and_raise(IOError, "queue unavailable")
     result = IdempotentBidding.call(key: "lost-enqueue", actor_id: @bidder.id, auction_id: auction.id, operation: "place_bid", amount: 10_000)
     expect(result.status).to eq(201)
     expect(auction.reload).to have_attributes(public_revision: 3, current_price: 10_000)
     expect(auction.bids.count).to eq(1)
     expect(IdempotencyRecord.where(actor_id: @bidder.id).first.status).to eq("completed")
+    expect(OutboxPublisher.new.run_once[:failed]).to eq(1)
+    expect(OutboxEvent.where(auction_id: auction.id, public_revision: 3).pick(:published_at)).to be_nil
   end
 end

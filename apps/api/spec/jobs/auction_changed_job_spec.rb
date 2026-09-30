@@ -36,9 +36,11 @@ RSpec.describe AuctionChangedJob do
 
   it "queues only the public auction ID and revision after commit" do
     auction = active_auction
+    OutboxPublisher.new.run_once
     Sidekiq.testing!(:fake) do
       described_class.clear
       auction.set_maximum!(bidder: @bidder, maximum_amount: 30_000)
+      OutboxPublisher.new.run_once
       expect(described_class.jobs.size).to eq(1)
       expect(described_class.jobs.first.fetch("args")).to eq([ auction.id, auction.public_revision ])
       expect(described_class.jobs.first.to_json).not_to include("maximum_amount", "priority_sequence", "origin")
