@@ -160,4 +160,14 @@ RSpec.describe "Committed public auction changes", type: :model do
     expect(auction.bids.count).to eq(1)
     expect(IdempotencyRecord.where(actor_id: @bidder.id).first.status).to eq("completed")
   end
+
+  it "keeps a committed idempotent success when Redis enqueue fails" do
+    auction = active_auction
+    allow(AuctionChangedJob).to receive(:perform_async).and_raise(IOError, "queue unavailable")
+    result = IdempotentBidding.call(key: "lost-enqueue", actor_id: @bidder.id, auction_id: auction.id, operation: "place_bid", amount: 10_000)
+    expect(result.status).to eq(201)
+    expect(auction.reload).to have_attributes(public_revision: 3, current_price: 10_000)
+    expect(auction.bids.count).to eq(1)
+    expect(IdempotencyRecord.where(actor_id: @bidder.id).first.status).to eq("completed")
+  end
 end

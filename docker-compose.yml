@@ -17,6 +17,19 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     image: hammerfall-api
     build:
@@ -35,6 +48,7 @@ services:
       PGPORT: 5432
       PGUSER: ${PGUSER:-hammerfall}
       PGPASSWORD: ${PGPASSWORD:?Copy .env.example to .env before starting Compose}
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "127.0.0.1:${API_PORT:-3001}:3000"
     volumes:
@@ -60,6 +74,7 @@ services:
       PGPORT: 5432
       PGUSER: ${PGUSER:-hammerfall}
       PGPASSWORD: ${PGPASSWORD:?Copy .env.example to .env before starting Compose}
+      REDIS_URL: redis://redis:6379/0
       AUCTION_CLOSER_INTERVAL: ${AUCTION_CLOSER_INTERVAL:-1}
       AUCTION_CLOSER_BATCH_SIZE: ${AUCTION_CLOSER_BATCH_SIZE:-100}
     volumes:
@@ -69,6 +84,49 @@ services:
       api:
         condition: service_healthy
     command: ["bin/auction_closer"]
+    restart: on-failure
+    stop_grace_period: 15s
+
+  sidekiq:
+    image: hammerfall-api
+    environment:
+      RAILS_ENV: development
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${PGUSER:-hammerfall}
+      PGPASSWORD: ${PGPASSWORD:?Copy .env.example to .env before starting Compose}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./apps/api:/app
+      - api_bundle:/usr/local/bundle
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["bundle", "exec", "sidekiq", "-r", "./config/environment.rb", "-C", "config/sidekiq.yml"]
+    restart: on-failure
+    stop_grace_period: 20s
+
+  reconciliation-scheduler:
+    image: hammerfall-api
+    environment:
+      RAILS_ENV: development
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${PGUSER:-hammerfall}
+      PGPASSWORD: ${PGPASSWORD:?Copy .env.example to .env before starting Compose}
+      REDIS_URL: redis://redis:6379/0
+      RECONCILIATION_INTERVAL: ${RECONCILIATION_INTERVAL:-60}
+    volumes:
+      - ./apps/api:/app
+      - api_bundle:/usr/local/bundle
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["bin/reconciliation_scheduler"]
     restart: on-failure
     stop_grace_period: 15s
 
@@ -98,6 +156,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   api_bundle:
   api_tmp:
   web_node_modules:

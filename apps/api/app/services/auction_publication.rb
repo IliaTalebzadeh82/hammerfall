@@ -9,12 +9,15 @@ class AuctionPublication
   end
 
   def self.publish(auction_id, revision)
+    AuctionChangedJob.perform_async(auction_id, revision)
+  rescue StandardError => error
+    # COMMIT already succeeded. Redis/enqueue loss cannot change command outcome.
+    Rails.logger.warn("auction_notification enqueue_failed auction_id=#{auction_id} revision=#{revision} error=#{error.class}")
+  end
+
+  def self.broadcast(auction_id, revision)
     ActionCable.server.broadcast(stream(auction_id), {
       type: "auction.changed.v1", auction_id: auction_id, revision: revision
     })
-  rescue StandardError => error
-    # COMMIT already succeeded. Do not turn transport failure into command failure.
-    # No raw errors/payloads: reconnect/focus/manual REST reads recover current state.
-    Rails.logger.warn("auction_publication failed auction_id=#{auction_id} revision=#{revision} error=#{error.class}")
   end
 end

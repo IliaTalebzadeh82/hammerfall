@@ -3,6 +3,7 @@ ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 abort("RSpec must run in the test environment") unless Rails.env.test?
 require "rspec/rails"
+Sidekiq.testing!(:inline)
 require_relative "support/domain_helpers"
 
 ActiveRecord::Migration.maintain_test_schema!
