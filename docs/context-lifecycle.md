@@ -105,37 +105,63 @@ complete.
 
 ## Checkpoint and phase boundary
 
-Checkpoint at a coherent work boundary, such as primary implementation with
-focused tests, or completed integration, live-failure, recovery or sabotage
-work. A substantial phase may have more than one checkpoint. After a major
-live-failure, integration or sabotage campaign, **if significant repair, broad
-regression, browser/runtime verification, documentation or adversarial review
-remains, persist state and continue in a fresh session**. Ask whether work has
-shifted from investigation and failure testing to completion, regression and
-documentation; if so and substantial work remains, prefer a checkpoint. Major
-debugging history and a cleanly resumable next work category also favor one.
-Decide by work boundary, not a token threshold. Do not wait for automatic
-compaction or continue merely because the session still fits. A small phase
-may finish in one session; do not create sessions mechanically.
+**Hard invariant:** Once a session checkpoint is triggered, the current Codex
+run ends. Continuing substantial phase work in the same conversation after
+`CONTEXT CHECKPOINT READY` is a lifecycle violation. A checkpoint is a terminal
+operation for this conversation, not merely a heading or note in the ExecPlan.
+The user starts a new Codex conversation for continuation; writing checkpoint
+documentation and continuing in the current conversation does not provide a
+fresh-session reset.
 
-For large phases, a useful default is investigation, ExecPlan, implementation
-and focused tests; checkpoint; integration, live failure/recovery, concurrency,
-sabotage and adversarial investigation; checkpoint again **if substantial work
-remains**; then repairs, final full regression, browser/runtime and
-security/build checks, documentation and finalization. Bounded phases may use
-two sessions. This pattern does not change phase scope or required checks.
+Decide *whether* a checkpoint is needed at a coherent work boundary, not a
+token threshold. Primary implementation and focused tests complete with
+substantial live/integration verification remaining requires a checkpoint.
+Completed live failure, recovery, concurrency or sabotage work with substantial
+repair, broad regression, browser/runtime verification, documentation or
+adversarial review remaining also requires a checkpoint. Major debugging
+history and a cleanly resumable next work category reinforce the decision.
+Do not wait for automatic compaction or continue merely because context space
+remains. Small phases may finish in one conversation; do not create sessions
+mechanically. **Once a checkpoint is required, stopping is mandatory; there is
+no further decision about whether to continue in the same conversation.**
 
-1. Update the ExecPlan's milestone state, decisions, changed files/subsystems
-   and incremental Evidence Index. Include a compact checkpoint state with
-   `Completed implementation`, `Completed verification`, `Failures found/fixed`,
-   `Remaining failure tests`, `Remaining regression`, `Remaining docs`,
-   `Known limitations` and `Next exact action` (or clear equivalents).
-2. Record discovered failures, their resolution and restoration verification.
+When a session checkpoint triggers:
+
+1. Finish only the current coherent milestone. Do not begin the next one.
+2. Update the active ExecPlan's milestone state, decisions, changed
+   files/subsystems and incremental Evidence Index. Record completed
+   implementation, completed verification, failures found and fixed, remaining
+   work (including failure tests, regression and documentation), known
+   limitations and the exact next action. Record failure resolution and
+   restoration evidence where applicable.
 3. Update [latest handoff](handoffs/latest.md) when the compact entry point has
    changed. Keep it short: current phase, plan, key ADR/architecture links,
    implementation status, remaining work, blockers and verification status.
-4. Stop with `CONTEXT CHECKPOINT READY`. Continue substantial remaining work
-   in a fresh session using the resume path above.
+4. Ensure repository state is coherent and preferably clean/committed according
+   to the current phase plan. Return a concise checkpoint report whose final
+   line is exactly `CONTEXT CHECKPOINT READY`.
+5. **Stop.** Do not start the next milestone, verification campaign, unrelated
+   debugging, broad regression or documentation finalization in this
+   conversation. The user starts a fresh Codex conversation, which resumes
+   from the ExecPlan, Evidence Index, handoff and targeted context above.
+
+For a substantial phase, a useful milestone-driven pattern is:
+
+```text
+SESSION 1: plan, implementation, focused verification
+If substantial live/integration work remains: persist checkpoint; STOP.
+
+FRESH SESSION 2: live integration, failure recovery, concurrency, sabotage,
+                 adversarial investigation
+If substantial repair/regression/docs remain: persist checkpoint; STOP.
+
+FRESH SESSION 3 IF NEEDED: repairs, final broad regression, browser/runtime
+                           verification, security/build, documentation,
+                           handoff and completion
+```
+
+Bounded phases may use two sessions or finish in one. This pattern does not
+change phase scope, technical requirements or verification gates.
 
 Before declaring a phase complete, finish required implementation, tests,
 lint, integration, adversarial review and local setup; record actual evidence

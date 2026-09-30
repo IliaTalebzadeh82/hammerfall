@@ -38,9 +38,11 @@
 - At a coherent milestone, including after a major integration, live-failure
   or sabotage campaign when substantial completion work remains, checkpoint
   decisions, changed files, verification, failures and next work in the
-  ExecPlan; update the compact handoff when needed. End with
-  `CONTEXT CHECKPOINT READY` and resume in a fresh session. Do not wait for
-  compaction or split every small task into a new session.
+  ExecPlan; update the compact handoff when needed. A triggered context
+  checkpoint terminates the current session: persist state, emit
+  `CONTEXT CHECKPOINT READY`, and stop. Continuation occurs only in a fresh
+  Codex conversation. Do not wait for compaction or split every small task
+  into a new session.
 - Context-safety invariant: after a checkpoint, any substantial Codex session
   is safely discardable because the repository holds the implementation
   state, decisions, evidence and unresolved work needed to continue. Follow
