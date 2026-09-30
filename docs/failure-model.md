@@ -31,7 +31,7 @@ from Cable connection status; a pending ambiguous command remains pending even w
 new revisions arrive. A stale connected client needs a later hint, visibility/manual
 refresh or reconnection. No durable delivery or periodic reconciliation is claimed.
 
-## Phase 8 Redis and Sidekiq failure
+## Phase 8 Redis and Sidekiq failure (historical)
 
 After the outermost auction commit, an API callback enqueues a public
 `AuctionChangedJob`. Redis outage or enqueue error is logged without undoing the
@@ -48,3 +48,24 @@ nonzero; duplicate scheduled sweeps are harmless. A sweep detects price/latest
 Bid or leader/winner mismatch, logs public auction ID and does not repair. There
 is no Redis projection or outbox. See [ADR-009](adr/009-sidekiq-public-notifications-and-sweeps.md)
 and the [runbook](runbooks/sidekiq-redis.md).
+
+## Phase 9 transactional outbox
+
+The public auction revision and outbox row commit in one PostgreSQL transaction.
+Rollback leaves neither. The old commit-to-enqueue crash window is closed: an
+API crash after commit leaves a pending row that another publisher discovers.
+Redis outage does not roll back a bid or idempotency outcome; enqueue failure
+persists a retry time and error class. Redis restoration lets the publisher drain
+the due backlog. A publisher crash before enqueue leaves the row pending; a
+crash after enqueue but before PostgreSQL acknowledgment may enqueue twice.
+`SKIP LOCKED` allows separate publishers to advance different rows without a
+global lock, but does not guarantee delivery order, including within an auction.
+
+Successful Sidekiq enqueue marks `published_at`; it does **not** prove worker
+completion, Cable broadcast or browser receipt. Redis data loss after that mark,
+Sidekiq Dead-set exhaustion or broadcast failure can still lose a hint. A
+connected browser can remain stale until a REST recovery trigger. The current
+job reads PostgreSQL revision and tolerates duplicate/out-of-order hints.
+Repeated publisher errors remain visible as pending rows and aggregate backlog,
+retry and age logs; operators must investigate poison rows. No finite recovery
+deadline or exactly-once delivery is promised. See [ADR-010](adr/010-transactional-public-outbox.md).

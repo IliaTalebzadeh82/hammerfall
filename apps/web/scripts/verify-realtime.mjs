@@ -94,8 +94,9 @@ try {
   );
   assert.equal(response.status(), 201);
   await page.waitForFunction(
-    () => window.proofMessages.length > 0,
-    {},
+    (target) =>
+      window.proofMessages.some((message) => message.revision >= target),
+    before.public_revision + 1,
     { timeout: 8000 },
   );
   const messages = await page.evaluate(() => window.proofMessages);
@@ -104,13 +105,18 @@ try {
       await context.request.get(`${origins[1]}/api/v1/auctions/${id}`)
     ).json()
   ).data;
-  assert.deepEqual(messages, [
-    {
-      type: "auction.changed.v1",
-      auction_id: id,
-      revision: before.public_revision + 1,
-    },
-  ]);
+  const assertPublicHint = (message) => {
+    assert.equal(message.type, "auction.changed.v1");
+    assert.equal(message.auction_id, id);
+    assert.ok(message.revision >= before.public_revision);
+    assert.ok(message.revision <= final.public_revision);
+  };
+  // Earlier outbox revisions may arrive late, possibly as duplicate current
+  // hints. Require the bid revision without requiring a unique or ordered hint.
+  for (const message of messages) assertPublicHint(message);
+  assert.ok(
+    messages.some((message) => message.revision === before.public_revision + 1),
+  );
   assert.equal(final.public_revision, before.public_revision + 1);
   assert.equal(final.current_price, 10000);
   console.log(
@@ -119,7 +125,8 @@ try {
       cable_process: url.href,
       auction_id: id,
       before: before.public_revision,
-      notification: messages[0].revision,
+      notification: before.public_revision + 1,
+      hint_count: messages.length,
       rest: final.public_revision,
     }),
   );
@@ -140,7 +147,8 @@ try {
     `${origins[0]}/api/v1/auctions/${otherId}/schedule`,
   );
   await new Promise((resolve) => setTimeout(resolve, 1200));
-  assert.equal((await page.evaluate(() => window.proofMessages)).length, 1);
+  for (const message of await page.evaluate(() => window.proofMessages))
+    assertPublicHint(message);
   const rejected = await page.evaluate(async () => {
     const identifier = JSON.stringify({
       channel: "AuctionChannel",

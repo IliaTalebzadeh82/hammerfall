@@ -53,16 +53,30 @@ accessibility audit, cross-browser certification or performance benchmark is cla
 Implemented public invalidations do not imply production readiness. Review exact
 origin/WSS/proxy configuration, authentication and authorization, connection limits,
 PostgreSQL listener connections, shared HTTP/Cable pool contention, hot-auction
-fanout and REST amplification. LISTEN/NOTIFY is ephemeral and has a commit/broadcast
-crash gap. No outbox, replay, delivery guarantee or measured capacity exists yet.
+fanout and REST amplification. LISTEN/NOTIFY is ephemeral; the Phase 9 outbox
+preserves intent until queue enqueue, but does not guarantee Cable delivery or
+measured capacity.
 
 ## Phase 8 queue boundary
 
 Sidekiq and Redis now deliver public invalidations asynchronously and schedule a
-read-only PostgreSQL sweep. The commit-to-enqueue crash gap remains; Redis/worker
-outage or loss can leave clients stale. AOF and a local named volume are not a
+read-only PostgreSQL sweep. The Phase 8 commit-to-enqueue crash gap was closed by
+Phase 9's transactional outbox; Redis/worker outage or loss after acknowledgment
+can still leave clients stale. AOF and a local named volume are not a
 backup or delivery guarantee. Job retries are bounded and need Dead-set ownership.
 The sweep reports possible PostgreSQL drift without repair. There is still no
-authenticated identity, outbox, Kafka, Redis read projection, projection repair,
+authenticated identity, Kafka, Redis read projection, projection repair,
 capacity benchmark or production operations stack. Review Sidekiq/DB connection
 budgets, Redis persistence/HA and job/runbook ownership before public deployment.
+
+## Phase 9 outbox boundary
+
+The outbox makes public revision and publication intent atomic in PostgreSQL.
+The independent publisher retries pending rows after API death or Redis outage;
+multiple publishers claim with `SKIP LOCKED`. A successful queue enqueue marks
+the row published, so subsequent Redis loss, exhausted job retries or Cable loss
+can still lose a hint. Operators need backlog/oldest-age/retry monitoring and
+poison-row response. Current aggregate publisher logs are not a production alert
+system. Redis network operations time out, but no full-cycle latency or capacity
+benchmark exists. REST recovery remains required for browser freshness. See
+[ADR-010](adr/010-transactional-public-outbox.md) and the [runbook](runbooks/sidekiq-redis.md).

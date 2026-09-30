@@ -32,13 +32,15 @@ class OutboxPublisher
             # Persist a retry; a failed/unknown enqueue may already have reached Redis.
             attempts = event.attempts + 1
             delay = [ 2**[ attempts, 8 ].min, 300 ].min
-            event.update!(attempts: attempts, last_error: error.class.name.to_s.first(255), next_attempt_at: Time.current + delay)
+            database_now = OutboxEvent.connection.select_value("SELECT clock_timestamp()")
+            event.update!(attempts: attempts, last_error: error.class.name.to_s.first(255), next_attempt_at: database_now + delay)
             @logger.warn("outbox_publisher enqueue_failed event_id=#{event.event_id} error=#{error.class}")
             failed += 1
           else
             # An acknowledgment failure rolls this transaction back. A later
             # poll may enqueue the same event again, as intended.
-            event.update!(published_at: Time.current, attempts: event.attempts + 1, last_error: nil)
+            database_now = OutboxEvent.connection.select_value("SELECT clock_timestamp()")
+            event.update!(published_at: database_now, attempts: event.attempts + 1, last_error: nil)
             published += 1
           end
         end
@@ -53,8 +55,9 @@ class OutboxPublisher
   def backlog_metrics
     pending = OutboxEvent.pending
     oldest = pending.minimum(:occurred_at)
+    database_now = OutboxEvent.connection.select_value("SELECT clock_timestamp()") if oldest
     { backlog: pending.count, due: OutboxEvent.due.count, retries: pending.where("attempts > 0").count,
-      oldest_age_seconds: oldest ? [ (Time.current - oldest).to_i, 0 ].max : 0 }
+      oldest_age_seconds: oldest ? [ (database_now - oldest).to_i, 0 ].max : 0 }
   end
 
   def run(once: false)

@@ -1,7 +1,7 @@
 # Code map
 
 Paths below are relative to the repository root. Phase 5 resolves client key ownership before the PostgreSQL auction row lock.
-Phase 7 adds ephemeral public invalidations; no outbox or durable event publication exists.
+Phase 9 adds a transactional outbox for public invalidations; Kafka domain events do not exist yet.
 
 ## Creating an auction
 
@@ -312,3 +312,22 @@ All paths in this section begin under `apps/web` unless otherwise noted.
   worker-to-Cable-to-REST flow across processes.
 - `docs/adr/009-sidekiq-public-notifications-and-sweeps.md` and
   `docs/runbooks/sidekiq-redis.md` explain guarantees and operational recovery.
+
+## Phase 9 implementation map
+
+- `Auction#persist_public_change!` inserts `OutboxEvent` after saving each public
+  revision and before its transaction/savepoint exits. `Idempotency::Executor`
+  encloses the domain command and stored outcome; replay never re-enters the write.
+- The migration and `OutboxEvent` model define the public-only version 1 envelope,
+  unique auction/revision identity, due index, retry and enqueue acknowledgment.
+- `OutboxPublisher` and `bin/outbox_publisher` form the independent poller. Each
+  due row is claimed with `FOR UPDATE SKIP LOCKED`; `docker-compose.yml` starts
+  the publisher role. The Sidekiq client initializer bounds Redis network waits.
+- `AuctionChangedJob` reads current PostgreSQL revision and broadcasts the
+  unchanged Cable hint. Duplicate/reordered jobs cannot decide auction state.
+- `spec/integration/transactional_outbox_spec.rb` covers atomicity, replay,
+  privacy, retry, duplicate enqueue and concurrent row claims. The Phase 9
+  ExecPlan records live crash and Redis-outage evidence.
+- [ADR-010](adr/010-transactional-public-outbox.md), [event model](event-model.md),
+  [failure model](failure-model.md) and [runbook](runbooks/sidekiq-redis.md)
+  describe the contract and recovery procedure.

@@ -1,12 +1,12 @@
 # Architecture
 
-## What exists now — Phases 0–8
+## What exists now — Phases 0–9
 
 Next.js in apps/web provides the auction listing/detail and command UI. Rails in apps/api owns
 User, Auction, Bid, MaximumBid, explicit lifecycle operations, and a JSON REST API under
 `/api/v1`. PostgreSQL stores all domain state. The frontend consumes the versioned REST API through a transparent same-origin
 rewrite; Rails remains the sole command authority. Compose runs web, api, db,
-Redis, Sidekiq, a read-only sweep scheduler and the auction closer.
+Redis, Sidekiq, an outbox publisher, a read-only sweep scheduler and the auction closer.
 
 ```text
 API client → controllers → IdempotentBidding (bid/max) → Auction → PostgreSQL
@@ -16,7 +16,8 @@ API client → controllers → IdempotentBidding (bid/max) → Auction → Postg
 
 Browser / Next.js → REST reads and commands → Rails API → PostgreSQL
 Browser ← public revision hint ← Rails Cable B ← PostgreSQL NOTIFY ← Sidekiq job
-Rails A after commit → Redis queue → Sidekiq job (reads current revision)
+Auction transaction → PostgreSQL state + revision + outbox intent
+Outbox publisher → Redis queue → Sidekiq job (reads current revision)
 
 Auction Closer (same Rails app/process role) → Auction#close! → PostgreSQL
 ```
@@ -56,9 +57,10 @@ Real PostgreSQL concurrency specs use committed rows and independent sessions.
 ## Later phases — not implemented
 
 Redis/Sidekiq now handle public hint jobs and read-only scheduled consistency
-sweeps. Outbox in Phase 9 and Kafka in Phase 10 remain future work. Redis
+sweeps. The Phase 9 outbox retains committed publication intent; Kafka in
+Phase 10 remains future work. Redis
 projections and projection reconciliation,
-observability, load testing, and deployment follow the [phase specifications](phases/phase-09.md).
+observability, load testing, and deployment follow the [phase specifications](phases/phase-10.md).
 No component listed here is present merely because it appears in the future plan.
 
 

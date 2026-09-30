@@ -58,7 +58,7 @@ has no replay. Confirmation/reconfirmation always triggers REST recovery. A live
 socket does not imply current state or database health. Auction/history GETs remain
 separate observations and may straddle another commit. See realtime.md and ADR-008.
 
-## Phase 8 job consistency
+## Phase 8 job consistency (historical enqueue path)
 
 After commit, Sidekiq carries a public ID/revision hint and reads current
 PostgreSQL revision before broadcasting. Delayed/reordered jobs do not regress
@@ -66,3 +66,14 @@ the hint, but enqueue loss and exhausted retries can leave clients stale. The
 periodic sweep checks selected PostgreSQL cross-row facts read-only; it is not a
 Redis projection and cannot repair authoritative drift. No durable domain-event
 publication or cache consistency guarantee has been added. See ADR-009.
+
+## Phase 9 publication consistency
+
+The public revision and its outbox intent commit together. A publisher claims
+only committed rows, so an API crash after commit or Redis outage before enqueue
+cannot permanently erase that intent. Retry and concurrent publishers can
+duplicate or reorder notifications; each job reads the latest PostgreSQL revision
+and asks the browser to GET. Queue acknowledgment is not final Cable delivery.
+Redis loss after acknowledgment, exhausted job retries and missed sockets still
+require REST recovery. No global order, bounded freshness or exactly-once
+guarantee exists. See ADR-010 and the failure model.

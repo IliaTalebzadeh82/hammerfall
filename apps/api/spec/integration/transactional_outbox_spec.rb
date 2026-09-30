@@ -84,6 +84,26 @@ RSpec.describe "Transactional public outbox", type: :model do
     expect(auction.reload.current_price).to eq(10_000)
   end
 
+  it "uses PostgreSQL time for retry and acknowledgment despite publisher clock skew" do
+    auction = active_auction
+    OutboxPublisher.new.run_once
+    auction.place_bid!(bidder: @bidder, amount: 10_000)
+    event = events(auction).last
+    db_before = ApplicationRecord.connection.select_value("SELECT clock_timestamp()")
+    allow(Time).to receive(:current).and_return(db_before + 1.year)
+    allow(AuctionChangedJob).to receive(:perform_async).and_raise(IOError, "Redis down")
+
+    expect(OutboxPublisher.new.run_once[:failed]).to eq(1)
+    expect(event.reload.next_attempt_at).to be_between(db_before, db_before + 30.seconds)
+    expect(OutboxPublisher.new.backlog_metrics[:oldest_age_seconds]).to be < 60
+
+    event.update!(next_attempt_at: ApplicationRecord.connection.select_value("SELECT clock_timestamp()") - 1.second)
+    allow(AuctionChangedJob).to receive(:perform_async).and_call_original
+    expect(OutboxPublisher.new.run_once[:published]).to eq(1)
+    db_after = ApplicationRecord.connection.select_value("SELECT clock_timestamp()")
+    expect(event.reload.published_at).to be_between(db_before, db_after)
+  end
+
   it "may enqueue twice after an acknowledgment crash while preserving one outbox event" do
     auction = active_auction
     OutboxPublisher.new.run_once
@@ -124,5 +144,33 @@ RSpec.describe "Transactional public outbox", type: :model do
     expect(result(first)[:published]).to eq(1)
     expect(calls.size).to eq(1)
     expect(events(auction).last.published_at).to be_present
+  end
+
+  it "lets another publisher advance a different row while the first claim is held" do
+    auction = active_auction
+    OutboxPublisher.new.run_once
+    auction.place_bid!(bidder: @bidder, amount: 10_000)
+    first_revision = auction.reload.public_revision
+    auction.place_bid!(bidder: @bidder, amount: 11_000)
+    claimed = Queue.new
+    release = Queue.new
+    calls = Queue.new
+    allow(AuctionChangedJob).to receive(:perform_async) do |_id, revision|
+      calls << revision
+      if revision == first_revision
+        claimed << true
+        release.pop
+      end
+      "queued-job"
+    end
+
+    first = worker { OutboxPublisher.new(batch_size: 1).run_once }
+    take(claimed)
+    expect(result(worker { OutboxPublisher.new(batch_size: 1).run_once })[:published]).to eq(1)
+    expect(events(auction).where("public_revision >= ?", first_revision).where.not(published_at: nil).pluck(:public_revision)).to eq([ first_revision + 1 ])
+    release << true
+    expect(result(first)[:published]).to eq(1)
+    expect(calls.size).to eq(2)
+    expect(events(auction).where(published_at: nil)).to be_empty
   end
 end

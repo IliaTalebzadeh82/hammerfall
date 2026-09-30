@@ -317,3 +317,39 @@ second half. Capturing messages in an array made both assertions independent.
 Three test-process-only mutations confirmed the checks fail for early publication,
 stale requested revision broadcast and uncaught enqueue errors. No source mutation
 was retained. The full normal container suite later passed 359 examples.
+
+## 2026-09-30 — Phase 9 closes the API commit/enqueue gap
+
+A real Rails process committed an auction bid, revision and three pending outbox
+rows, then killed itself. Another process saw those rows and published them.
+Stopping Redis during a later bid left PostgreSQL healthy and the outbox pending;
+retry state survived until Redis returned. This directly distinguishes durable
+publication intent from an after-commit callback held only by the API process.
+
+Killing the publisher after Redis accepted a job but before PostgreSQL
+acknowledgment produced two successful worker executions on retry. The row lock
+rolled back and kept the event discoverable. The job's current-revision read and
+public-only hint kept duplicate delivery harmless. `SKIP LOCKED` let another
+publisher advance a different row while the first row stayed locked, without a
+global lock or same-auction ordering guarantee.
+
+The outbox acknowledgment is the queue boundary, not Cable receipt. Redis loss
+or a dead job afterward still needs REST recovery and operational attention.
+The publisher therefore logs pending age/retry counts, preserves poison rows,
+and uses a finite Redis network timeout to avoid holding its row lock on a
+stalled network operation. No overall wall-clock delivery bound was inferred.
+
+Final review found a clock mismatch: PostgreSQL selected due rows, but the
+publisher host initially calculated the next retry and pending age. A host set
+far ahead could defer an event far longer than the configured backoff. Retry,
+acknowledgment and age now read PostgreSQL `clock_timestamp()`; a one-year host
+skew spec and a final live Redis outage/recovery passed. Assigning `Arel.sql`
+directly to typed ActiveRecord datetime attributes initially typecast the
+expression and made rows immediately due; focused tests caught this, so the
+final code reads a timestamp value explicitly.
+
+The old independent Cable verifier assumed exactly one hint. When earlier
+lifecycle outbox rows were delivered after a bid, their jobs read the current
+revision and legitimately sent duplicate current hints. The verifier now checks
+that the bid revision arrives and every observed hint stays on the correct
+auction stream and within the current revision range.

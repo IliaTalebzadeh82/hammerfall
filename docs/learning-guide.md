@@ -97,7 +97,7 @@ limitations, source files, demonstrative tests, and interview explanation for ea
 subsystem when it is built:
 
 - WebSockets (Phase 7)
-- Outbox (Phase 9)
+- Outbox (Phase 9, implemented below)
 - Kafka and consumer idempotency (Phase 10)
 - Redis projections (Phase 11)
 - Reconciliation (Phase 12)
@@ -651,3 +651,36 @@ Phase 11 and no repair policy until Phase 12. Duplicate scans only repeat logs.
 Sidekiq/Redis runbook. Explain the commit/enqueue gap, harmless duplicate/reorder
 behavior, and the distinction between a read-only PostgreSQL check and future
 projection repair.
+
+## Phase 9 — Transactional outbox
+
+**Problem.** Phase 8 committed a bid and then asked Redis to enqueue its public
+hint. If the API died between those steps, PostgreSQL retained the bid but no
+process retained the intention to notify. Redis outage had the same loss window.
+
+**Chosen path.** The locked auction transaction saves the domain change, public
+revision and a versioned public-only outbox row together. A separate publisher
+later finds committed pending rows, claims them with `SKIP LOCKED`, enqueues the
+Sidekiq job and records acknowledgment. The domain transaction never waits for
+Redis. Rollback removes state and intent; private-only maximum changes, no-ops,
+rejections and idempotency replay create no new public row.
+
+```text
+auction transaction: state + revision + outbox intent → PostgreSQL COMMIT
+publisher later: committed intent → Redis enqueue → mark outbox published
+worker: current PostgreSQL revision → Cable hint → browser REST GET
+```
+
+**Why duplicates remain possible.** Redis may accept the job immediately before
+the publisher dies. PostgreSQL then has no acknowledgment, so another publisher
+tries again. The two jobs may both run, and different rows may arrive out of
+order. The job reads the current PostgreSQL revision and only sends a public
+refresh hint. This is at-least-once enqueue while intent is pending, not
+exactly-once Cable delivery. Once acknowledged, Redis loss, Dead-set exhaustion
+or Cable failure can still lose the hint; browser REST recovery remains essential.
+
+**Read first:** ADR-010, `Auction#persist_public_change!`, `OutboxEvent`,
+`OutboxPublisher`, `transactional_outbox_spec.rb`, then the Phase 9 ExecPlan's
+live crash/outage evidence and the runbook. In an interview, distinguish the
+atomic PostgreSQL commit from the later queue acknowledgment and explain why
+the latter cannot certify browser receipt.

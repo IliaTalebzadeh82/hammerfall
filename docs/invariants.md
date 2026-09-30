@@ -53,13 +53,17 @@ All 15 original master invariants remain requirements. Their current status is:
 9. **Concurrent requests cannot lose updates:** enforced by the row lock and atomic bid/price writes.
 10. **Closure and bid acceptance serialize correctly:** current commands share a row lock;
     post-lock DB time, autonomous closer and atomic extensions are implemented.
-11. **Committed bids eventually produce domain events:** Phase 9 onward; no outbox
-    or event publication exists yet.
-12. **Duplicate events do not duplicate downstream effects:** Phase 10 onward.
+11. **Committed public mutations retain publication intent:** Phase 9 atomically
+    stores a public invalidation outbox row with each public revision. Domain-event
+    families and Kafka remain Phase 10 work; final Cable receipt is not guaranteed.
+12. **Duplicate public hints do not duplicate domain effects:** Phase 9 jobs
+    read current revision and only request REST refresh. Future domain-event
+    consumers need their own idempotency proof in Phase 10.
 13. **Read-model inconsistency is detectable:** Phase 12; no read model exists.
 14. **Read-model inconsistency is repairable:** Phase 12.
-15. **Redis loss cannot invalidate authoritative state:** PostgreSQL is the only
-    current store; Redis integration/failure behavior is deferred.
+15. **Redis loss cannot invalidate authoritative state:** Redis/Sidekiq is a
+    public-hint transport; outage preserves committed PostgreSQL state and pending
+    outbox intent until successful enqueue.
 
 The dedicated concurrency group commits data and checks real independent PostgreSQL
 sessions. The ordinary suite keeps transactional wrappers. Removing locks must fail
@@ -147,12 +151,12 @@ snapshots and absence of realtime remain explicit limits. See ADR-007.
 
 A committed public mutation and its incremented public_revision are atomic. A
 private-only maximum cannot change public_revision or public updated_at. Rollbacks,
-replays and no-ops emit no new invalidation. Publication occurs after the outermost
-commit; savepoint rollback drops its callback. A notification contains only type,
+replays and no-ops emit no new invalidation. The outbox row commits with the
+revision; savepoint rollback removes both. A notification contains only type,
 auction_id and revision. The browser cannot derive acceptance or winner from it,
 and never replaces displayed auction state with an older REST revision.
 
-## Phase 8 background-work boundaries
+## Phase 8 background-work boundaries (historical enqueue path)
 
 | Boundary | Enforcement | Evidence |
 | --- | --- | --- |
@@ -162,5 +166,19 @@ and never replaces displayed auction state with an older REST revision.
 | Scheduled sweeps cannot repair or alter authoritative state | Read-only SQL comparison, fixed public-ID drift log and bounded cursor | `spec/jobs/reconciliation_sweep_job_spec.rb` corruption and pagination tests |
 
 These are safety properties, not delivery or freshness guarantees. A crash after
-commit but before enqueue, Redis loss or exhausted retries can lose a hint. A
-connected browser still needs REST recovery. Phase 9 outbox is not present.
+commit but before enqueue was a Phase 8 loss window. Phase 9 now commits a
+public-only outbox row with each revision. Rollback, private-only changes,
+rejections, no-ops and idempotency replay leave no new public row. Publisher
+retry can duplicate/reorder jobs, which read the current PostgreSQL revision.
+Acknowledgment is successful enqueue only; Redis loss after it or exhausted
+job retries can still lose a hint. A connected browser still needs REST recovery.
+
+## Phase 9 outbox invariants
+
+| Invariant | Enforcement | Evidence |
+| --- | --- | --- |
+| A public revision and publication intent commit or roll back together | `Auction#persist_public_change!` inserts before its savepoint exits; outer idempotency transaction owns the outcome | `transactional_outbox_spec.rb` rollback, failed insert and independent reader |
+| One public intent per auction revision | Unique `(auction_id, public_revision)` and no insertion on private/no-op/replay paths | `transactional_outbox_spec.rb`, `public_revision_spec.rb` |
+| Failure before enqueue does not discard committed intent | Pending rows discovered by independent publisher; persisted retry state | Phase 9 live process-kill and Redis outage evidence in `docs/plans/phase-09-execplan.md` |
+| Publisher claims do not require a global lock | `FOR UPDATE SKIP LOCKED` on due rows | `transactional_outbox_spec.rb` concurrent connection examples |
+| Duplicate enqueue cannot mutate auction truth | Job reads current revision and broadcasts only public hint | Acknowledgment-crash test and live duplicate-job evidence |

@@ -1,16 +1,47 @@
-# Current handoff — Phase 9 primary outbox checkpoint
+# Current handoff — Phase 9 complete
 
-Updated: 2026-09-30. **Phase 9 — Transactional Outbox is active, not complete.** Resume from [the active ExecPlan](../plans/phase-09-execplan.md) and [Phase 9 specification](../phases/phase-09.md) following the [context lifecycle](../context-lifecycle.md). Phase 10 has not begun.
+Updated: 2026-09-30. **Phase 9 — Transactional Outbox is complete.** Phase 10
+has not begun and needs an explicit request. Read [ADR-010](../adr/010-transactional-public-outbox.md),
+the [Phase 9 ExecPlan](../plans/phase-09-execplan.md) and [progress](../progress.md)
+for the design, Evidence Index and actual verification.
 
 ## Current state
 
-- Phase 8 was complete before this session. Rails/PostgreSQL remains auction, deadline, proxy, winner, public revision and idempotency authority. Sidekiq/Redis carries public invalidations; Cable hints contain only type, auction ID and current revision. The read-only reconciliation sweep is unchanged.
-- The precise Phase 8 loss window was `auction/idempotency COMMIT → after_commit callback → Sidekiq perform_async`. A crash or Redis failure after commit and before enqueue left no durable intent and could permanently lose the hint.
-- Phase 9 primary implementation now inserts one `auction.changed.v1` outbox row, keyed by auction/public revision, **inside** `Auction#persist_public_change!` and the same PostgreSQL transaction/savepoint as the public mutation. An enclosing idempotency transaction also commits the command outcome. Rollback removes both state and intent. Private-only and unchanged commands produce no public row; replay produces no new row.
-- A separate `outbox-publisher` Compose role polls due rows with `FOR UPDATE SKIP LOCKED`, enqueues the existing `AuctionChangedJob`, then acknowledges the row. Failed enqueue persists exponential retry state. Multiple publishers can reorder rows, and an unknown/failed acknowledgment can duplicate enqueue; the existing job's current-revision check makes duplicate/out-of-order hints harmless. The outbox acknowledges Sidekiq enqueue, **not** final Cable delivery. No exactly-once claim.
+- Rails/PostgreSQL remains auction, deadline, proxy, winner, public revision and
+  idempotency authority. Sidekiq/Redis and Cable carry public invalidations;
+  browser REST reads authoritative state. The read-only reconciliation sweep is
+  unchanged. No Kafka, projection or domain-event consumer exists.
+- Each public mutation writes auction state, revision and a public-only
+  `auction.changed.v1` outbox row inside one PostgreSQL transaction. The outer
+  idempotency transaction also owns the command outcome. Rollback removes state
+  and intent; replay, private-only, rejected and no-op commands add no event.
+- The independent publisher claims due rows with `FOR UPDATE SKIP LOCKED`,
+  enqueues `AuctionChangedJob`, then acknowledges successful enqueue. Failed
+  attempts persist backoff and aggregate backlog metrics. Redis network calls
+  have a two-second timeout; retry/acknowledgment/age use PostgreSQL clock time.
+  Multiple publishers can reorder and duplicate jobs. The job reads current
+  revision, so those hints remain safe. Acknowledgment is **queue enqueue**, not
+  Cable or browser delivery. No exactly-once or fixed-latency claim.
 
-## Evidence and remaining work
+## Evidence and limits
 
-Test database migration succeeded. Focused real-PostgreSQL specs passed: **22 examples, zero failures**, seed 52519. Focused RuboCop: **10 files, zero offenses**. The specs cover nested rollback, independent-reader invisibility, outbox insert failure rolling back bid/idempotency claim, replay, private-only changes, publisher retry, duplicate enqueue after ack failure and concurrent skip-locked claims. These are in-process tests; real process crash, Redis outage/recovery, sabotage, metrics observation and full regression remain.
+The primary implementation is commit `5a032e6`. A real originating Rails process died after
+commit and another publisher found its pending rows. Real Redis loss left bids
+committed and backlog retryable; restoration drained it. Killing a publisher
+after Redis enqueue but before PostgreSQL acknowledgment produced two completed
+jobs without changing auction truth. Concurrent PostgreSQL connections proved
+same-row exclusion and different-row progress. Sabotage A–D detected or safely
+handled the intended failures; all temporary mutants were restored.
 
-Next session should inspect the [ExecPlan evidence index](../plans/phase-09-execplan.md), run live publisher/worker/Redis failure and recovery scenarios, review timeout and delivery limits, perform sabotage and broad regression, then update ADR/architecture/invariants/runbook/learning/code map/progress and this handoff. Finalize coherent commits and leave a clean tree only when the Phase 9 definition of done is met. No Kafka or Phase 10 work.
+Final local regression passed 368 backend examples, 90 RuboCop files, Brakeman,
+Zeitwerk, 73 frontend tests and production build. Compose reported eight healthy
+services. Real Playwright passed 7/7 with installed system Chrome; concurrent,
+proxy, sequential, two-process idempotency, two-process Cable and multi-process
+closing smoke passed. Bundler audit found no vulnerabilities. Hosted CI was not
+run. The pinned browser CDN returned HTTP 403 in this location.
+
+Redis loss after outbox acknowledgment, Sidekiq Dead-set exhaustion, Cable loss
+or a connected browser missing a hint can still leave a stale view until REST
+recovery. Poison rows retry indefinitely and require operators. No production
+capacity, backup or fixed delivery-time evidence exists. The repository is ready
+for a separately requested Phase 10, with these limits retained.

@@ -1454,6 +1454,98 @@ Kafka integration or delivery guarantee exists. A fresh explicit request should
 start Phase 9 with its specification and the updated handoff; do not treat Redis
 jobs as an outbox.
 
+## Phase 9 — Transactional Outbox
+
+Status: COMPLETE — verified 2026-09-30. The primary implementation
+was committed as `5a032e6`; [the ExecPlan](plans/phase-09-execplan.md) holds the
+compact Evidence Index and exact live observations.
+
+### Implemented and boundaries
+
+Each public auction mutation saves its authoritative state, increments
+`public_revision` and inserts a versioned `auction.changed.v1` outbox row in
+one PostgreSQL transaction. An enclosing idempotency transaction also owns the
+stored command outcome. The row has stable UUID, auction ID/revision, database
+occurrence time and retry/acknowledgment state, but no private maximum, priority,
+origin or key. A unique auction/revision index defends identity. Draft creation
+at revision zero, private-only changes, unchanged commands, rejections, duplicate
+close and replay create no new public event.
+
+An independent Compose publisher claims due committed rows using `FOR UPDATE
+SKIP LOCKED`, enqueues the existing Sidekiq job, and marks published only after
+Sidekiq returns a job ID. Failed enqueue persists class-only error and bounded
+exponential backoff; retries continue until success or operator intervention.
+Redis client network operations have a two-second timeout. Retry,
+acknowledgment and pending-age calculations use PostgreSQL clock time. Aggregate logs expose
+backlog, due, retries and oldest age. Different publishers may deliver revisions
+out of order. The job reads current PostgreSQL revision and sends the same
+public Cable hint. Acknowledgment means enqueue, not final delivery. See ADR-010.
+
+### Failure, sabotage and regression evidence
+
+- A Rails runner committed auction 163, a 10,000-cent bid, revision 3 and three
+  outbox rows, then killed itself with SIGKILL (exit 137). A separate process
+  read all three pending UUIDs. A separate publisher enqueued all three and
+  real Sidekiq logs showed three completed `AuctionChangedJob`s.
+- With Redis stopped and PostgreSQL healthy, a separate runner committed auction
+  164 at revision 3. Publisher enqueue failed three times with
+  `RedisClient::CannotConnectError`; backlog was 3, retry count 3, published
+  count 0. Restoring Redis and rerunning the publisher acknowledged all three;
+  backlog became 0 and worker jobs completed. The bid never rolled back.
+- For auction 164 revision 4, an injected publisher SIGKILL occurred after a real
+  Sidekiq enqueue and before PostgreSQL acknowledgment. The event stayed pending
+  at attempts 0. Another publisher enqueued it again; two distinct real worker
+  JIDs completed, one outbox event remained and the auction revision stayed 4.
+- Two real PostgreSQL connections showed `SKIP LOCKED` prevents duplicate active
+  claim of one row and permits another publisher to advance a different row.
+  Focused outbox spec: 9 examples, zero failures, seed 31458, including a
+  one-year publisher clock skew regression.
+- With the final PostgreSQL-clock publisher restarted, stopped Redis again and
+  committed auction 164 revision 5, event `9e4b0cd8…`. It stayed pending after
+  four real failed attempts; Redis restoration led to acknowledgment on attempt
+  five, a completed worker job and backlog zero. The bid price stayed 12,000.
+- Sabotage A removed the atomic outbox call: 8 examples, 7 expected failures,
+  including missing committed intent. Sabotage D inserted an event on replay:
+  one-event spec failed with expected 3/got 4. Both temporary source changes
+  were restored byte-identically. Sabotage B used the real Redis outage; C used
+  the real publisher acknowledgment crash. Normal specs passed afterward.
+- Full native `scripts/check` passed after the clock and timeout fixes:
+  368 backend examples, zero failures; RuboCop 90 files/zero offenses;
+  Brakeman zero warnings; Zeitwerk, frontend lint/format/types, 73 Vitest tests
+  and production build passed. `bin/bundler-audit` reported no vulnerabilities.
+- Real HTTP concurrent bidding, proxy bidding and sequential auction smoke
+  scripts passed through Compose. A second independent Rails API on port 3002
+  passed the multi-process idempotency smoke. The independent API A/Cable B
+  verifier initially exposed an obsolete exactly-one-hint assertion: earlier
+  lifecycle jobs produced duplicate current-revision hints. After updating the
+  verifier to assert payload and stream isolation while tolerating duplicates,
+  it passed with auction 186, revision 2 → hint/REST 3, plus malformed and
+  disallowed-origin rejection. Web lint and format checks passed afterward.
+- Multi-process closing smoke passed six scenarios with two API processes and
+  the autonomous closer paused: soft-close arithmetic, stale closer discovery,
+  bid/close race, two concurrent closers and expiry. The closer was restarted.
+- `docker compose up --build --wait --wait-timeout 240` reported all eight
+  services healthy. Real API Playwright passed 7/7 using system Chrome because
+  the pinned browser CDN returned HTTP 403 in this location. Browser scenarios
+  covered manual/proxy bidding, response loss, reconnect, soft close, lifecycle,
+  responsive forms and autonomous winner notification.
+
+### Limits and review
+
+Redis data loss after outbox acknowledgment, exhausted Sidekiq retries, Cable
+failure or a continuously connected stale browser can still lose a hint. REST
+remains the recovery authority. Publisher retries can duplicate/reorder work;
+no exactly-once, global-order, fixed-latency, throughput or production durability
+claim is made. Poisoned pending rows require operator investigation. No Kafka,
+projection or domain-event consumer was introduced. See the runbook and Phase 9
+ExecPlan for the completed adversarial review. The review found and fixed a
+host-clock retry/metric skew risk; a focused mutant that assigned SQL expressions
+to typed model attributes failed and was replaced with explicit PostgreSQL
+clock reads. CI now checks the publisher's one-shot command. The local browser
+download was location-blocked (HTTP 403), so actual Playwright tests used
+installed system Chrome. Hosted CI and production capacity were not verified.
+Phase 10 has not begun.
+
 Commits: `f2d59cd` implements the Phase 8 runtime/config/tests; documentation
 completion is committed separately. The preceding `63edbb8` commit records the
 pre-existing context migration and contains no Phase 8 product code.

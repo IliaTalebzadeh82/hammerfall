@@ -370,10 +370,10 @@ Cable defaults to two workers; each Rails listener also uses a dedicated Postgre
 connection outside the ordinary pool. Size total connection capacity across API and
 closer processes before increasing workers. This is not a production sizing result.
 
-## Phase 8 Redis, Sidekiq and sweeps
+## Phase 9 outbox, Redis, Sidekiq and sweeps
 
 Compose now starts Redis (loopback port `REDIS_PORT`, default 6379), a two-thread
-Sidekiq process, and a separate `reconciliation-scheduler` alongside the existing
+Sidekiq process, `outbox-publisher` and a separate `reconciliation-scheduler` alongside the existing
 API, web, database and authoritative closer. Redis uses a named local volume with
 append-only persistence; it is not a backup. Native processes use `REDIS_URL`
 (default `redis://127.0.0.1:6379/0`); Compose supplies `redis://redis:6379/0`.
@@ -382,9 +382,10 @@ The API does not require Redis to boot or accept bids.
 ```sh
 docker compose up --build --wait
 docker compose exec -T redis redis-cli ping
-docker compose ps sidekiq reconciliation-scheduler
+docker compose ps sidekiq outbox-publisher reconciliation-scheduler
+docker compose exec -T api bin/rails runner 'p OutboxPublisher.new.backlog_metrics'
 docker compose exec -T reconciliation-scheduler bin/reconciliation_scheduler --once
-docker compose logs --tail 100 --no-color sidekiq reconciliation-scheduler api
+docker compose logs --tail 100 --no-color outbox-publisher sidekiq reconciliation-scheduler api
 ```
 
 `RECONCILIATION_INTERVAL` defaults to 60 seconds (minimum 5). Each sweep checks
@@ -395,9 +396,10 @@ the Dead set needs operator inspection. Use the [runbook](runbooks/sidekiq-redis
 for queue counts, outage and recovery. Do not expose an unauthenticated Sidekiq
 Web UI or mistake queue drain for guaranteed notification delivery.
 
-`AuctionPublication` enqueues only after outer commit; `AuctionChangedJob` reads
-current revision and broadcasts the same public Cable hint through PostgreSQL.
+The outbox row commits with each public revision; the independent publisher
+enqueues it later. `AuctionChangedJob` reads current revision and broadcasts the
+same public Cable hint through PostgreSQL.
 The existing independent API A/Cable B script still proves cross-process delivery
-with Sidekiq running. Redis outage may lose a hint while HTTP mutation and
-idempotent replay succeed; browser REST recovery still applies. No outbox or
-Kafka exists in Phase 8.
+with Sidekiq running. Redis outage before enqueue leaves committed rows pending;
+restoring Redis lets the publisher retry. Browser REST recovery still applies.
+No Kafka exists in Phase 9. See the [runbook](runbooks/sidekiq-redis.md).

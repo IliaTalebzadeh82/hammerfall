@@ -83,7 +83,8 @@ jobs:
         run: |
           docker compose exec -T redis redis-cli ping
           docker compose exec -T reconciliation-scheduler bin/reconciliation_scheduler --once
-          docker compose ps sidekiq
+          docker compose exec -T outbox-publisher bin/outbox_publisher --once
+          docker compose ps sidekiq outbox-publisher
       - name: Sequential auction API smoke
         run: docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-api
       - name: Independent closer one-shot

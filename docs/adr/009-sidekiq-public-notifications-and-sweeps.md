@@ -2,6 +2,9 @@
 
 Status: Accepted — Phase 8, 2026-09-30
 
+Historical Phase 8 decision: [ADR-010](010-transactional-public-outbox.md)
+replaces the after-commit enqueue with a transactional outbox in Phase 9.
+
 ## Context
 
 Phase 7 publishes public revision invalidations directly through PostgreSQL Action Cable after commit. Phase 8 requires Redis, Sidekiq, application jobs, a notification pipeline and a scheduled reconciliation framework. The product has no authenticated identities or private notification channels. PostgreSQL must still decide every bid, price, deadline and winner. Outbox durability belongs to Phase 9.

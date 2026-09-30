@@ -1,6 +1,8 @@
 # Phase 09 — Transactional Outbox
 
-Status: Planned; begin only on an explicit request
+Status: Complete — 2026-09-30. Implementation, live recovery, regression and
+limits are recorded in [the ExecPlan](../plans/phase-09-execplan.md) and
+[progress](../progress.md). Phase 10 has not begun.
 
 ## Goal
 

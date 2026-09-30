@@ -24,17 +24,17 @@ duplicate closure do not increment or broadcast. Private-only changes also leave
 public timestamps unchanged. Bid generation changes price or leader under current
 resolver rules; bid sequence alone cannot represent lifecycle/extension changes.
 
-The explicit domain save helper updates revision with state and registers the
-central publisher with `Auction.current_transaction.after_commit`. Nested savepoint
-callbacks transfer to the parent; rollback discards them. ID/revision are captured
-as scalars. Phase 8's callback enqueues `AuctionChangedJob`; no per-Bid model
-callback publishes incomplete contest state.
+The explicit domain save helper writes state, revision and the public outbox row
+inside one PostgreSQL transaction. An independent publisher later enqueues
+`AuctionChangedJob` using scalar ID/revision. Nested savepoint or outer rollback
+removes both state and row. No per-Bid model callback publishes incomplete
+contest state.
 
 ```text
 Rails A                     PostgreSQL                Rails B               Browser
-lock + public mutation ---> row state + revision
-COMMIT -------------------> authoritative/visible
-transaction callback -----> Redis queue -> Sidekiq job reads current revision
+lock + public mutation ---> row state + revision + outbox intent
+COMMIT -------------------> authoritative/visible + pending intent
+independent publisher ----> Redis queue -> Sidekiq job reads current revision
                                           -> NOTIFY -> public stream ------> hint
                                                                          GET REST
                             current state <---------- Rails HTTP <----------|
@@ -91,17 +91,18 @@ REST failures remain independently visible. Listings use explicit REST paginatio
 
 ## Failure and operational limits
 
-Commit can succeed and the process can die before enqueue. Enqueue failures are
-logged with public ID/revision/error class and cannot undo a committed command
-or idempotency record. Redis/worker failure can delay or lose a queued hint;
+Commit can succeed and the process can die before enqueue; the outbox row remains
+for another publisher. Enqueue failures persist retry state without undoing a
+committed command or idempotency record. Redis/worker failure can delay a hint;
 Sidekiq retries failed jobs five times and then retains them in its Dead set.
 The job reads current PostgreSQL revision so delayed/reordered work does not
 broadcast an older revision. Duplicate hints are harmless to the browser.
 PostgreSQL NOTIFY and Cable do not retain missed events.
 A continuously connected browser may remain stale after a lost hint until manual,
 visibility, command, countdown, later-hint or reconnection recovery. There is no
-transactional outbox, domain-event log/replay, Redis projection repair or
-exactly-once claim. The Sidekiq queue does not bridge the commit-to-enqueue gap.
+Kafka domain-event log/replay, Redis projection repair or exactly-once claim.
+Successful outbox acknowledgment proves enqueue only. Redis loss afterward,
+exhausted job retries or Cable failure may still lose a hint.
 Auction and history GETs can straddle commits; this is not an atomic snapshot.
 
 Each listening Rails process uses a dedicated PostgreSQL connection in addition to
