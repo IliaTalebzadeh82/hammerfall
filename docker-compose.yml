@@ -205,6 +205,29 @@ services:
     command: ["bin/kafka_audit_consumer"]
     stop_grace_period: 15s
 
+  kafka-projection-consumer:
+    image: hammerfall-api
+    environment:
+      RAILS_ENV: development
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${PGUSER:-hammerfall}
+      PGPASSWORD: ${PGPASSWORD:?Copy .env.example to .env before starting Compose}
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    volumes:
+      - ./apps/api:/app
+      - api_bundle:/usr/local/bundle
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    command: ["bin/kafka_projection_consumer"]
+    stop_grace_period: 15s
+
   reconciliation-scheduler:
     image: hammerfall-api
     environment:

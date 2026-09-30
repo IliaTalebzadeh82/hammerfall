@@ -1,55 +1,31 @@
-# Current handoff — Phase 10 complete
+# Current handoff — Phase 11 primary implementation checkpoint
 
-Updated: 2026-09-30. **Phase 10 — Kafka is complete.** Phase 11 has not begun
-and needs an explicit request. Read [ADR-011](../adr/011-kafka-domain-events.md),
-the [Phase 10 ExecPlan](../plans/phase-10-execplan.md) and [progress](../progress.md)
-for the contract, Evidence Index, actual failure results and limits. The
-implementation is commit `874deb7`; documentation completion follows.
+Updated: 2026-09-30. **Phase 11 — Redis Projection is in progress.** Read the
+[Phase 11 ExecPlan](../plans/phase-11-execplan.md), [Phase 11 specification](../phases/phase-11.md)
+and [projection architecture](../architecture/projections-and-reconciliation.md)
+for scope, decisions, Evidence Index and exact next action. Phase 12 has not started.
 
 ## Current state
 
-- Rails/PostgreSQL remains auction, deadline, proxy, winner, public revision
-  and idempotency authority. A public mutation, revision, Sidekiq invalidation
-  intent and public Kafka domain snapshot commit on one outbox row inside the
-  auction transaction. Legacy Phase 9 rows were not backfilled with invented
-  domain history. No Redis auction projection or Phase 11 consumer exists.
-- Sidekiq/Cable and Kafka have separate publishers, retries and acknowledgment
-  fields. The Kafka publisher sends committed rows to the three-partition
-  `hammerfall.auction-events.v1` topic with auction ID key using `rdkafka`
-  0.30.0, waits for broker delivery, then acknowledges in PostgreSQL. The
-  `hammerfall.audit.v1` group validates v1 public envelopes, commits receipt
-  and audit effect together, then commits offset. Duplicates and replay are
-  no-ops; poison stops the group at an uncommitted offset.
-- Redis/Sidekiq/Cable still send public revision hints; browser REST remains
-  the current-state authority. Kafka audit is not a projection and never
-  decides bids, price, deadline or winner. [Kafka runbook](../runbooks/kafka.md)
-  covers backlog, replay, poison and operator recovery.
+Phase 10's PostgreSQL outbox and Kafka v1 public snapshots remain unchanged.
+A separate `hammerfall.projection.v1` Kafka group validates events and writes a
+versioned public-only Redis key through an atomic revision compare-and-set.
+Duplicates and stale revisions cannot regress it; same-revision conflicting data
+blocks offset commit. The explicit eventual `/api/v1/auctions/:id/public-state`
+endpoint serves a lean Redis view with revision/source/age metadata and falls
+back to PostgreSQL on miss, invalid data or Redis failure. Existing REST GET,
+all commands and auction correctness remain PostgreSQL-backed. A manual
+PostgreSQL seed script supports recovery after Redis loss. No Phase 12 scheduled
+repair/reconciliation exists.
 
-## Evidence and limits
+## Evidence and next action
 
-Real broker outage left a bid committed and Sidekiq hint acknowledged while
-Kafka backlog persisted; recovery drained it. Publisher SIGKILL after broker
-delivery produced two records/one audit effect. Consumer SIGKILL after its
-database effect replayed as a duplicate on restart. A version-2 poison record
-blocked its partition; an explicitly reviewed offset reset resumed a later
-valid record. Replay suppressed old effects and blocked at the same poison.
-Redis outage left Kafka and audit 3/3 while Sidekiq waited; Redis recovery
-drained that backlog. Sabotage A–D failed expected checks, then 19 focused
-examples passed after byte-identical restoration. Final review added
-event-classification and a two-connection duplicate-consumer race check;
-22 focused examples passed.
-
-Final local `scripts/check` passed 381 RSpec examples, 98 Ruby lint files,
-Brakeman, Zeitwerk, 73 frontend tests and production build. Compose started
-the Kafka topology; native host bootstrap worked. Real Playwright passed 7/7;
-API, proxy, concurrent, two-process idempotency and multi-process closing
-smoke passed. Bundler audit found no vulnerabilities. Hosted CI was not run.
-
-Kafka is one local plaintext broker with one replica and no production HA,
-backup, TLS/ACL, schema registry, alerting, capacity or fixed-latency evidence.
-Retention bounds replay; poison skip needs an operator decision. Concurrent
-publishers can reorder an auction's revisions, and the two publishers share
-outbox row locks. Sidekiq acknowledgment still means queue enqueue, not Cable
-or browser delivery. REST recovery remains necessary. Phase 11 is ready for
-**separately requested design and implementation**, carrying these ordering,
-retention and privacy limits forward; no Phase 11 work has started.
+20 focused examples passed with real local PostgreSQL/Redis (seed 41577), along
+with Zeitwerk, changed Ruby lint, Compose config and whitespace checks. An
+initial test invocation lacked the local PostgreSQL password; sourcing `.env`
+resolved it. There is **no live Kafka-to-Redis verification yet**, nor real
+Redis loss, process crash, replay, sabotage, broad regression or final docs.
+The next session must start the Compose projection consumer and prove a real
+event through Kafka to Redis and the eventual API, then run the live failure
+campaign. Broker retention, publisher reordering and pre-Phase-10 rows limit
+Kafka-only replay; PostgreSQL remains the current-state rebuild source.

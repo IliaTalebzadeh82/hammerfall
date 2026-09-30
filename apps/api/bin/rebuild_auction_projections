@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+$stdout.sync = true
+require_relative "../config/environment"
+abort "Usage: bin/rebuild_auction_projections" unless ARGV.empty?
+projection = AuctionPublicProjection.new
+counts = Hash.new(0)
+begin
+  Auction.find_each(batch_size: 100) do |auction|
+    counts[projection.seed(auction)] += 1
+  end
+ensure
+  projection.close
+end
+puts "projection_seed applied=#{counts[:applied]} duplicate=#{counts[:duplicate]} stale=#{counts[:stale]}"
