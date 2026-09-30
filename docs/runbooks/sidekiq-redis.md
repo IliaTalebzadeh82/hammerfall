@@ -32,4 +32,10 @@ Outbox enqueue retries are indefinite, with exponential backoff capped at 300 se
 
 An outbox acknowledgment means Sidekiq accepted the job, not that Cable delivered it. Redis data loss after acknowledgment and exhausted job retries are outside outbox recovery. Multiple publishers may process rows out of order; duplicate jobs are safe because they read current revision. Use a current REST GET to verify auction truth. The publisher's Redis network timeout is two seconds; long database stalls and high backlog can still delay delivery without a fixed bound.
 
-The scheduler is not an exact cadence or singleton guarantee. Its `--once` command exits nonzero on Redis enqueue failure. The sweep reads bounded PostgreSQL batches and logs `auction_reconciliation drift auction_id=… kind=postgresql_state`; it never repairs data. Investigate the auction and latest accepted Bid under a consistent read, preserve evidence and plan a deliberate repair. Repeated or duplicate sweep logs are possible. Phase 12 will define Redis projection comparison and safe repair.
+Each publisher process holds one PostgreSQL connection and outbox row lock while
+enqueuing. If Kafka is slow on the same row, Sidekiq skips it and retries in a
+later cycle; other rows remain eligible. Check both publisher backlogs when one
+path seems stalled, and account for every publisher process in database pool and
+connection budgets. Do not infer a lost event from one skipped cycle.
+
+The scheduler is not an exact cadence or singleton guarantee. Its `--once` command exits nonzero on Redis enqueue failure. The sweep reads bounded PostgreSQL batches and logs `auction_reconciliation drift auction_id=… kind=postgresql_state`; it never repairs data. Investigate the auction and latest accepted Bid under a consistent read, preserve evidence and plan a deliberate repair. Repeated or duplicate sweep logs are possible. Phase 12's separate projection scan compares Redis and repairs only safe missing or stale public keys; see the [reconciliation runbook](projection-reconciliation.md).

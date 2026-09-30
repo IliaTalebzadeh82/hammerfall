@@ -428,6 +428,9 @@ acknowledgment and error envelope. Never store record.attributes or raw request 
 Only key/fingerprint digests enter the idempotency table. Keys and hidden ceilings
 must not appear in added logs. Representation privacy still does not authenticate
 actors or protect plaintext database access.
+An unkeyed SHA-256 digest can still expose a weak client key to a database thief
+through offline guessing. HMAC would improve that property, but existing
+unversioned rows and secret rotation require a replay-preserving migration.
 
 **Retention bounds the promise:** seven days by default marks when a completed row
 may be pruned. An expired-but-present record still reserves its key; only physical
@@ -798,3 +801,16 @@ bytes are self-consistent, so reconciliation still treats an impossible value
 as corrupt. The outbox now timestamps insertion using PostgreSQL wall time;
 that differs from the earlier locked decision time, transaction start, commit,
 publisher acknowledgment and Redis write. None is a bid-ordering clock.
+
+## Phase 12.5 — Publisher locks and delivery ambiguity
+
+Both publishers hold an outbox row lock and PostgreSQL connection while waiting
+for their external dependency. `SKIP LOCKED` lets another publisher advance
+different rows, but the two paths temporarily exclude each other on one row.
+The transaction makes process death or database acknowledgment failure leave
+that row pending; a delivery accepted before the failure may repeat with the
+same event identity. Sidekiq's duplicate job reads the current revision, and
+Kafka consumers use receipts/revision guards. This simple protocol has an
+operational connection cost. A short claim protocol would need durable expiry
+and ownership fencing; the Phase 12.5 review retained the current design until
+later load measurements justify that complexity.

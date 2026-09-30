@@ -10,6 +10,11 @@ rate limiting, production backup/restore procedure, production deployment or
 production-grade operating program. Local runbooks cover specific failures.
 Production Rails boot requires an explicit `API_ALLOWED_HOSTS` allowlist, but
 host filtering does not make the unauthenticated demo API safe to expose.
+The API has no pre-parse request-body byte cap; its JSON parser can consume
+resources before controller validation. A future public ingress must enforce a
+streaming body-size limit and test chunked requests before accepting untrusted
+traffic. Phase 12.5 leaves this at the deployment/security boundary because
+there is no production ingress or authenticated public deployment yet.
 Reads spanning multiple queries are not snapshot-consistent.
 Local Compose credentials are disposable; services bind to loopback. Named volumes
 provide local persistence, not backups. The sequence migration requires stopping
@@ -81,7 +86,11 @@ the row published, so subsequent Redis loss, exhausted job retries or Cable loss
 can still lose a hint. Operators need backlog/oldest-age/retry monitoring and
 poison-row response. Current aggregate publisher logs are not a production alert
 system. Redis network operations time out, but no full-cycle latency or capacity
-benchmark exists. REST recovery remains required for browser freshness. See
+benchmark exists. Each publisher process holds one PostgreSQL connection and row
+lock through network delivery. Kafka and Sidekiq can skip the same locked event
+and retry next cycle while they advance other rows; backlog can extend connection
+occupancy. Measure publisher count, pool headroom and delivery latency before
+scaling processes. REST recovery remains required for browser freshness. See
 [ADR-010](adr/010-transactional-public-outbox.md) and the [runbook](runbooks/sidekiq-redis.md).
 
 ## Phase 10 Kafka boundary

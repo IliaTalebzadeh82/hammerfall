@@ -5,6 +5,10 @@ RSpec.describe "Kafka domain outbox", type: :model do
   self.use_transactional_tests = false
   include_context "committed auction concurrency"
 
+  before do |example|
+    skip "set PHASE12_5_LIVE_KAFKA=1 and create hammerfall.phase12_5.verify" if example.metadata[:live_kafka] && ENV["PHASE12_5_LIVE_KAFKA"] != "1"
+  end
+
   def event_for(auction)
     OutboxEvent.where(auction_id: auction.id).order(:public_revision).last
   end
@@ -302,5 +306,78 @@ RSpec.describe "Kafka domain outbox", type: :model do
     release << true
     expect(result(first)[:published]).to eq(1)
     expect(OutboxEvent.where(auction_id: auction.id, public_revision: first_revision).pick(:kafka_published_at)).to be_present
+  end
+
+  it "holds a database transaction through Kafka delivery and temporarily excludes Sidekiq on the same row" do
+    auction = active_auction
+    OutboxEvent.where(auction_id: auction.id).update_all(published_at: Time.current, kafka_published_at: Time.current)
+    auction.place_bid!(bidder: @bidder, amount: 10_000)
+    event = event_for(auction)
+    entered = Queue.new
+    release = Queue.new
+    publisher_pid = Queue.new
+    producer = double("slow Kafka producer")
+    allow(producer).to receive(:produce) do
+      entered << true
+      release.pop
+      double(wait: Object.new)
+    end
+
+    kafka = worker do |connection|
+      pid = connection.select_value("SELECT pg_backend_pid()")
+      publisher_pid << pid
+      KafkaOutboxPublisher.new(producer: producer, batch_size: 1).run_once
+    end
+    take(entered)
+    begin
+      pid = take(publisher_pid)
+      sleep 0.15 # Controlled dependency delay while the PostgreSQL transaction remains open.
+      expect(OutboxEvent.connection.select_value("SELECT state FROM pg_stat_activity WHERE pid = #{Integer(pid)}")).to eq("idle in transaction")
+      transaction_age = OutboxEvent.connection.select_value(
+        "SELECT EXTRACT(EPOCH FROM clock_timestamp() - xact_start) FROM pg_stat_activity WHERE pid = #{Integer(pid)}"
+      )
+      expect(transaction_age.to_f).to be >= 0.1
+      Sidekiq.testing!(:fake) do
+        AuctionChangedJob.clear
+        expect(OutboxPublisher.new(batch_size: 1).run_once[:published]).to eq(0)
+        expect(AuctionChangedJob.jobs).to be_empty
+      end
+      expect(event.reload).to have_attributes(published_at: nil, kafka_published_at: nil)
+    ensure
+      release << true
+    end
+    expect(result(kafka)[:published]).to eq(1)
+    expect(event.reload.kafka_published_at).to be_present
+    Sidekiq.testing!(:fake) do
+      AuctionChangedJob.clear
+      expect(OutboxPublisher.new(batch_size: 1).run_once[:published]).to eq(1)
+      expect(AuctionChangedJob.jobs.size).to eq(1)
+    ensure
+      AuctionChangedJob.clear
+    end
+    expect(event.reload.published_at).to be_present
+  end
+
+  it "persists broker failure and acknowledges only a real broker delivery", :live_kafka do
+    stub_const("KafkaOutboxPublisher::TOPIC", "hammerfall.phase12_5.verify")
+    auction = active_auction
+    acknowledge_setup_events(auction)
+    auction.place_bid!(bidder: @bidder, amount: 10_000)
+    event = event_for(auction)
+    unavailable = Rdkafka::Config.new("bootstrap.servers": "127.0.0.1:1", "message.timeout.ms": 1000).producer
+    available = Rdkafka::Config.new("bootstrap.servers": ENV.fetch("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:29092"),
+      "acks": "all", "message.timeout.ms": 5000).producer
+    begin
+      expect(KafkaOutboxPublisher.new(producer: unavailable, batch_size: 1).run_once[:failed]).to eq(1)
+      expect(event.reload).to have_attributes(kafka_published_at: nil, kafka_attempts: 1)
+      event.update!(kafka_next_attempt_at: 1.second.ago)
+      expect(KafkaOutboxPublisher.new(producer: available, batch_size: 1).run_once[:published]).to eq(1)
+      expect(event.reload).to have_attributes(kafka_attempts: 2, kafka_last_error: nil)
+      expect(event.kafka_published_at).to be_present
+      expect(event.event_id).to eq(event.reload.event_id)
+    ensure
+      unavailable.close
+      available.close
+    end
   end
 end

@@ -1763,6 +1763,26 @@ isolated Redis DB (seed 17640), 78 adjacent auction/projection examples passed
 production config boot admitted an explicit host and rejected an empty host
 list. One earlier DB 0 lease-spec run collided with the running development
 projection consumer; isolated DB 1 tests passed without weakening assertions.
-Full regression, operational publisher/privacy work, browser/runtime and
-hosted CI remain for later Phase 12.5 sessions. This is a checkpoint, not
-phase completion.
+Session 2 reproduced publisher cross-path row exclusion in both directions
+with real PostgreSQL. A controlled Kafka delay left its database backend idle
+inside the open transaction; Sidekiq skipped the locked row and delivered after
+Kafka committed. A live broker failure persisted Kafka retry state, then a real
+broker delivery was acknowledged. `SystemExit` before enqueue and an actual
+PostgreSQL CHECK rejection after fake Sidekiq acceptance left work retryable;
+the latter duplicated the job on retry without duplicating event identity.
+The current transaction-held design was retained because the cost is bounded
+to one in-flight row/connection per publisher process and no load evidence yet
+justifies an expiry/fencing state machine. This is an explicit operational
+tradeoff, not a capacity claim.
+
+Session 2 also deferred HMAC conversion to the security phase because retained
+unversioned SHA-256 rows, multi-instance secret distribution and rotation need
+a replay-preserving rollout. The lack of a pre-parse body limit remains a public
+ingress blocker; a Content-Length-only patch would miss streamed requests.
+The publisher configuration defaults now appear in `.env.example`. Focused
+verification passed: 18 Kafka outbox examples including real broker failure and
+recovery, 13 transactional outbox examples, 51 idempotency examples, and changed
+Ruby lint. An ack-on-Kafka-failure sabotage failed its safety test and was
+restored. Full regression, browser/runtime, security/build, hosted CI and final
+documentation review remain for the next Phase 12.5 session. This is a second
+checkpoint, not phase completion.

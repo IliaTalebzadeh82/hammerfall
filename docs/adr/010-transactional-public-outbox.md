@@ -31,6 +31,16 @@ then records `published_at` only after Sidekiq returns a job ID. Client Redis
 network operations have a two-second timeout, without a strict total cycle
 deadline. A failure stores its class
 and an exponential delay capped at 300 seconds; retries continue indefinitely.
+Each publisher process handles one row at a time, so its PostgreSQL connection
+and row lock remain occupied throughout enqueue. Multiple processes can hold
+different rows; the batch size limits rows attempted per cycle, not simultaneous
+locks within one process. A slow Redis operation can delay Kafka publication of
+the same row because both paths lock it, although their retry and acknowledgment
+fields remain independent. `SKIP LOCKED` lets the other path advance different
+rows. This cost needs measurement in the later load and performance phases; no
+production capacity figure is inferred. A durable claim/lease/ack protocol would
+shorten transactions but add expiry, fencing and duplicate windows. Phase 12.5
+retains the transaction boundary pending evidence that the cost is material.
 Each cycle logs aggregate backlog, due, retry and oldest-age values. Operators
 must inspect repeatedly failing rows; rows are never silently discarded.
 Retry and acknowledgment timestamps and pending age use PostgreSQL clock time,
@@ -50,8 +60,9 @@ broadcast or browser receipt. Redis data loss after acknowledgment, exhausted
 Sidekiq retries, Cable failure and a continuously connected stale browser can
 still lose or miss a hint. REST is the recovery authority. No exactly-once,
 global ordering, bounded delivery time or production capacity claim is made.
-The occurrence timestamp is PostgreSQL transaction time, not an exact commit
-timestamp. Long transactions can make reported pending age conservative.
+For new rows, occurrence time is PostgreSQL wall time at outbox insert, not exact
+commit time. Older rows retain transaction-start timestamps and can make their
+reported pending age conservative.
 
 ## Alternatives
 

@@ -124,6 +124,45 @@ RSpec.describe "Transactional public outbox", type: :model do
     end
   end
 
+  it "recovers a row after the publisher exits before enqueue" do
+    auction = active_auction
+    OutboxPublisher.new.run_once
+    auction.place_bid!(bidder: @bidder, amount: 10_000)
+    event = events(auction).last
+    allow(AuctionChangedJob).to receive(:perform_async).and_raise(SystemExit)
+    expect { OutboxPublisher.new(batch_size: 1).run_once }.to raise_error(SystemExit)
+    expect(event.reload).to have_attributes(published_at: nil, attempts: 0)
+    allow(AuctionChangedJob).to receive(:perform_async).and_call_original
+    Sidekiq.testing!(:fake) do
+      AuctionChangedJob.clear
+      expect(OutboxPublisher.new(batch_size: 1).run_once[:published]).to eq(1)
+      expect(AuctionChangedJob.jobs.size).to eq(1)
+    ensure
+      AuctionChangedJob.clear
+    end
+  end
+
+  it "does not acknowledge a Redis accepted job when PostgreSQL rejects the acknowledgment" do
+    auction = active_auction
+    OutboxPublisher.new.run_once
+    auction.place_bid!(bidder: @bidder, amount: 10_000)
+    event = events(auction).last
+    Sidekiq.testing!(:fake) do
+      AuctionChangedJob.clear
+      allow_any_instance_of(OutboxEvent).to receive(:update!) do
+        OutboxEvent.connection.execute("UPDATE outbox_events SET attempts = -1 WHERE id = #{event.id}")
+      end
+      expect { OutboxPublisher.new(batch_size: 1).run_once }.to raise_error(ActiveRecord::StatementInvalid)
+      expect(event.reload).to have_attributes(published_at: nil, attempts: 0)
+      expect(AuctionChangedJob.jobs.size).to eq(1)
+      allow_any_instance_of(OutboxEvent).to receive(:update!).and_call_original
+      expect(OutboxPublisher.new(batch_size: 1).run_once[:published]).to eq(1)
+      expect(AuctionChangedJob.jobs.size).to eq(2)
+    ensure
+      AuctionChangedJob.clear
+    end
+  end
+
   it "records occurrence at insertion wall time even after a long outer transaction" do
     auction = active_auction
     started_at = nil
@@ -186,5 +225,32 @@ RSpec.describe "Transactional public outbox", type: :model do
     expect(result(first)[:published]).to eq(1)
     expect(calls.size).to eq(2)
     expect(events(auction).where(published_at: nil)).to be_empty
+  end
+
+  it "temporarily excludes Kafka on the same row while Redis enqueue is delayed" do
+    auction = active_auction
+    OutboxEvent.where(auction_id: auction.id).update_all(published_at: Time.current, kafka_published_at: Time.current)
+    auction.place_bid!(bidder: @bidder, amount: 10_000)
+    event = events(auction).last
+    entered = Queue.new
+    release = Queue.new
+    producer = double("Kafka producer", produce: double(wait: Object.new))
+    allow(AuctionChangedJob).to receive(:perform_async) do
+      entered << true
+      release.pop
+      "queued-job"
+    end
+    sidekiq = worker { OutboxPublisher.new(batch_size: 1).run_once }
+    take(entered)
+    begin
+      expect(KafkaOutboxPublisher.new(producer: producer, batch_size: 1).run_once[:published]).to eq(0)
+      expect(producer).not_to have_received(:produce)
+      expect(event.reload).to have_attributes(published_at: nil, kafka_published_at: nil)
+    ensure
+      release << true
+    end
+    expect(result(sidekiq)[:published]).to eq(1)
+    expect(KafkaOutboxPublisher.new(producer: producer, batch_size: 1).run_once[:published]).to eq(1)
+    expect(event.reload).to have_attributes(published_at: be_present, kafka_published_at: be_present)
   end
 end

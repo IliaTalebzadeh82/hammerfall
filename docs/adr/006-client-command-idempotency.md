@@ -19,6 +19,12 @@ invalid_idempotency_key. Lifecycle endpoints and the internal closer are unchang
 
 Logical scope is **(actor_id, operation, client key)**. Store the SHA-256 key digest
 instead of the raw key. PostgreSQL uniquely indexes (actor_id,operation,key_digest).
+Phase 12.5 reviewed the privacy limit of this unkeyed digest: a stolen table
+allows cheap offline guessing of low-entropy client keys. Keyed HMAC would
+improve that property, but retained 64-character unversioned digests and
+multi-instance secret rotation require a replay-preserving migration. The
+change is deferred to the security phase; callers should use unpredictable
+keys, and no existing digest or replay contract has been changed.
 Operations are constrained to place_bid / set_maximum_bid. The same key under a
 different actor or operation is independent. Same actor/operation but another
 auction or payload conflicts. Guarantees assume standard cryptographic collision

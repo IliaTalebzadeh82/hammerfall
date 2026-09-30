@@ -59,8 +59,15 @@ publisher crashes and consumer offset ambiguity mean at-least-once delivery;
 the receipt protects this consumer's database side effect. It is not a general
 exactly-once guarantee. Reordered records can be audited without regressing
 auction truth. The two publishers claim the same outbox table row, so a slow
-Kafka send can briefly delay Sidekiq's claim for that row; it cannot hold the
-auction lock or change a command. Phase 11 projection work is not introduced here.
+Kafka send can delay Sidekiq's claim for that row, and a slow Redis enqueue can
+delay Kafka's claim. `SKIP LOCKED` allows either path to advance other rows. The
+producer has a 5-second message timeout and 3-second socket timeout, but no
+strict whole-cycle deadline; the PostgreSQL connection and transaction remain
+held until delivery returns. Each publisher process attempts one row at a time,
+while multiple processes can hold different rows. Phase 12.5 retained this
+boundary pending measured load evidence; a short durable claim would need
+expiry and token-fenced acknowledgment. The delay cannot hold the auction lock
+or change a command. Phase 11 projection work is not introduced here.
 
 ## Alternatives
 

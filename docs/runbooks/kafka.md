@@ -27,6 +27,11 @@ delivery was confirmed. It says nothing about consumer completion.
 ## Broker unavailable or slow
 
 The publisher leaves rows pending with exponential retry capped at 300 seconds.
+Its PostgreSQL transaction and row lock span broker delivery. A slow broker can
+delay Sidekiq's claim of the same row, and a slow Redis enqueue can delay Kafka's
+claim; `SKIP LOCKED` keeps other rows eligible. Check both backlogs and the number
+of publisher processes when diagnosing connection pressure. The producer's
+message timeout is five seconds, but it is not a guaranteed cycle deadline.
 Confirm PostgreSQL bidding and the Sidekiq path separately; restore the broker
 with `docker compose start kafka` if it was stopped. Check topic metadata,
 publisher backlog and consumer-group lag. A controlled one-shot drain is

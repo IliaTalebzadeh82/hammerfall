@@ -323,6 +323,8 @@ All paths in this section begin under `apps/web` unless otherwise noted.
 - `OutboxPublisher` and `bin/outbox_publisher` form the independent poller. Each
   due row is claimed with `FOR UPDATE SKIP LOCKED`; `docker-compose.yml` starts
   the publisher role. The Sidekiq client initializer bounds Redis network waits.
+  The row transaction spans enqueue; see ADR-010 for the Phase 12.5 retention
+  decision and its connection/lock cost.
 - `AuctionChangedJob` reads current PostgreSQL revision and broadcasts the
   unchanged Cable hint. Duplicate/reordered jobs cannot decide auction state.
 - `spec/integration/transactional_outbox_spec.rb` covers atomicity, replay,
@@ -343,6 +345,8 @@ All paths in this section begin under `apps/web` unless otherwise noted.
   send with the auction ID partition key, wait for broker delivery and only then
   acknowledge in PostgreSQL. `KafkaEventCodec` validates the exact public v1
   shape. `docker-compose.yml` runs the broker, topic initializer and publisher.
+  This transaction locks the same outbox row as the Sidekiq path during I/O;
+  delivery state remains independent. See ADR-011 and the Phase 12.5 ExecPlan.
 - `KafkaAuditConsumer` and `bin/kafka_audit_consumer` form the initial group.
   `ConsumedKafkaEvent` and `KafkaAuditEntry` commit receipt and audit effect
   together; offset commit follows. The group stops on poison and has no

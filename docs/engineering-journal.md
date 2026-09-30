@@ -437,3 +437,22 @@ update now samples database wall time after the lock. Fencing still handles a
 worker whose single row takes longer than the lease; it may duplicate bounded
 maintenance work, not decide an auction outcome. Publisher I/O and idempotency
 key privacy remain for the next Phase 12.5 session.
+
+## 2026-10-01 — Phase 12.5 publisher tradeoff and retry privacy
+
+Both outbox publishers select from the same table with `FOR UPDATE SKIP LOCKED`.
+A controlled delay showed a Kafka publisher holding an idle PostgreSQL
+transaction while Sidekiq skipped its row; the reverse direction also held.
+This does not serialize different rows or touch the auction lock, but every
+publisher process occupies a database connection throughout external I/O.
+Live broker failure persisted retry state and broker recovery acknowledged the
+same immutable event. A database CHECK rejection after Sidekiq acceptance
+rolled back the acknowledgment and caused a safe duplicate on retry. The review
+retained the simpler transaction protocol pending measured capacity evidence;
+claims would require expiry and stale-owner fencing.
+
+Unkeyed SHA-256 hides raw idempotency keys in ordinary database browsing but
+does not protect weak keys from offline guessing after a table leak. A safe HMAC
+rollout must account for existing unversioned rows and synchronized secret
+rotation across instances. That migration was deferred to the security phase
+without changing replay behavior during this repair pass.

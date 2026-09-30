@@ -1,35 +1,45 @@
 # Current handoff — Phase 12.5 in progress
 
-Updated: 2026-10-01. The user explicitly started Phase 12.5 as a cross-phase
-correctness and production-hardening pass over the completed Phase 0–12 system.
-Phase 13 observability has not begun. Use `AGENTS.md`, the
-[Phase 12.5 specification](../phases/phase-12-5.md), [context map](../context-map.md) and the active
-[Phase 12.5 ExecPlan](../plans/phase-12-5-hardening-execplan.md). The plan holds
-the finding ledger, decisions, Evidence Index and next-session action; do not
-reconstruct the previous conversation or read archived prompts.
+Updated: 2026-10-01. Phase 12.5 is the explicitly requested correctness and
+production-hardening pass over completed Phase 0–12. Phase 13 has not begun.
+Read `AGENTS.md`, the [Phase 12.5 specification](../phases/phase-12-5.md) and the
+active [ExecPlan](../plans/phase-12-5-hardening-execplan.md); it holds the finding
+ledger, decisions and Evidence Index. Use the [context map](../context-map.md)
+only to route targeted remaining work. Do not reconstruct prior sessions.
 
-Session 1 reviewed auction/proxy/closing/idempotency, public revision and
-outbox, both publishers/consumers, Redis/reconciliation/leases, SQL schema,
-API/security config, frontend retry and CI. It repaired public snapshot
-cross-field validation shared by Kafka and Redis, outbox insertion wall-time
-semantics and model readonly identity/payload, a stale expiry after a blocked
-lease reclaim, SQL checks for domain snapshot type/object shape, and an explicit
-production `API_ALLOWED_HOSTS` requirement. PostgreSQL remains auction
-authority; no bid, close, proxy or frontend protocol changed. New occurrence
-semantics apply only to new outbox rows. See [event model](../event-model.md),
-[projection architecture](../architecture/projections-and-reconciliation.md)
-and [ADR-013](../adr/013-bounded-reconciliation-scan-ownership.md).
+Session 1 (`59e1229`) repaired public snapshot semantic validation, outbox
+occurrence time and model readonly event fields, delayed reconciliation lease
+expiry, structural outbox SQL checks, and the production host default. It passed
+44 focused and 78 adjacent integration examples, changed Ruby lint, Zeitwerk
+and a production host boot check. New occurrence semantics apply only to new
+outbox rows. PostgreSQL remains auction authority.
 
-Focused evidence: 44 integration examples passed on isolated PostgreSQL/Redis
-(seed 17640); 78 adjacent auction/projection examples passed (seed 22605);
-changed Ruby lint 12/12 files clean and Zeitwerk passed. Production boot
-accepted an explicitly configured host and rejected an empty host list.
-One intermediate Redis DB 0 test run collided with the running development
-projection consumer; the isolated DB 1 rerun passed. Broad Phase 12.5
-regression, live Kafka failure campaign, browser/runtime checks and hosted CI
-have not run. The demo API is still unauthenticated and not public-ready.
+Session 2 retained the existing transaction-held Sidekiq and Kafka publishers
+after controlled real PostgreSQL contention showed same-row cross-path delay
+but progress on different rows. Each publisher process holds at most one outbox
+row and connection at a time; there is no strict whole-cycle external-I/O
+deadline or measured production capacity. Live Kafka failure persisted retry
+state and real broker recovery acknowledged the same event. Tests also covered
+publisher exit before enqueue, database acknowledgment rejection after Redis
+acceptance, and safe duplicate retry. An ack-before-delivery sabotage failed
+its test and was restored. The two publishers' delivery states remain
+independent; no lease/claim redesign or auction protocol change was made. See
+[ADR-010](../adr/010-transactional-public-outbox.md) and
+[ADR-011](../adr/011-kafka-domain-events.md).
 
-Next fresh session: measure and decide the publisher database-lock/I/O design,
-resolve idempotency-key HMAC/privacy and request-size boundary, then run the
-planned operational failure/sabotage campaign. The ExecPlan records exact
-deferred findings and limits. Do not start Phase 13.
+Session 2 explicitly deferred HMAC conversion: unkeyed SHA-256 exposes weak
+client keys to offline guessing after database theft, but retained unversioned
+rows need a replay-preserving migration and shared secret rotation design.
+The missing pre-parse request-size limit is a public-ingress blocker; a safe
+streaming limit belongs with the later security/deployment work. The demo API
+remains unauthenticated and must not be exposed publicly. Publisher defaults
+now appear in `.env.example`; the runbooks/readiness guidance describes
+connection and lock occupancy. Focused checks passed: 18 Kafka outbox examples
+with live broker, 13 transactional outbox examples, 51 idempotency examples and
+changed Ruby lint. Full details and sabotage restoration are in the ExecPlan.
+
+Next fresh session: run the final Phase 12.5 gates—complete backend/frontend
+regression, browser E2E, Compose full-stack, Brakeman, dependency audit,
+production build, hosted GitHub Actions, documentation reconciliation and
+final adversarial review. Fix discovered failures, record actual evidence,
+then close Phase 12.5 if its definition of done is met. Do not begin Phase 13.
