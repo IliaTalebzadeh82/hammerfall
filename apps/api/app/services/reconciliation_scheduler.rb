@@ -13,6 +13,7 @@ class ReconciliationScheduler
 
   def run_once
     ReconciliationSweepJob.perform_async
+    AuctionProjectionReconciliationJob.perform_async
   end
 
   def run(once: false)

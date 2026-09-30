@@ -26,12 +26,16 @@ RSpec.describe ReconciliationSweepJob do
     before = auction.reload.attributes
     Sidekiq.testing!(:fake) do
       described_class.clear
+      AuctionProjectionReconciliationJob.clear
       scheduler = ReconciliationScheduler.new(interval: 5)
       2.times { scheduler.run_once }
       expect(described_class.jobs.length).to eq(2)
       described_class.jobs.each { |job| expect(job.fetch("args")).to eq([]) }
+      expect(AuctionProjectionReconciliationJob.jobs.length).to eq(2)
+      AuctionProjectionReconciliationJob.jobs.each { |job| expect(job.fetch("args")).to eq([]) }
     ensure
       described_class.clear
+      AuctionProjectionReconciliationJob.clear
     end
     expect(auction.reload.attributes).to eq(before)
   end
