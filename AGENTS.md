@@ -35,11 +35,12 @@
   checks, or documentation quality. Search first, read targeted sections,
   reuse unchanged understanding, inspect diffs after edits, and keep command
   output bounded while retaining evidence.
-- After a substantial milestone or accumulated tool/log history, checkpoint
-  decisions, changed files, completed verification, failures and remaining
-  work in the ExecPlan; update the compact handoff when needed. End with
-  `CONTEXT CHECKPOINT READY` and resume significant remaining work in a fresh
-  session. Do not split every small task into a new session.
+- At a coherent milestone, including after a major integration, live-failure
+  or sabotage campaign when substantial completion work remains, checkpoint
+  decisions, changed files, verification, failures and next work in the
+  ExecPlan; update the compact handoff when needed. End with
+  `CONTEXT CHECKPOINT READY` and resume in a fresh session. Do not wait for
+  compaction or split every small task into a new session.
 - Context-safety invariant: after a checkpoint, any substantial Codex session
   is safely discardable because the repository holds the implementation
   state, decisions, evidence and unresolved work needed to continue. Follow
