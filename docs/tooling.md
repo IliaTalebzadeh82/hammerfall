@@ -15,7 +15,12 @@ RSpec follows the backend requirement even though Rails generates Minitest by
 default. Rails' optional jobs, mail, storage, Cable, Solid adapters, Kamal, and
 Thruster are omitted because Phase 0 has no use for them. Rails can load a smaller
 set of frameworks while its umbrella gem still resolves framework dependencies.
-No Redis, Sidekiq, Kafka, or observability infrastructure is installed.
+At Phase 0, no Redis, Sidekiq, Kafka, or observability infrastructure was installed.
+
+Phase 10 uses the official `apache/kafka:4.1.2` single-node KRaft image in
+Compose and `rdkafka` 0.30.0 (librdkafka) in Rails. The pinned gem and Docker
+image are development/runtime choices, not a production broker topology. See
+[ADR-011](adr/011-kafka-domain-events.md).
 
 Tailwind uses its v4 CSS-first configuration and PostCSS plugin. shadcn/ui is
 initialized using the official CLI with components.json, CSS tokens, and the cn

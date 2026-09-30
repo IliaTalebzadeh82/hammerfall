@@ -90,7 +90,7 @@ constraint differs from workflow validation; why atomicity is not isolation; why
 server-issued IDs are not concurrent commit order; and why leader differs from
 winner. Be explicit about what Phase 2 still has to prove.
 
-## Learning roadmap — not implemented
+## Learning roadmap
 
 Add the problem, naive approach, failure modes, chosen implementation, guarantees,
 limitations, source files, demonstrative tests, and interview explanation for each
@@ -98,7 +98,7 @@ subsystem when it is built:
 
 - WebSockets (Phase 7)
 - Outbox (Phase 9, implemented below)
-- Kafka and consumer idempotency (Phase 10)
+- Kafka and consumer idempotency (Phase 10, implemented below)
 - Redis projections (Phase 11)
 - Reconciliation (Phase 12)
 - Observability (Phase 13)
@@ -684,3 +684,41 @@ or Cable failure can still lose the hint; browser REST recovery remains essentia
 live crash/outage evidence and the runbook. In an interview, distinguish the
 atomic PostgreSQL commit from the later queue acknowledgment and explain why
 the latter cannot certify browser receipt.
+
+## Phase 10 — Kafka after the outbox
+
+**Problem.** A direct post-commit Kafka send would recreate the API crash gap
+that Phase 9 closed. A broker delivery report also cannot prove a consumer
+effect, and an offset commit before that effect could lose audit work.
+
+**Chosen path.** Each public revision stores one public domain snapshot on its
+existing outbox row inside the auction transaction. Sidekiq and Kafka publishers
+read the row independently. The Kafka publisher claims a due row, sends with
+auction ID as partition key, waits for a broker report, then acknowledges in
+PostgreSQL. The audit group validates v1 JSON, commits receipt and public audit
+entry in one PostgreSQL transaction, then commits the Kafka offset.
+
+```text
+auction transaction: state + public revision + public outbox snapshot → COMMIT
+  ├─ Sidekiq enqueue → current-revision Cable hint → browser REST GET
+  └─ Kafka delivery report → Kafka outbox ack → audit receipt + effect → offset commit
+```
+
+**Failure reasoning.** Kafka outage leaves a pending row without changing a
+bid. Publisher death after broker delivery can send the same event ID twice;
+consumer death after its database effect can replay it. The unique receipt
+suppresses repeat effects. A different payload with the same ID is poison.
+Concurrent publishers may reorder same-auction revisions despite a stable
+partition key; the audit labels stale/gap arrival without regressing truth.
+Unknown schema/version records stop the group at an uncommitted offset until an
+operator reviews and explicitly resets it. Replay is limited by broker
+retention and encounters unresolved poison again.
+
+**Limits and interview explanation.** `kafka_published_at` is broker
+acknowledgment, not consumer or browser receipt. Kafka is a propagation
+channel, not an auction decision engine or backup. The local broker is one
+plaintext replica with no production availability claim. Read ADR-011,
+`KafkaOutboxPublisher`, `KafkaAuditConsumer`, `kafka_outbox_spec.rb`, the Phase
+10 ExecPlan's live failure evidence and the Kafka runbook. Explain why database
+receipt plus offset order is at-least-once safe without claiming generic
+exactly-once semantics.

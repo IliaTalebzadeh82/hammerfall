@@ -65,7 +65,7 @@ Phase 9's transactional outbox; Redis/worker outage or loss after acknowledgment
 can still leave clients stale. AOF and a local named volume are not a
 backup or delivery guarantee. Job retries are bounded and need Dead-set ownership.
 The sweep reports possible PostgreSQL drift without repair. There is still no
-authenticated identity, Kafka, Redis read projection, projection repair,
+authenticated identity, Redis read projection, projection repair,
 capacity benchmark or production operations stack. Review Sidekiq/DB connection
 budgets, Redis persistence/HA and job/runbook ownership before public deployment.
 
@@ -80,3 +80,17 @@ poison-row response. Current aggregate publisher logs are not a production alert
 system. Redis network operations time out, but no full-cycle latency or capacity
 benchmark exists. REST recovery remains required for browser freshness. See
 [ADR-010](adr/010-transactional-public-outbox.md) and the [runbook](runbooks/sidekiq-redis.md).
+
+## Phase 10 Kafka boundary
+
+The public outbox also carries a versioned public domain snapshot. A separate
+Kafka publisher waits for broker delivery before acknowledging the row; an
+audit consumer writes receipt and side effect before committing its offset.
+This provides recoverable local propagation, not exactly-once delivery or a
+production event platform. The Compose broker is single-node, plaintext,
+replication factor one. There is no broker backup, high availability, TLS/ACL,
+schema registry, retention/capacity study, lag alerting or production poison
+workflow automation. Audit is not a Redis read model. Kafka outage cannot
+change auction correctness, but can delay derived consumers indefinitely.
+Review [ADR-011](adr/011-kafka-domain-events.md) and the [runbook](runbooks/kafka.md)
+before extending consumer groups.

@@ -1,6 +1,8 @@
 # Phase 10 — Kafka
 
-Status: Planned; begin only on an explicit request
+Status: Complete — 2026-09-30. Implementation, real Kafka failure/replay,
+sabotage, regression and limits are recorded in [the ExecPlan](../plans/phase-10-execplan.md)
+and [progress](../progress.md). Phase 11 has not begun.
 
 ## Goal
 

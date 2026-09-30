@@ -12,9 +12,15 @@ docker compose up --build --wait
 ```
 
 Frontend: http://localhost:3000. API liveness: http://localhost:3001/up.
-PostgreSQL: localhost:5432. Ports bind only to loopback. Change `WEB_PORT`,
-`API_PORT`, or `PGPORT` in `.env` if occupied. API containers always connect to
+PostgreSQL: localhost:5432; Kafka: localhost:29092. Ports bind only to loopback. Change `WEB_PORT`,
+`API_PORT`, `PGPORT`, or `KAFKA_PORT` in `.env` if occupied. API containers always connect to
 `db:5432`; the published PGPORT is only for native clients.
+
+Compose creates `hammerfall.auction-events.v1` with three partitions before
+starting the Kafka outbox publisher and audit consumer. Container clients use
+`kafka:9092`; native clients use `KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:29092`.
+The local broker uses a named volume and one replica; see the [Kafka runbook](runbooks/kafka.md)
+for outage, lag, poison and replay commands.
 
 Containers run as non-root users. On Linux, set `LOCAL_UID` and `LOCAL_GID` in
 `.env` to your `id -u` and `id -g` values before building if they differ from 1000.
@@ -402,4 +408,5 @@ same public Cable hint through PostgreSQL.
 The existing independent API A/Cable B script still proves cross-process delivery
 with Sidekiq running. Redis outage before enqueue leaves committed rows pending;
 restoring Redis lets the publisher retry. Browser REST recovery still applies.
-No Kafka exists in Phase 9. See the [runbook](runbooks/sidekiq-redis.md).
+Phase 9 had no Kafka. Phase 10 adds a separate Kafka acknowledgment path; see
+the [Sidekiq runbook](runbooks/sidekiq-redis.md) and [Kafka runbook](runbooks/kafka.md).

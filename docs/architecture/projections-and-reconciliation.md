@@ -2,7 +2,7 @@
 
 ## Current consistency
 
-PostgreSQL is the single persisted authority. At Phase 8, the browser renders REST observations that can become stale; separate auction and bid-history requests are not one snapshot. Public revisions order observations, but queued Cable hints can still be lost. There is no Redis auction projection or projection drift repair. A scheduled read-only PostgreSQL checker compares auction rows with the latest accepted Bid and logs discrepancies; it is not a derived-state reconciler. See [consistency model](../consistency-model.md) and [ADR-009](../adr/009-sidekiq-public-notifications-and-sweeps.md).
+PostgreSQL is the single auction authority. The browser renders REST observations that can become stale; separate auction and bid-history requests are not one snapshot. Public revisions order observations, but queued Cable hints can still be lost. Phase 10's Kafka audit is append-only metadata, not a read model. There is no Redis auction projection or projection drift repair. A scheduled read-only PostgreSQL checker compares auction rows with the latest accepted Bid and logs discrepancies; it is not a derived-state reconciler. See [consistency model](../consistency-model.md) and [ADR-011](../adr/011-kafka-domain-events.md).
 
 ## Planned projection contract
 

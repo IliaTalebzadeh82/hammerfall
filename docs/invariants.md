@@ -53,17 +53,17 @@ All 15 original master invariants remain requirements. Their current status is:
 9. **Concurrent requests cannot lose updates:** enforced by the row lock and atomic bid/price writes.
 10. **Closure and bid acceptance serialize correctly:** current commands share a row lock;
     post-lock DB time, autonomous closer and atomic extensions are implemented.
-11. **Committed public mutations retain publication intent:** Phase 9 atomically
-    stores a public invalidation outbox row with each public revision. Domain-event
-    families and Kafka remain Phase 10 work; final Cable receipt is not guaranteed.
-12. **Duplicate public hints do not duplicate domain effects:** Phase 9 jobs
-    read current revision and only request REST refresh. Future domain-event
-    consumers need their own idempotency proof in Phase 10.
+11. **Committed public mutations retain publication intent:** Phase 10 stores a
+    public domain snapshot in the Phase 9 outbox row, atomically with the public
+    revision. Redis and Kafka publishers have independent acknowledgments.
+12. **Duplicate delivery does not duplicate domain effects:** Sidekiq jobs read
+    current revision and only request REST refresh. The Kafka audit consumer
+    commits one receipt and audit effect per event ID before offset commit.
 13. **Read-model inconsistency is detectable:** Phase 12; no read model exists.
 14. **Read-model inconsistency is repairable:** Phase 12.
-15. **Redis loss cannot invalidate authoritative state:** Redis/Sidekiq is a
-    public-hint transport; outage preserves committed PostgreSQL state and pending
-    outbox intent until successful enqueue.
+15. **Redis or Kafka loss cannot invalidate authoritative state:** both are
+    downstream transports; outage preserves committed PostgreSQL state and
+    pending transport intent until successful acknowledgment.
 
 The dedicated concurrency group commits data and checks real independent PostgreSQL
 sessions. The ordinary suite keeps transactional wrappers. Removing locks must fail
@@ -182,3 +182,12 @@ job retries can still lose a hint. A connected browser still needs REST recovery
 | Failure before enqueue does not discard committed intent | Pending rows discovered by independent publisher; persisted retry state | Phase 9 live process-kill and Redis outage evidence in `docs/plans/phase-09-execplan.md` |
 | Publisher claims do not require a global lock | `FOR UPDATE SKIP LOCKED` on due rows | `transactional_outbox_spec.rb` concurrent connection examples |
 | Duplicate enqueue cannot mutate auction truth | Job reads current revision and broadcasts only public hint | Acknowledgment-crash test and live duplicate-job evidence |
+
+## Phase 10 Kafka invariants
+
+| Invariant | Enforcement | Evidence |
+| --- | --- | --- |
+| Kafka failure cannot reject or change a committed command | Domain snapshot written in auction transaction; separate publisher runs after commit | `kafka_outbox_spec.rb`; live broker stop, bid and recovery in Phase 10 ExecPlan |
+| Kafka ack follows broker confirmation | Delivery handle `wait` precedes PostgreSQL `kafka_published_at`; retry persists failure | Delivery-failure spec, live publisher SIGKILL and sabotage B |
+| Duplicate/replayed event has one audit side effect | Unique receipt/event and audit rows in one transaction; offset follows commit | Consumer specs, live duplicate/replay and sabotage C/D |
+| Stale, gap and poison events cannot change auction truth | Audit-only effect; strict envelope validation; poison offset remains uncommitted | Consumer specs and live poison/reset/replay evidence |

@@ -6,23 +6,22 @@ Hammerfall tests how one correct auction outcome survives concurrent bids, async
 
 ## Current responsibilities
 
-Rails/ActiveRecord is the modular monolith and sole business authority. PostgreSQL persists users, auctions, bids, private maxima, winner and idempotency outcomes. Next.js/React/TypeScript presents the versioned REST API and ephemeral Action Cable invalidations. Compose currently runs PostgreSQL, Redis, API, web, Sidekiq, a read-only sweep scheduler and a separate Rails closer role. See [ADR-001](../adr/001-modular-monolith.md), [ADR-009](../adr/009-sidekiq-public-notifications-and-sweeps.md), [architecture](../architecture.md) and [code map](../code-map.md).
+Rails/ActiveRecord is the modular monolith and sole business authority. PostgreSQL persists users, auctions, bids, private maxima, winner and idempotency outcomes. Next.js/React/TypeScript presents the versioned REST API and ephemeral Action Cable invalidations. Compose runs PostgreSQL, Redis, Kafka, API, web, Sidekiq, independent Sidekiq/Kafka outbox publishers, a Kafka audit consumer, a read-only sweep scheduler and a separate Rails closer. See [ADR-001](../adr/001-modular-monolith.md), [ADR-011](../adr/011-kafka-domain-events.md), [architecture](../architecture.md) and [code map](../code-map.md).
 
 ## Durable boundary
 
 - Do not move authoritative auction logic to Node, Go or a client. A cached or event-derived state never decides the winner.
 - Start with one Rails app. Extract a service only for a concrete independent scaling, availability, deployment, workload, ownership or fault-isolation reason, recorded in an ADR.
-- Phase 8 added Redis/Sidekiq application jobs. A future phase may add the PostgreSQL outbox, Kafka and derived consumers in that order. Kafka and Sidekiq have different responsibilities: domain event propagation versus application jobs.
+- Phase 8 added Redis/Sidekiq jobs, Phase 9 the PostgreSQL outbox, and Phase 10 Kafka domain event propagation and an audit consumer. Kafka and Sidekiq have different responsibilities. Neither decides an auction result.
 - Keep the application usable and documented after every phase; do not introduce Kubernetes before local correctness, Compose, multi-instance tests, metrics and readiness evidence.
 
 ## Technology and documentation contracts
 
-The stack includes Ruby/Rails API, ActiveRecord, PostgreSQL, RSpec; TypeScript, React, Next.js, Tailwind and shadcn/ui; Action Cable/WebSockets; Redis and Sidekiq. Later phases plan Kafka, OpenTelemetry/Collector, Prometheus, Grafana, Tempo, k6, Kubernetes, Terraform and GCP. A change needs a reason and ADR. Docker Compose is the local foundation; GitHub Actions runs ordinary checks without deployment credentials. [README](../../README.md), [tooling](../tooling.md), [running locally](../running-locally.md) and [production readiness](../production-readiness.md) distinguish installed from future tools.
+The stack includes Ruby/Rails API, ActiveRecord, PostgreSQL, RSpec; TypeScript, React, Next.js, Tailwind and shadcn/ui; Action Cable/WebSockets; Redis, Sidekiq and Kafka. Later phases plan OpenTelemetry/Collector, Prometheus, Grafana, Tempo, k6, Kubernetes, Terraform and GCP. A change needs a reason and ADR. Docker Compose is the local foundation; GitHub Actions runs ordinary checks without deployment credentials. [README](../../README.md), [tooling](../tooling.md), [running locally](../running-locally.md) and [production readiness](../production-readiness.md) distinguish installed from future tools.
 
 Maintain ADRs with Context, Decision, Alternatives Considered, Consequences, Risks and Revisit When. The learning guide, workflow code map, substantive engineering journal, candid production readiness and final interview/review documents serve the owner's study goal. Do not exaggerate completion in README or operational claims.
 
-Potential future ADRs should cover authoritative ordering, outbox, Kafka delivery,
-Redis projection, Sidekiq versus Kafka, reconciliation and Kubernetes when those
+Potential future ADRs should cover Redis projection, reconciliation and Kubernetes when those
 decisions become concrete. The current numbered ADRs already cover modularity,
 locking, proxy bidding, deadline/soft close, idempotency, browser intentions and
 realtime invalidation.

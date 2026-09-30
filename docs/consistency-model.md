@@ -64,8 +64,8 @@ After commit, Sidekiq carries a public ID/revision hint and reads current
 PostgreSQL revision before broadcasting. Delayed/reordered jobs do not regress
 the hint, but enqueue loss and exhausted retries can leave clients stale. The
 periodic sweep checks selected PostgreSQL cross-row facts read-only; it is not a
-Redis projection and cannot repair authoritative drift. No durable domain-event
-publication or cache consistency guarantee has been added. See ADR-009.
+Redis projection and cannot repair authoritative drift. This historical queue
+path has no cache consistency guarantee. See ADR-009.
 
 ## Phase 9 publication consistency
 
@@ -77,3 +77,14 @@ and asks the browser to GET. Queue acknowledgment is not final Cable delivery.
 Redis loss after acknowledgment, exhausted job retries and missed sockets still
 require REST recovery. No global order, bounded freshness or exactly-once
 guarantee exists. See ADR-010 and the failure model.
+
+## Phase 10 Kafka propagation consistency
+
+The same committed row carries a public domain snapshot and independent Kafka
+delivery state. Kafka and Sidekiq publisher attempts can diverge without
+changing auction truth. Kafka broker acknowledgment is earlier than consumer
+effect/offset acknowledgment. The audit consumer's PostgreSQL receipt and
+entry commit together; replay is a no-op. Its first/next/gap/stale labels
+describe arrival order, not authoritative auction state. A poison record blocks
+its partition until operator action. There is no Redis auction read model or
+projection repair; Phase 11 remains unstarted. See ADR-011 and the Kafka runbook.

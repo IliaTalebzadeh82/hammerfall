@@ -353,3 +353,28 @@ lifecycle outbox rows were delivered after a bid, their jobs read the current
 revision and legitimately sent duplicate current hints. The verifier now checks
 that the bid revision arrives and every observed hint stays on the correct
 auction stream and within the current revision range.
+
+## 2026-09-30 — Phase 10 keeps Kafka below the commit boundary
+
+Adding Kafka to the existing committed outbox row preserved the Phase 9
+Sidekiq/Cable path. A real broker stop let a new bid commit at revision 4 and
+the Sidekiq hint enqueue while Kafka attempts persisted an error and backlog.
+After restart, the publisher drained the row and the audit group caught up.
+The consumer's group rebalanced after broker restart; broker acknowledgment
+preceded its audit entry, which is why these must be observed separately.
+
+Killing a publisher after its delivery report but before PostgreSQL
+acknowledgment yielded two Kafka records with the same event ID, one receipt
+and one audit entry. Killing the consumer after the database effect but before
+offset storage replayed the record as a duplicate on restart. A version 2
+poison record stopped the group at its offset while a later bid and both
+publishers still advanced. An explicit reviewed offset reset let the later
+event through; replay from the beginning suppressed all previous effects and
+stopped at the same poison. These are concrete at-least-once boundaries.
+
+The first Compose consumer retained an old restart policy after its YAML was
+edited during startup, producing a brief poison restart loop. Stopping and
+recreating it applied `restart: no`; the runbook now relies on a stopped
+consumer for deliberate poison review. A focused privacy assertion also
+matched the substring `origin` inside `original_ends_at`; checking exact
+field names preserved the actual privacy invariant without false positives.

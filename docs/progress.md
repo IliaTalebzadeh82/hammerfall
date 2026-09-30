@@ -1549,3 +1549,77 @@ Phase 10 has not begun.
 Commits: `f2d59cd` implements the Phase 8 runtime/config/tests; documentation
 completion is committed separately. The preceding `63edbb8` commit records the
 pre-existing context migration and contains no Phase 8 product code.
+
+## Phase 10 — Kafka
+
+Status: COMPLETE — verified 2026-09-30. Phase 11 has not begun. The detailed
+[ExecPlan and Evidence Index](plans/phase-10-execplan.md) hold commands, seeds,
+event IDs, logs, failures and recovery observations.
+
+### Implementation and boundary
+
+The Phase 9 PostgreSQL transaction still commits auction mutation, public
+revision and one outbox row before any transport work. New rows carry one
+public-only domain snapshot and independent Kafka retry/acknowledgment fields;
+the Sidekiq/Cable publisher and its acknowledgment remain unchanged. Historical
+Phase 9 rows were marked Kafka-acknowledged without invented event content.
+`rdkafka` 0.30.0 sends to the three-partition local topic
+`hammerfall.auction-events.v1`, keyed by auction ID. The publisher waits for
+broker delivery before PostgreSQL acknowledgment and retries failures with
+persisted backoff. The `hammerfall.audit.v1` group validates exact v1 envelopes,
+commits receipt and public audit entry together, then commits Kafka offset.
+Duplicates are no-ops; gap/stale order is recorded; poison stops consumption
+without an offset commit. [ADR-011](adr/011-kafka-domain-events.md) defines the
+contract and [Kafka runbook](runbooks/kafka.md) the operator path. No Redis
+projection or Phase 11 behavior was introduced.
+
+### Actual failure and recovery evidence
+
+- Compose built and started the single broker, topic initializer, publisher
+  and consumer; an end-to-end auction at revision 3 produced three Kafka
+  acknowledgments and three audit receipts. Topic metadata showed three
+  partitions, replication factor one.
+- Stopping Kafka did not stop a bid: auction 196 committed price 11,000 and
+  revision 4 while Sidekiq acknowledged its hint and Kafka retained a pending
+  row with `Rdkafka::RdkafkaError`. Broker restoration drained it at attempt 5
+  and the audit group caught up.
+- SIGKILL after broker delivery but before PostgreSQL acknowledgment left
+  revision 5 pending. A retry produced two Kafka records with the same UUID;
+  the audit group retained one receipt and one side effect. SIGKILL after the
+  consumer database effect but before offset storage replayed revision 6 as a
+  duplicate after restart, with one effect and unchanged price.
+- A deliberately unsupported schema version at partition 1 offset 7 stopped
+  the consumer. A valid revision 7 at offset 8, the auction bid and both
+  transport acknowledgments continued while audit waited. An explicit offset
+  reset after review let the valid event through. Replay from offset 0 caused
+  duplicate no-ops and stopped again at the poison record. The consumer
+  container was recreated with no restart policy after an initial container
+  retained an obsolete restart setting during a live YAML edit.
+- With Redis stopped, auction 224 reached revision 3 and Kafka published and
+  audited all three events while Sidekiq acknowledgments stayed 0/3. Redis
+  recovery drained those rows to 3/3. Kafka and Sidekiq share outbox row locks,
+  so a slow Kafka send can briefly delay a hint enqueue without changing a bid.
+- Sabotage A–D removed transactional event intent, skipped the delivery wait,
+  bypassed receipt lookup and moved offset storage before database effect.
+  Focused tests failed as intended. All sources were restored byte-identically
+  and 19 focused examples then passed. Final review added event-classification
+  and a two-connection duplicate-consumer race check; 22 focused examples pass.
+
+### Regression, review and limits
+
+`scripts/check` passed 381 backend examples, 98 RuboCop files, Brakeman with
+zero warnings, Zeitwerk, frontend lint/format/types, 73 Vitest tests and a
+Next production build. Compose Kafka smoke and native host listener worked.
+Real Playwright passed 7/7; sequential, concurrent, proxy, two-process
+idempotency and multi-process closing smoke passed. Bundler audit found no
+vulnerabilities. Hosted CI was not run. The local broker is single-node,
+plaintext and unbacked-up; no production capacity, latency, HA, TLS/ACL,
+schema registry, alerting or exactly-once claim is made. Broker retention
+bounds replay; poison skip is an explicit operator decision. Cable/Redis
+post-acknowledgment loss and browser REST recovery limits remain. Phase 11 is
+ready only as a separately requested phase, with Kafka event ordering and
+retention limits carried into any projection design.
+
+Commits: `874deb7` implements and tests the Kafka runtime, Compose topology,
+CI smoke and event contract; documentation/evidence completion is committed
+separately.

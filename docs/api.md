@@ -287,6 +287,6 @@ updated_at or bid sequence. Revision is server-managed and rejected in command i
 message is `{"type":"auction.changed.v1","auction_id":42,"revision":17}`.
 It requests a fresh GET; it is neither a command acknowledgement nor a snapshot.
 See [realtime](realtime.md) for ordering, privacy and missed-message recovery.
-Phase 9 commits an internal outbox intent with each new public revision; the
+Phase 10 commits an internal public domain snapshot with each new outbox revision; the
 wire message and command/REST response contracts are unchanged. A hint can be
 delayed or duplicated and never confirms a command result.

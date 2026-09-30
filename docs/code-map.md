@@ -1,7 +1,7 @@
 # Code map
 
 Paths below are relative to the repository root. Phase 5 resolves client key ownership before the PostgreSQL auction row lock.
-Phase 9 adds a transactional outbox for public invalidations; Kafka domain events do not exist yet.
+Phase 10 extends the transactional public outbox with Kafka domain events and an audit consumer.
 
 ## Creating an auction
 
@@ -331,3 +331,25 @@ All paths in this section begin under `apps/web` unless otherwise noted.
 - [ADR-010](adr/010-transactional-public-outbox.md), [event model](event-model.md),
   [failure model](failure-model.md) and [runbook](runbooks/sidekiq-redis.md)
   describe the contract and recovery procedure.
+
+## Phase 10 implementation map
+
+- `Auction#persist_public_change!` classifies the public delta and stores a
+  public snapshot on the same `OutboxEvent` row as the Phase 9 invalidation.
+  Migration `20260930000001_add_kafka_to_outbox.rb` adds independent Kafka retry
+  and acknowledgment columns; migration `20260930000002_add_kafka_receipt_digest.rb`
+  records consumer identity integrity. Historical rows are not synthesized.
+- `KafkaOutboxPublisher` and `bin/kafka_outbox_publisher` claim committed rows,
+  send with the auction ID partition key, wait for broker delivery and only then
+  acknowledge in PostgreSQL. `KafkaEventCodec` validates the exact public v1
+  shape. `docker-compose.yml` runs the broker, topic initializer and publisher.
+- `KafkaAuditConsumer` and `bin/kafka_audit_consumer` form the initial group.
+  `ConsumedKafkaEvent` and `KafkaAuditEntry` commit receipt and audit effect
+  together; offset commit follows. The group stops on poison and has no
+  automatic restart policy. No projection or auction decision reads these tables.
+- `spec/integration/kafka_outbox_spec.rb` covers atomicity, privacy, retry,
+  duplicate, offset and concurrent claim behavior. `scripts/smoke-kafka`
+  exercises Compose end to end; the Phase 10 ExecPlan records real outage,
+  crash, replay, poison, sabotage and regression evidence.
+- [ADR-011](adr/011-kafka-domain-events.md), [event model](event-model.md)
+  and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.

@@ -69,3 +69,24 @@ job reads PostgreSQL revision and tolerates duplicate/out-of-order hints.
 Repeated publisher errors remain visible as pending rows and aggregate backlog,
 retry and age logs; operators must investigate poison rows. No finite recovery
 deadline or exactly-once delivery is promised. See [ADR-010](adr/010-transactional-public-outbox.md).
+
+## Phase 10 Kafka failure
+
+Kafka is downstream of the same committed public outbox row. Broker outage
+leaves `kafka_published_at` empty with persisted attempts/backoff; auction
+acceptance, idempotent outcome, closing and the independent Redis/Sidekiq/Cable
+path continue. Broker recovery drains due rows. A delivery report can precede
+a publisher crash; the PostgreSQL acknowledgment then rolls back and a retry
+can produce the same event ID twice. `kafka_published_at` means broker delivery
+was confirmed, not consumer completion or retention beyond broker policy.
+Concurrent publishers may reorder an auction's revisions.
+
+The audit consumer writes a PostgreSQL receipt and audit entry atomically, then
+stores and synchronously commits its Kafka offset. Crash after the effect but
+before offset commit replays a duplicate no-op. A database failure leaves the
+offset uncommitted. Unknown version, malformed, oversized or conflicting
+event ID is poison: the consumer logs partition/offset/error class and exits
+without committing. Later records in that partition wait. Operators inspect
+and explicitly reset/skip only after review, then restart. Replay from retained
+offsets is idempotent but blocks again on the same poison. See the [Kafka runbook](runbooks/kafka.md)
+and [Phase 10 ExecPlan](plans/phase-10-execplan.md) for live evidence.
