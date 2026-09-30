@@ -6,8 +6,9 @@ auction can queue requests and exhaust connection capacity. No load measurement
 or throughput claim exists. Long outer transactions retain locks longer.
 
 There is no authentication, authorization,
-rate limiting, backup/restore procedure, production deployment or
-operational runbook. Reads spanning multiple queries are not snapshot-consistent.
+rate limiting, production backup/restore procedure, production deployment or
+production-grade operating program. Local runbooks cover specific failures.
+Reads spanning multiple queries are not snapshot-consistent.
 Local Compose credentials are disposable; services bind to loopback. Named volumes
 provide local persistence, not backups. The sequence migration requires stopping
 old writers for a maintenance rollout, not an untested rolling deployment.
@@ -65,7 +66,7 @@ Phase 9's transactional outbox; Redis/worker outage or loss after acknowledgment
 can still leave clients stale. AOF and a local named volume are not a
 backup or delivery guarantee. Job retries are bounded and need Dead-set ownership.
 The sweep reports possible PostgreSQL drift without repair. There is still no
-authenticated identity, Redis read projection, projection repair,
+authenticated identity or projection repair,
 capacity benchmark or production operations stack. Review Sidekiq/DB connection
 budgets, Redis persistence/HA and job/runbook ownership before public deployment.
 
@@ -94,3 +95,14 @@ workflow automation. Audit is not a Redis read model. Kafka outage cannot
 change auction correctness, but can delay derived consumers indefinitely.
 Review [ADR-011](adr/011-kafka-domain-events.md) and the [runbook](runbooks/kafka.md)
 before extending consumer groups.
+
+## Phase 11 projection boundary
+
+Redis now holds a derived public snapshot for an explicit eventual endpoint.
+Atomic revisions handle duplicate and reordered Kafka records; they do not
+guarantee synchronous freshness. Ordinary GET and commands remain PostgreSQL
+backed. The Redis keyspace is disposable, with manual PostgreSQL seeding after
+loss. A valid stale key requires observation or manual intervention until
+Phase 12 reconciliation work is separately authorized. The local outage,
+replay and rebuild checks do not establish production replay time, capacity,
+Redis/Kafka HA or backup policy. See [ADR-012](adr/012-redis-public-projection.md).

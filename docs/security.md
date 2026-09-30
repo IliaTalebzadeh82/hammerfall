@@ -55,3 +55,15 @@ Malformed/unknown subscriptions are rejected. Exact allowed origins remain enabl
 production has no implicit same-host allowance. No private actor channel exists.
 Demo identity and lifecycle APIs are still unauthenticated; origin checks do not
 replace authentication, authorization, rate limits or connection capacity controls.
+
+## Phase 11 projection privacy
+
+The Kafka projection consumer accepts only the public v1 data allowlist. The
+PostgreSQL rebuild slices the same fields from `AuctionPresenter`; the Redis
+value adds only revision, event/source and freshness metadata. Redis and the
+eventual endpoint omit private maximums, priority, bid origin and idempotency
+material. Focused tests and a live private-maximum update checked the raw key;
+this is representation privacy, not authorization or protection against an
+operator with Redis/database access. Avoid logging raw values, event payloads
+or keys from client commands. The local unauthenticated API remains unsuitable
+for public deployment.

@@ -90,3 +90,23 @@ without committing. Later records in that partition wait. Operators inspect
 and explicitly reset/skip only after review, then restart. Replay from retained
 offsets is idempotent but blocks again on the same poison. See the [Kafka runbook](runbooks/kafka.md)
 and [Phase 10 ExecPlan](plans/phase-10-execplan.md) for live evidence.
+
+## Phase 11 Redis projection failure
+
+The projection group writes a public-only Redis snapshot after Kafka delivery,
+then commits its own offset. A duplicate or stale event is harmless; an equal
+revision with different public data, invalid event, Redis error or corrupt key
+stops progress with the offset uncommitted. A crash after a successful Redis
+write but before offset commit replays an equal-data duplicate. None of these
+paths modifies PostgreSQL auction state or command outcomes.
+
+Redis outage leaves bids, closing, ordinary GET and PostgreSQL outbox intact.
+The explicit eventual GET falls back to PostgreSQL on miss, corruption or
+connection failure and labels its source. A well-formed stale key remains a
+stale Redis response, so callers requiring current state use ordinary GET.
+After total Redis loss, previously committed Kafka offsets do not replay
+automatically; operators seed current auction state with
+`bin/rebuild_auction_projections`. Finite Kafka retention, historical rows and
+poison records make Kafka-only reconstruction unreliable. A corrupt key must
+be removed before replay/seed can write it. See [ADR-012](adr/012-redis-public-projection.md)
+and the [recovery runbook](runbooks/redis-projection.md).

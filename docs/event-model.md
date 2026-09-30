@@ -51,3 +51,12 @@ receipt and public metadata entry per event, classifies first, next, gap and
 stale arrivals, and never decides an auction outcome. Retention is broker
 policy; replay is bounded by retained data and does not backfill pre-Phase-10
 historical events.
+
+## Phase 11 projection consumer
+
+The independent `hammerfall.projection.v1` group validates this exact v1
+envelope, writes only its public `data` plus version/freshness metadata to
+Redis, then commits its Kafka offset. Redis revision comparison makes repeat
+and reordered events safe; equal-revision conflicting public data stops the
+group. This derived state is neither another domain event nor auction
+authority. See [ADR-012](adr/012-redis-public-projection.md).

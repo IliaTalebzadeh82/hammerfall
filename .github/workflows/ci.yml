@@ -29,6 +29,13 @@ jobs:
         options: >-
           --health-cmd 'pg_isready -U hammerfall -d hammerfall_test'
           --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd 'redis-cli ping'
+          --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       RAILS_ENV: test
       PGHOST: 127.0.0.1
@@ -86,7 +93,7 @@ jobs:
           docker compose exec -T reconciliation-scheduler bin/reconciliation_scheduler --once
           docker compose exec -T outbox-publisher bin/outbox_publisher --once
           docker compose exec -T kafka-outbox-publisher bin/kafka_outbox_publisher --once
-          docker compose ps sidekiq outbox-publisher kafka-outbox-publisher kafka-audit-consumer
+          docker compose ps sidekiq outbox-publisher kafka-outbox-publisher kafka-audit-consumer kafka-projection-consumer
       - name: Kafka end-to-end smoke
         run: docker compose exec -T api ruby < scripts/smoke-kafka
       - name: Sequential auction API smoke

@@ -1,14 +1,11 @@
 # Phase 11 ExecPlan — Redis projection
 
-Status: IN PROGRESS — live campaign checkpoint, 2026-09-30.
-Current milestone: Broad regression, runtime/security review, durable documentation and finalization in a fresh session.
-Completed: Primary projection implementation from `b88ad58`; real Kafka delivery, duplicate/stale/replay, Redis outage and full projection loss, PostgreSQL rebuild, process exit after Redis write before offset commit, concurrent writes, privacy, corrupt value recovery and four sabotage checks. Added one rebuild privacy regression.
-Verified: Initial 20 focused examples/0 failures (seed 41577), Zeitwerk, changed Ruby lint and Compose syntax; live campaign details and 8 post-sabotage projection examples/0 failures (seed 50920) below. The new test file passes RuboCop and `git diff --check`.
-Remaining: Broad backend regression and lint, final local/Compose runtime checks (including endpoint/build/security as relevant), ADR/architecture/API/runbook/invariants/learning/code-map/journal/progress docs, final adversarial review and coherent completion commit. Do not start Phase 12.
-Known failures/limitations: The retained local Kafka topic contained a Phase 10 poison event at partition 1 offset 7, so the new earliest-offset group stopped as designed. For the local live campaign only, its offsets were reset to the topic tail; PostgreSQL rebuild covered skipped historical state. This is an operator recovery limitation to document. The new endpoint is explicitly eventual. Retention, publisher reorder and legacy rows constrain Kafka-only replay; PostgreSQL is the current-state rebuild source. A corrupt Redis key can block writes and seed until that key is deleted; the endpoint falls back. The full Redis datastore flush used isolated DB 15, while the live shared DB 0 had only its projection namespace wiped.
+Status: COMPLETE — verified 2026-09-30; final documentation/CI commit follows this plan.
+Completed: Primary projection implementation `b88ad58`; live/failure campaign `25c7172`; broad backend, static/security, frontend, Compose/API and browser checks in the Evidence Index below. Phase 11 ADR, architecture and operator documentation are updated.
+Remaining: No Phase 11 work. Phase 12 requires a separate explicit request.
+Known limitations: The retained local Kafka topic contained a Phase 10 poison event at partition 1 offset 7; the new earliest-offset group stopped as designed. For the controlled local campaign, its offsets were reset to the topic tail and PostgreSQL rebuild covered skipped history. The explicit endpoint is eventual. Finite retention, publisher reorder and legacy rows constrain Kafka-only replay; PostgreSQL is the current-state rebuild source. A corrupt Redis key blocks write/seed until that key is deleted; the endpoint falls back. Full Redis flush used isolated DB 15; shared DB 0 had only its projection namespace removed. There is no production freshness, replay-time, capacity or HA claim.
 Relevant files: `apps/api/app/services/{auction_public_projection,kafka_projection_consumer,kafka_event_codec}.rb`, `app/controllers/api/v1/auctions_controller.rb`, `bin/{kafka_projection_consumer,rebuild_auction_projections}`, `spec/integration/redis_projection_spec.rb`, `docker-compose.yml`, `apps/api/Gemfile{,.lock}`; prior public source: `app/models/{auction,outbox_event}.rb`, `app/presenters/api/v1/auction_presenter.rb`.
 Relevant ADRs: [ADR-010](../adr/010-transactional-public-outbox.md), [ADR-011](../adr/011-kafka-domain-events.md); Phase 11 ADR to be added for the projection/read policy.
-Next-session starting point: Read AGENTS, latest handoff, this plan and Phase 11 spec. Review this checkpoint, then run one broad backend regression/lint gate, relevant Compose/API runtime checks and finish durable docs/ADR. Diagnose any failures, perform final adversarial review, commit coherent work, update progress and handoff, and stop at Phase 11.
 
 ## Primary implementation checkpoint
 
@@ -59,4 +56,36 @@ Adversarial result: Redis loss did not lose PostgreSQL state or block bidding; s
 | Concurrent and privacy checks | Two Rails processes; private maximum 20000; corrupt Redis value | Final revision 6; maximum absent; malformed-value fallback and seed recovery | Live campaign above |
 | Sabotage | Four temporary mutations and focused RSpec | Expected failures for stale, duplicate/conflict, fallback and privacy; all restored | `/tmp/hammerfall-p11-sabotage-*.log` |
 | Post-sabotage focused suite and lint | RSpec projection spec, RuboCop test file, `git diff --check` | 8 examples/0 failures seed 50920; 1 file/0 offenses; whitespace clean | `/tmp/hammerfall-p11-post-sabotage.log` |
-| Broad regression and final documentation | Pending | Not run | Next milestone |
+| Full backend regression | `set -a; source ../../.env; set +a; bundle exec rspec` in `apps/api` | 389 examples, 0 failures, seed 56291, real PostgreSQL/Redis | `/tmp/hammerfall-p11-final-rspec.log` |
+| Ruby static and security | `bundle exec rubocop`; `bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error`; `bin/bundler-audit` | 101 files/0 offenses; 0 warnings; no known vulnerabilities in checked database | `/tmp/hammerfall-p11-final-{rubocop,brakeman,bundler-audit}.log` |
+| Frontend regression and production build | `npm test`; `npm run lint`; `npm run format:check`; `npm run typecheck`; `npm run build` | 73 tests passed; lint/format/types/build passed | `/tmp/hammerfall-p11-final-web-{test,lint,format,typecheck,build}.log` |
+| Compose build and startup | `docker compose config -q`; `docker compose up --build --wait --wait-timeout 360` | Rebuilt API and web; PostgreSQL, Kafka, Redis, API, web and worker/consumer roles healthy | `/tmp/hammerfall-p11-final-compose-build.log` |
+| CI-style local runtime smokes | HTTP `/up` and web `/`; Redis PING; Kafka topic; scheduler, both publishers, Kafka smoke, API, closer, concurrent/proxy bid and idempotency prune scripts | All exited 0; Kafka smoke auction 227 revision 3, 3 events; concurrent/proxy HTTP passed | `/tmp/hammerfall-p11-final-{redis-ping,kafka-topic,scheduler,outbox,kafka-publisher,smoke-kafka,smoke-api,closer,smoke-concurrent,smoke-proxy,prune}.log` |
+| Final integrated projection read | Compose auction 227: Rails PostgreSQL/outbox inspection, Redis read, ordinary and eventual HTTP GET | PostgreSQL revision 3/10000; 3 outbox rows broker-acknowledged; Redis Kafka source revision 3/10000; both GETs 200 at revision 3/10000, eventual source `redis` | Local output 2026-09-30; consumer applied events in Compose logs |
+| Real browser | `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/google-chrome npm run test:e2e` | 7 passed: bidding/retry/privacy, closing, responsive views, lifecycle, Cable recovery, soft close and autonomous closer | `/tmp/hammerfall-p11-final-playwright-chrome.log` |
+| Documentation and final review | ADR-012, architecture/API/failure/runbook/learning/code-map/security/progress/handoff updates; local Markdown link check; `git diff --check`; adversarial table below | Local links resolve; whitespace clean; no known serious Phase 11 correctness defect | This plan and changed documents; Git diff |
+
+Finalization setup notes: the first broad RSpec command sourced `.env` without
+exporting it, so PostgreSQL authentication failed before any examples; rerunning
+with `set -a` passed. Playwright's bundled browser was absent. Its download
+returned CDN HTTP 403 for this location, so the documented
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/google-chrome` option was used. Neither
+failure represents an application test failure.
+
+## Final adversarial review
+
+| Challenge | Finding / evidence |
+| --- | --- |
+| Stale or reordered Kafka data regresses Redis | Atomic Lua revision comparison rejects a lower revision; focused test, live replay and stale-guard sabotage proved the check is active. |
+| Duplicate delivery or post-write consumer crash changes state | Equal revision/data is a no-op. Focused tests and live abrupt exit/restart showed Redis retained revision 6 while the uncommitted offset replayed as duplicate. |
+| Redis outage or total loss changes bid correctness or destroys state | Commands, ordinary GET, idempotency and auction locks use PostgreSQL. Live bid during outage committed; total namespace loss and isolated full DB flush left PostgreSQL intact. |
+| A newer projection contains older public state | `Auction#persist_public_change!` saves the public snapshot and revision on the same outbox row within the locked auction transaction; codec validates the shape; Redis compares that revision. No independent read is used to construct a Kafka snapshot. This is an internal pipeline guarantee, not protection against a forged trusted-broker record. |
+| Fallback mislabels its authority | Redis hit returns `meta.source=redis`; miss, invalid value or connection failure builds data from `AuctionPresenter` and returns `meta.source=postgresql`. Focused and live outage/corruption checks passed. A well-formed stale Redis hit deliberately stays eventual. |
+| Private maximum, priority, origin or idempotency data leaks | Kafka v1 exact data allowlist and PostgreSQL seed allowlist omit these fields. Focused raw-key checks, live private-maximum update and privacy sabotage passed; no auth secrecy is claimed. |
+| Rebuild disagrees with current PostgreSQL or replay overwrites it | Seed uses current presenter data and the same atomic revision rule. Live seed matched PostgreSQL 5/12000 and 6/13000; replay of older events stayed stale and equal event was duplicate. Manual rebuild is not a simultaneous cross-row snapshot and does not automatically repair a valid same-revision conflict. |
+| An application path depends on Redis for auction authority or Phase 12 work appeared early | Source routing keeps `show` and all command paths on PostgreSQL; only explicit `public_state` and background projection use Redis. No scheduled projection comparison/repair was added; the preexisting read-only PostgreSQL sweep is separate. |
+
+Review outcome: no known serious Phase 11 correctness bug. Operational limits
+remain: finite retention, poison-offset review, potential unbounded projection
+staleness, manual rebuild after loss, single-key deletion for corruption,
+unauthenticated demo API and unmeasured production capacity/availability.

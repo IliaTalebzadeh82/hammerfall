@@ -1623,3 +1623,62 @@ retention limits carried into any projection design.
 Commits: `874deb7` implements and tests the Kafka runtime, Compose topology,
 CI smoke and event contract; documentation/evidence completion is committed
 separately.
+
+## Phase 11 — Redis Projection
+
+Status: COMPLETE — verified 2026-09-30. Phase 12 has not begun. The
+[ExecPlan](plans/phase-11-execplan.md) holds the detailed Evidence Index,
+live campaign, sabotage outcomes and adversarial review.
+
+### Implementation and boundary
+
+The separate `hammerfall.projection.v1` Kafka group validates committed public
+v1 snapshots, atomically writes a versioned Redis key per auction, then commits
+its offset. Higher revisions replace older ones; equal public data is a
+duplicate; lower revisions are stale; equal-revision conflicting data stops
+the consumer. The key stores only public fields plus revision, event/source,
+digest and freshness metadata. `GET /api/v1/auctions/:id/public-state` is an
+explicit eventual read with Redis source/age or PostgreSQL fallback. Ordinary
+GET and all commands remain PostgreSQL-backed. A manual PostgreSQL seed
+rebuilds disposable keys. [ADR-012](adr/012-redis-public-projection.md) and the
+[runbook](runbooks/redis-projection.md) define the policy and recovery.
+
+### Failure and sabotage evidence
+
+Live Compose delivery reached auction 226 revisions 3/10000 and 4/11000.
+Duplicate and stale Kafka records left it at 4/11000. During Redis outage a
+bid committed in PostgreSQL at 5/12000 and the eventual GET fell back; the
+uncommitted event applied after restart. Deleting all 24 projection keys from
+shared DB 0 and fully flushing isolated DB 15 left authoritative state intact.
+The manual PostgreSQL rebuild seeded 181 auctions; replay did not regress the
+seed. A real consumer exit after Redis write but before offset commit left
+lag one; restart replayed a duplicate and cleared lag. Concurrent writes,
+private-maximum exclusion and corrupt-key fallback were checked. Four
+temporary sabotages each made the relevant stale, duplicate/conflict,
+fallback or privacy tests fail; sources were restored and the projection suite
+passed 8 examples. The retained local topic's Phase 10 poison event stopped
+the earliest-offset projection group. Its local campaign offsets were reset
+only after review, and PostgreSQL supplied current state.
+
+### Final regression and runtime
+
+The full backend suite passed 389 examples, 0 failures (seed 56291). RuboCop
+inspected 101 files with no offenses; Brakeman found no warnings and
+bundler-audit found no vulnerabilities in its checked database. Frontend
+Vitest passed 73 tests; lint, formatting, types and production build passed.
+Compose rebuilt successfully and all services became healthy. Redis, Kafka,
+scheduler/publishers, Kafka/API, closer, concurrent/proxy bidding and pruning
+smokes passed. Fresh auction 227 showed PostgreSQL and Redis at revision
+3/10000, three broker-acknowledged outbox events, and both HTTP reads 200.
+Real Playwright with system Chrome passed 7/7 browser scenarios, including
+retry, Cable recovery, soft close and autonomous closing. Hosted CI itself
+was not run; its API job now includes Redis for the integration spec.
+
+Final review found no known serious Phase 11 correctness bug. The endpoint
+can serve a valid stale key indefinitely; it has no synchronous freshness
+or exactly-once claim. Kafka retention and historical rows prevent assuming
+complete replay. Corrupt-key removal and full-loss rebuild require operators;
+automated projection drift detection/repair awaits Phase 12. Local Redis/Kafka
+provide no measured production capacity, fixed replay time or HA guarantee.
+The demo API remains unauthenticated. Phase 12 is ready only for a separate
+explicit request.

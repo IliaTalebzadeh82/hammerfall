@@ -1,42 +1,43 @@
-# Current handoff — Phase 11 live campaign checkpoint
+# Current handoff — Phase 11 complete
 
-Updated: 2026-09-30. **Phase 11 — Redis Projection remains in progress.** Read the
-[Phase 11 ExecPlan](../plans/phase-11-execplan.md) and
-[Phase 11 specification](../phases/phase-11.md) for exact evidence, limits and
-remaining work. Phase 12 has not started.
+Updated: 2026-09-30. **Phase 11 — Redis Projection is complete.** Phase 12 has
+not started and requires a separate explicit request. The
+[Phase 11 ExecPlan](../plans/phase-11-execplan.md) is the durable Evidence Index
+and adversarial review; [progress](../progress.md) records the phase outcome.
 
-## Current state
+## Implemented boundary
 
-Primary implementation is committed as `b88ad58`: a separate Kafka projection
-group writes versioned public-only Redis snapshots with atomic revision checks;
-the explicit eventual public-state endpoint exposes freshness and falls back to
-PostgreSQL; a manual PostgreSQL rebuild recovers disposable projection state.
-Existing auction commands and ordinary GET remain PostgreSQL-backed. This
-checkpoint adds a rebuild privacy regression. No production source mutation
-from sabotage remains.
+PostgreSQL owns auction state and commands. The committed public outbox feeds
+Kafka; the independent `hammerfall.projection.v1` consumer validates v1 public
+events, atomically applies only a higher revision to disposable Redis, then
+commits its Kafka offset. Equal public data is duplicate, lower revision is
+stale, and equal-revision different data stops the consumer. The explicit
+`/api/v1/auctions/:id/public-state` endpoint is eventual and falls back to
+PostgreSQL on a missing, malformed or unavailable Redis key. Ordinary GET,
+bidding, idempotency, deadlines and winner decisions remain PostgreSQL-backed.
+`bin/rebuild_auction_projections` manually seeds current public state after
+Redis loss. No scheduled Redis drift repair was added.
 
-## Live evidence and next action
+## Verification and limits
 
-Real Compose Kafka → Redis → API delivery reached revision 3/10000 and then
-4/11000. Duplicate and stale events did not regress state. During a Redis
-outage, a bid committed in PostgreSQL at 5/12000 and the endpoint fell back;
-the uncommitted event applied after restart. All 24 projection keys were lost
-and 181 auctions were seeded from PostgreSQL; replay over the seed stayed at
-5/12000. An isolated Redis DB was fully flushed and rebuilt to 6/13000. A
-real abrupt consumer exit after writing revision 6 but before offset commit
-left lag 1; restart replayed it as a duplicate and cleared lag. Concurrent
-writes, private maximum exclusion, malformed-value fallback and four temporary
-sabotage mutations were checked. The post-restore projection suite passed 8
-examples, 0 failures (seed 50920), and the changed test passed lint.
+Implementation commits: `b88ad58` and `25c7172`. Finalization added ADR-012,
+architecture/API/failure/runbook and learning documentation plus a Redis service
+to the API CI job. The full backend suite passed 389 examples; Ruby lint,
+Brakeman, bundler-audit, 73 frontend tests, frontend lint/format/types/build,
+Compose rebuild/startup, runtime smokes and 7 real browser scenarios passed.
+Live Redis outage, total projection loss, PostgreSQL rebuild, stale/duplicate
+replay, consumer crash/replay, privacy and four sabotages are recorded in the
+ExecPlan. Hosted CI itself was not run.
 
-The local Kafka topic held a Phase 10 poison event, so the new group stopped
-at partition 1 offset 7 as designed. Its **local test** offsets were reset to
-the tail before new events; PostgreSQL rebuild covered skipped history. This
-operator recovery limitation, finite retention, eventual staleness and corrupt
-key deletion need durable documentation. The shared Redis DB 0 was not fully
-flushed because it contains other runtime state; the isolated DB 15 was.
+The projection can remain stale, and valid stale keys do not trigger fallback.
+Kafka retention and pre-Phase-10 rows cannot guarantee full replay. Poison
+offsets, corrupt keys and Redis total loss need operator review/rebuild.
+No exactly-once processing, bounded freshness or replay time, production
+capacity or Redis/Kafka HA is claimed. The local API remains unauthenticated.
 
-**Next session:** review this checkpoint; run broad backend regression/lint and
-relevant Compose/API runtime checks; finish ADR, architecture, API, operations,
-invariants and learning/code-map/journal/progress documentation; perform final
-adversarial review; commit coherent work; update this handoff and end at Phase 11.
+## Next boundary
+
+If Phase 12 is explicitly requested, begin from its specification, this
+handoff and the Phase 11 ExecPlan. Its scope is projection drift detection
+and repair; do not reinterpret the existing read-only PostgreSQL sweep as
+Redis reconciliation.

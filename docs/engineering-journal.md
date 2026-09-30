@@ -378,3 +378,25 @@ recreating it applied `restart: no`; the runbook now relies on a stopped
 consumer for deliberate poison review. A focused privacy assertion also
 matched the substring `origin` inside `original_ends_at`; checking exact
 field names preserved the actual privacy invariant without false positives.
+
+## 2026-09-30 — Phase 11 treats Redis as a replaceable observation
+
+The local Kafka topic retained a Phase 10 poison record. A new earliest-offset
+projection group stopped on it, as designed. For the controlled live campaign,
+the group's local offsets were reset to the topic tail and PostgreSQL seeded
+current state. This made the operational rule concrete: a group offset and
+finite Kafka history cannot be treated as a backup of current auctions.
+
+Deleting the projection namespace and fully flushing an isolated Redis DB
+both left PostgreSQL state intact. A manual seed restored current public
+revisions; older Kafka replay could not lower them. An abrupt consumer exit
+after Redis write but before offset commit replayed a duplicate on restart.
+One malformed key made the read fall back but blocked replay/seed until that
+single key was removed. The runbook documents this manual repair boundary.
+
+Four temporary sabotages made stale ordering, equal-revision conflict,
+PostgreSQL fallback and rebuild privacy checks fail as expected, then were
+restored. Finalization found that the new real-Redis integration spec needs a
+Redis service in the API CI job; the workflow was updated accordingly. This
+phase exposes staleness rather than hiding it and leaves scheduled drift
+repair for a separately requested Phase 12.

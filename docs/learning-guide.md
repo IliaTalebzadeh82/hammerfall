@@ -722,3 +722,32 @@ plaintext replica with no production availability claim. Read ADR-011,
 10 ExecPlan's live failure evidence and the Kafka runbook. Explain why database
 receipt plus offset order is at-least-once safe without claiming generic
 exactly-once semantics.
+
+## Phase 11 — A disposable public read model
+
+**Question.** How can a fast read coexist with PostgreSQL authority when Kafka
+delivery can repeat or arrive out of order? A separate projection consumer
+validates the committed public event, atomically compares its revision with
+the Redis key, writes only a higher revision, and commits the Kafka offset
+after the write. Equal public data is a duplicate; older data is stale;
+same-revision/different-data stops for investigation. A process dying after
+the write simply replays a duplicate. None of these paths participates in a
+bid transaction.
+
+```text
+PostgreSQL auction + public outbox → Kafka → projection group → Redis key
+         ↑ current ordinary GET                       ↓ eventual public GET
+         └──────────── fallback on missing/bad/unavailable Redis ─────────┘
+```
+
+**Question.** Why is Redis loss recoverable without treating Kafka as a
+backup? A Kafka offset may already be committed, retained history may be
+incomplete, and older rows predate the event snapshot. The manual rebuild
+seeds current public state from PostgreSQL through the same revision guard.
+Replay of older Kafka revisions cannot lower that seed. A valid but stale key
+is still a possible eventual result; the exposed age is diagnostic, not a
+freshness SLA. The ordinary GET remains the browser's authoritative recovery
+read. Read ADR-012, `AuctionPublicProjection`, `KafkaProjectionConsumer`,
+`redis_projection_spec.rb` and the projection runbook. Explain the crash,
+total-loss, privacy and poison boundaries without claiming exactly-once or
+automatic drift repair.

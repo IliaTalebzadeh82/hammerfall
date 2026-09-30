@@ -1,6 +1,8 @@
 # Public outbox, Sidekiq and Redis runbook
 
 This is a development/operations guide for the Phase 9 outbox, public notification and read-only sweep jobs. PostgreSQL auction state is authoritative. `auction.changed.v1` is a public hint, not a command result.
+Phase 11 also uses Redis for a separate disposable public projection; its
+[recovery runbook](redis-projection.md) covers that keyspace and consumer.
 
 ## Inspect
 

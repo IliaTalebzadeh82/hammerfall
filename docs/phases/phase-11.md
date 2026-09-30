@@ -1,6 +1,6 @@
 # Phase 11 — Redis Projection
 
-Status: Planned; begin only on an explicit request
+Status: Complete — verified 2026-09-30; see the [ExecPlan](../plans/phase-11-execplan.md)
 
 ## Goal
 

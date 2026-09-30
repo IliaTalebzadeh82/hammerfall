@@ -352,4 +352,19 @@ All paths in this section begin under `apps/web` unless otherwise noted.
   exercises Compose end to end; the Phase 10 ExecPlan records real outage,
   crash, replay, poison, sabotage and regression evidence.
 - [ADR-011](adr/011-kafka-domain-events.md), [event model](event-model.md)
-  and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
+and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
+
+## Phase 11 implementation map
+
+- `AuctionPublicProjection` owns the versioned Redis key, public snapshot
+  validation/digest, atomic revision compare, read and PostgreSQL seed.
+- `KafkaProjectionConsumer` and `bin/kafka_projection_consumer` own the separate
+  group, v1 envelope validation, Redis effect and subsequent offset commit.
+  `docker-compose.yml` starts the consumer separately from the audit group.
+- `AuctionsController#public_state` and `config/routes.rb` expose the explicit
+  eventual read; normal `#show` and every command remain PostgreSQL-backed.
+- `bin/rebuild_auction_projections` iterates authoritative auction rows to
+  restore disposable keys. `spec/integration/redis_projection_spec.rb` covers
+  revisions, retries, outage, fallback, recovery and public-only content.
+- [ADR-012](adr/012-redis-public-projection.md), [projection architecture](architecture/projections-and-reconciliation.md)
+  and [runbook](runbooks/redis-projection.md) explain the consistency boundary.

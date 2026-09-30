@@ -85,5 +85,7 @@ The local topic has three partitions and replication factor one. There is no
 TLS/authentication, multi-broker durability, external schema registry, alerting,
 capacity evidence, fixed delivery deadline or exactly-once guarantee. A
 consumer receipt protects only its own PostgreSQL effect; future consumers
-need separate group identities, receipts, schemas and replay policy. The
-browser continues to use REST plus Sidekiq/Cable hints, never Kafka offsets.
+need separate group identities, receipts, schemas and replay policy. Phase 11's
+separate `hammerfall.projection.v1` group writes a disposable Redis public
+snapshot; inspect and recover it using the [projection runbook](redis-projection.md).
+The browser continues to use REST plus Sidekiq/Cable hints, never Kafka offsets.

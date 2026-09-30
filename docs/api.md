@@ -14,6 +14,7 @@ Use JSON request bodies with Content-Type: application/json. See
 | GET | /auctions | List auctions |
 | POST | /auctions | Create a draft |
 | GET | /auctions/:id | Read one auction |
+| GET | /auctions/:id/public-state | Explicit eventual public snapshot with PostgreSQL fallback |
 | PATCH | /auctions/:id | Edit allowed fields while draft |
 | POST | /auctions/:id/schedule | Schedule a draft |
 | POST | /auctions/:id/activate | Activate a scheduled auction within its window |
@@ -290,3 +291,22 @@ See [realtime](realtime.md) for ordering, privacy and missed-message recovery.
 Phase 10 commits an internal public domain snapshot with each new outbox revision; the
 wire message and command/REST response contracts are unchanged. A hint can be
 delayed or duplicated and never confirms a command result.
+
+## Phase 11 eventual public state
+
+`GET /api/v1/auctions/:id/public-state` returns `{"data": {...}, "meta": {...}}`
+with `Cache-Control: no-store`. `data` contains the auction ID, public revision,
+currency and the Kafka v1 public snapshot fields: title, description, starting
+price, minimum increment, status, current price, current leader ID, original/end
+times, closed time and winner ID. It omits bid history, `created_at` and
+`updated_at`. It never includes private maximum, priority, origin or key data.
+
+When a valid Redis projection exists, `meta.source` is `redis` and metadata
+includes `event_occurred_at`, `projected_at` and nonnegative `age_seconds`
+(elapsed time since the event, not a freshness guarantee). Redis can lag
+PostgreSQL indefinitely. On key miss, invalid value or Redis connection error,
+the endpoint reads PostgreSQL and returns `meta.source=postgresql`,
+`observed_at` and `age_seconds=0`. That zero describes the fallback observation;
+it does not certify a cross-request snapshot. The ordinary `/auctions/:id` GET
+always reads PostgreSQL and remains the correct recovery path for browser
+commands and Cable hints. See [ADR-012](adr/012-redis-public-projection.md).

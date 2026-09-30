@@ -5,7 +5,7 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Current scope: Phase 10 — Kafka.** Browse real auctions, inspect public bid
+**Current scope: Phase 11 — Redis Projection.** Browse real auctions, inspect public bid
 history, select an explicit demo bidder, and submit manual or private maximum bids.
 The responsive Next.js interface preserves stable client intentions for safe retry
 after lost responses, including tab reload. Rails/PostgreSQL still owns price,
@@ -14,10 +14,12 @@ Action Cable invalidations, dispatched through a PostgreSQL outbox and Sidekiq,
 and recover current state through REST on confirmation/reconnect. The outbox
 preserves committed publication intent across API crash and Redis outage. A
 separate Kafka publisher carries public domain events from the same committed
-outbox to an idempotent audit consumer; Kafka does not decide auction outcomes;
+outbox to an idempotent audit consumer and a separate public Redis projection
+consumer. The explicit eventual public-state endpoint can use Redis or fall
+back to PostgreSQL. Kafka and Redis do not decide auction outcomes;
 [realtime](docs/realtime.md) documents the remaining delivery limits. Start future work with
 [AGENTS.md](AGENTS.md), the [latest handoff](docs/handoffs/latest.md), the relevant
-[phase specification](docs/phases/phase-11.md) when separately requested, and the [context map](docs/context-map.md).
+[phase specification](docs/phases/phase-12.md) when separately requested, and the [context map](docs/context-map.md).
 [Progress](docs/progress.md) records actual verification; the original master prompt
 is [archived for audit](docs/archive/masterprompt-original.md).
 
@@ -40,7 +42,7 @@ port overrides, dependency updates, and shutdown.
 - `apps/api`: Rails API, ActiveRecord/PostgreSQL, RSpec, RuboCop, Brakeman.
 - `apps/web`: Next.js App Router, TypeScript, Tailwind, shadcn/ui, Vitest.
 - `infrastructure`: development Dockerfiles; root Compose coordinates PostgreSQL,
-  Redis, Kafka, API, web, Sidekiq, two outbox publishers, a Kafka audit consumer,
+  Redis, Kafka, API, web, Sidekiq, two outbox publishers, Kafka audit and projection consumers,
   reconciliation scheduler and auction closer.
 - `scripts`: shared local verification.
 - `docs`: architecture, decisions, learning notes, and progress.
@@ -56,7 +58,7 @@ the hot-auction bottleneck. Next.js presents public GET state and never optimist
 See [frontend](docs/frontend.md), [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
 [ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
 
-The remaining roadmap adds Redis projection and reconciliation systems. The current API has no authentication; bidder
+The remaining roadmap adds projection reconciliation and later operations work. The current API has no authentication; bidder
 IDs are demo identity only. See [API usage](docs/api.md) and
 [ADR-002](docs/adr/002-core-auction-state.md) for the domain choices.
 
@@ -74,7 +76,7 @@ and [learning guide](docs/learning-guide.md) explain the foundation.
 
 ## Later engineering work
 
-[Failure scenarios](docs/failure-model.md), [job/Redis runbook](docs/runbooks/sidekiq-redis.md), [Kafka runbook](docs/runbooks/kafka.md), [consistency](docs/consistency-model.md),
+[Failure scenarios](docs/failure-model.md), [job/Redis runbook](docs/runbooks/sidekiq-redis.md), [Kafka runbook](docs/runbooks/kafka.md), [projection recovery](docs/runbooks/redis-projection.md), [consistency](docs/consistency-model.md),
 [event contracts](docs/event-model.md), [benchmarks](docs/load-testing.md), and
 [observability](docs/observability.md) describe current limits and future work. No
 benchmark results or dashboards exist yet. See [security](docs/security.md) and

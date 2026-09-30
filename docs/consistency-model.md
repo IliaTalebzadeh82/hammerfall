@@ -1,7 +1,8 @@
 # Consistency model
 
 PostgreSQL stores User, Auction, Bid, current price, sequence, private maxima/priority, explicit leader and closed-auction
-winner. There is no external projection/cache; the frontend renders request/response public state that can become stale between refreshes.
+winner. Phase 11 has an optional, explicitly eventual Redis public projection;
+the frontend still renders PostgreSQL-backed REST state that can become stale between refreshes.
 
 At READ COMMITTED, place_bid! locks and reloads its auction before validating
 status, time, amount and minimum. It assigns MAX(sequence)+1 and persists bid and
@@ -86,5 +87,19 @@ changing auction truth. Kafka broker acknowledgment is earlier than consumer
 effect/offset acknowledgment. The audit consumer's PostgreSQL receipt and
 entry commit together; replay is a no-op. Its first/next/gap/stale labels
 describe arrival order, not authoritative auction state. A poison record blocks
-its partition until operator action. There is no Redis auction read model or
-projection repair; Phase 11 remains unstarted. See ADR-011 and the Kafka runbook.
+its partition until operator action. See ADR-011 and the Kafka runbook.
+
+## Phase 11 Redis projection consistency
+
+The Kafka projection group accepts only public v1 envelopes. A Lua comparison
+atomically applies a higher `public_revision`, treats equal data as duplicate,
+discards lower revisions and stops on same-revision conflicting data. Offset
+commit follows the Redis effect; crash replay is harmless for equal content.
+These rules prevent accepted older events from regressing a newer key, including
+a key seeded from current PostgreSQL state. They do not make Redis current.
+The explicit `/public-state` response identifies Redis source, event age and
+projection write time. A missing, invalid or unavailable key falls back to a
+current PostgreSQL public read and labels it accordingly. A well-formed but
+stale key remains an eventual result. Redis loss after offset acknowledgment
+requires a manual PostgreSQL rebuild; finite Kafka retention is insufficient
+as a general recovery guarantee. See ADR-012 and the projection runbook.

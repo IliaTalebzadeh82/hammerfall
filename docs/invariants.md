@@ -45,8 +45,9 @@ All 15 original master invariants remain requirements. Their current status is:
    sequence under the lock and SQL uniqueness. No global ordering is claimed.
 6. **Client timestamps cannot determine authoritative ordering:** clients cannot
    set bid timestamps or sequence; the locked server assigns sequence.
-7. **Visible winner must agree with PostgreSQL:** API serializes the stored
-   winner; Phase 6 renders fresh GET state. Realtime projection delivery is not implemented.
+7. **Authoritative visible winner agrees with PostgreSQL:** ordinary API GET
+   serializes the stored winner. The explicit Phase 11 Redis read may lag and
+   reports its derived source.
 8. **Automatic bid maxima are private:** explicit public presenters/acknowledgements
    omit maxima/priority/origin; request/SQL/inspection filters are tested. No complete
    authorization secrecy exists with supplied unauthenticated bidder IDs.
@@ -59,8 +60,10 @@ All 15 original master invariants remain requirements. Their current status is:
 12. **Duplicate delivery does not duplicate domain effects:** Sidekiq jobs read
     current revision and only request REST refresh. The Kafka audit consumer
     commits one receipt and audit effect per event ID before offset commit.
-13. **Read-model inconsistency is detectable:** Phase 12; no read model exists.
-14. **Read-model inconsistency is repairable:** Phase 12.
+13. **Read-model inconsistency is detectable:** Phase 11 exposes source, revision
+    and age for manual comparison; scheduled drift detection belongs to Phase 12.
+14. **Read-model inconsistency is repairable:** Phase 11 has a manual PostgreSQL
+    rebuild; automated drift comparison and repair belong to Phase 12.
 15. **Redis or Kafka loss cannot invalidate authoritative state:** both are
     downstream transports; outage preserves committed PostgreSQL state and
     pending transport intent until successful acknowledgment.
@@ -68,6 +71,15 @@ All 15 original master invariants remain requirements. Their current status is:
 The dedicated concurrency group commits data and checks real independent PostgreSQL
 sessions. The ordinary suite keeps transactional wrappers. Removing locks must fail
 the concurrency suite; actual mutation/repetition results are recorded in progress.md.
+
+## Phase 11 Redis projection invariants
+
+| Invariant | Enforcement | Evidence |
+| --- | --- | --- |
+| Derived events cannot regress a higher public revision | Atomic Redis Lua revision comparison; stale events skipped | `redis_projection_spec.rb`; live stale/replay and sabotage checks in Phase 11 ExecPlan |
+| Equal data is idempotent; equal revision with different data stops | Public digest comparison before offset commit | Focused conflict/duplicate tests; live duplicate and crash replay |
+| Projection loss cannot erase auction truth | Commands and ordinary GET use PostgreSQL; eventual read falls back | Focused outage tests and live Redis stop/full-loss campaign |
+| Rebuild preserves public privacy and current state | Presenter allowlist and same atomic revision rule | Rebuild privacy regression; live PostgreSQL seed and replay |
 Normal accepted sequences are contiguous while history is immutable, but the public
 contract promises monotonicity, not gaplessness after privileged changes.
 

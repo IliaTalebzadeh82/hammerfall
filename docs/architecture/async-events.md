@@ -4,7 +4,8 @@
 
 Phase 10 runs two independent publishers from the committed PostgreSQL outbox:
 Sidekiq/Cable public invalidations and Kafka public domain events. A Kafka audit
-consumer records receipt and side effect; no Redis auction projection exists.
+consumer records receipt and side effect; Phase 11 adds a separate Kafka group
+for the Redis public projection.
 Cable `auction.changed.v1` remains a public invalidation. See [ADR-011](../adr/011-kafka-domain-events.md), [ADR-010](../adr/010-transactional-public-outbox.md), [ADR-009](../adr/009-sidekiq-public-notifications-and-sweeps.md),
 [event model](../event-model.md) and [failure model](../failure-model.md).
 
@@ -23,9 +24,9 @@ is made.
 `ReconciliationScheduler` periodically enqueues bounded
 `ReconciliationSweepJob` batches. The job compares the authoritative auction
 price/leader/final winner with the latest accepted Bid in one SQL statement and
-logs drift without changing rows. Overlap and retries are safe. There is no
-Redis projection yet to reconcile or repair. Redis may later support ephemeral
-reads, presence or rate limits, but never decide a bid or winner. Sidekiq jobs
+logs drift without changing rows. Overlap and retries are safe. This job does
+not reconcile or repair the Phase 11 Redis projection. Redis never decides a
+bid or winner. Sidekiq jobs
 are distinct from Kafka domain-event consumers. See the [runbook](../runbooks/sidekiq-redis.md).
 
 ## Phase 9: public outbox
@@ -59,6 +60,18 @@ PostgreSQL transaction, then commits the Kafka offset. Duplicate IDs are
 harmless; gaps and stale arrivals are classified. Poison events stop the
 consumer at the uncommitted offset for operator review. See the [event model](../event-model.md),
 [Kafka runbook](../runbooks/kafka.md) and [ADR-011](../adr/011-kafka-domain-events.md).
+
+## Phase 11: Redis public projection
+
+The independent `hammerfall.projection.v1` group validates the same public
+envelope, atomically admits a higher revision into Redis, then commits its
+Kafka offset. Equal public data is a duplicate; lower revisions are stale;
+equal revision with different data stops processing for review. The Redis key
+holds only public state plus version/freshness metadata. The explicit eventual
+GET can read it or fall back to PostgreSQL. The ordinary GET and every auction
+command use PostgreSQL. A manual PostgreSQL seed recovers lost Redis state;
+there is no scheduled projection repair. See [ADR-012](../adr/012-redis-public-projection.md)
+and the [projection runbook](../runbooks/redis-projection.md).
 
 ## Failure semantics
 

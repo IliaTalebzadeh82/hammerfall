@@ -13,7 +13,8 @@ Future public use needs authentication and authorization, request validation, ap
 Phase 13 plans OpenTelemetry spans for HTTP, auction lock wait, validation, proxy resolution, outbox publication, Kafka/Sidekiq, WebSocket delivery, closing and reconciliation, with practical trace propagation across HTTP/jobs/Kafka. Expose bounded Prometheus metrics for bid acceptance/rejection/latency, lock wait, extensions, close lag, outbox backlog/age/failures, consumer lag, drift/repair and socket delivery lag. Use structured JSON logs with trace/span, operation, auction state, result and error class without secrets. Grafana dashboards should answer auction-health, messaging, consistency and runtime questions. See [observability](../observability.md).
 
 The [Kafka runbook](../runbooks/kafka.md) covers backlog, poison, replay and
-operator offset recovery. Future runbooks still need projection drift, close
+operator offset recovery. The [Redis projection runbook](../runbooks/redis-projection.md)
+covers loss and manual PostgreSQL rebuild. Future runbooks still need projection drift, close
 lag and PostgreSQL lock contention. The [failure model](../failure-model.md)
 covers current PostgreSQL/Redis/Kafka outage, worker/consumer/Rails crash,
 dropped sockets, delayed publication and duplicate delivery; later phases
