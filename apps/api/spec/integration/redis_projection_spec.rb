@@ -99,6 +99,17 @@ RSpec.describe "Redis public auction projection", type: :request do
     expect(projection.read(auction.id)).to include("public_revision" => auction.public_revision, "source" => "postgresql_seed")
   end
 
+  it "keeps a private maximum out of the PostgreSQL rebuild snapshot" do
+    auction = tracked_auction
+    bidder = User.create!(name: "Private maximum bidder")
+    auction.place_bid!(bidder: bidder, amount: 10_000)
+    auction.set_maximum!(bidder: bidder, maximum_amount: 20_000)
+    expect(projection.seed(auction.reload)).to eq(:applied)
+    raw = redis.call("GET", "#{AuctionPublicProjection::KEY_PREFIX}#{auction.id}")
+    expect(raw).not_to include("maximum_amount", "priority_sequence", "20000")
+    expect(projection.read(auction.id).fetch("data").keys).to match_array(KafkaEventCodec::DATA_KEYS)
+  end
+
   it "does not commit a poison or failed Redis write" do
     auction = tracked_auction
     event = event_for(auction)

@@ -1,31 +1,42 @@
-# Current handoff — Phase 11 primary implementation checkpoint
+# Current handoff — Phase 11 live campaign checkpoint
 
-Updated: 2026-09-30. **Phase 11 — Redis Projection is in progress.** Read the
-[Phase 11 ExecPlan](../plans/phase-11-execplan.md), [Phase 11 specification](../phases/phase-11.md)
-and [projection architecture](../architecture/projections-and-reconciliation.md)
-for scope, decisions, Evidence Index and exact next action. Phase 12 has not started.
+Updated: 2026-09-30. **Phase 11 — Redis Projection remains in progress.** Read the
+[Phase 11 ExecPlan](../plans/phase-11-execplan.md) and
+[Phase 11 specification](../phases/phase-11.md) for exact evidence, limits and
+remaining work. Phase 12 has not started.
 
 ## Current state
 
-Phase 10's PostgreSQL outbox and Kafka v1 public snapshots remain unchanged.
-A separate `hammerfall.projection.v1` Kafka group validates events and writes a
-versioned public-only Redis key through an atomic revision compare-and-set.
-Duplicates and stale revisions cannot regress it; same-revision conflicting data
-blocks offset commit. The explicit eventual `/api/v1/auctions/:id/public-state`
-endpoint serves a lean Redis view with revision/source/age metadata and falls
-back to PostgreSQL on miss, invalid data or Redis failure. Existing REST GET,
-all commands and auction correctness remain PostgreSQL-backed. A manual
-PostgreSQL seed script supports recovery after Redis loss. No Phase 12 scheduled
-repair/reconciliation exists.
+Primary implementation is committed as `b88ad58`: a separate Kafka projection
+group writes versioned public-only Redis snapshots with atomic revision checks;
+the explicit eventual public-state endpoint exposes freshness and falls back to
+PostgreSQL; a manual PostgreSQL rebuild recovers disposable projection state.
+Existing auction commands and ordinary GET remain PostgreSQL-backed. This
+checkpoint adds a rebuild privacy regression. No production source mutation
+from sabotage remains.
 
-## Evidence and next action
+## Live evidence and next action
 
-20 focused examples passed with real local PostgreSQL/Redis (seed 41577), along
-with Zeitwerk, changed Ruby lint, Compose config and whitespace checks. An
-initial test invocation lacked the local PostgreSQL password; sourcing `.env`
-resolved it. There is **no live Kafka-to-Redis verification yet**, nor real
-Redis loss, process crash, replay, sabotage, broad regression or final docs.
-The next session must start the Compose projection consumer and prove a real
-event through Kafka to Redis and the eventual API, then run the live failure
-campaign. Broker retention, publisher reordering and pre-Phase-10 rows limit
-Kafka-only replay; PostgreSQL remains the current-state rebuild source.
+Real Compose Kafka → Redis → API delivery reached revision 3/10000 and then
+4/11000. Duplicate and stale events did not regress state. During a Redis
+outage, a bid committed in PostgreSQL at 5/12000 and the endpoint fell back;
+the uncommitted event applied after restart. All 24 projection keys were lost
+and 181 auctions were seeded from PostgreSQL; replay over the seed stayed at
+5/12000. An isolated Redis DB was fully flushed and rebuilt to 6/13000. A
+real abrupt consumer exit after writing revision 6 but before offset commit
+left lag 1; restart replayed it as a duplicate and cleared lag. Concurrent
+writes, private maximum exclusion, malformed-value fallback and four temporary
+sabotage mutations were checked. The post-restore projection suite passed 8
+examples, 0 failures (seed 50920), and the changed test passed lint.
+
+The local Kafka topic held a Phase 10 poison event, so the new group stopped
+at partition 1 offset 7 as designed. Its **local test** offsets were reset to
+the tail before new events; PostgreSQL rebuild covered skipped history. This
+operator recovery limitation, finite retention, eventual staleness and corrupt
+key deletion need durable documentation. The shared Redis DB 0 was not fully
+flushed because it contains other runtime state; the isolated DB 15 was.
+
+**Next session:** review this checkpoint; run broad backend regression/lint and
+relevant Compose/API runtime checks; finish ADR, architecture, API, operations,
+invariants and learning/code-map/journal/progress documentation; perform final
+adversarial review; commit coherent work; update this handoff and end at Phase 11.
