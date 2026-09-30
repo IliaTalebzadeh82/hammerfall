@@ -12,8 +12,11 @@ after lost responses, including tab reload. Rails/PostgreSQL still owns price,
 leader, deadline extensions and final winner. Auction details receive PostgreSQL-backed
 Action Cable invalidations and recover
 current state through REST on confirmation/reconnect. Delivery is best-effort;
-[realtime](docs/realtime.md) documents the commit/broadcast gap. [masterprompt.md](masterprompt.md)
-is the specification; [progress](docs/progress.md) records actual verification.
+[realtime](docs/realtime.md) documents the commit/broadcast gap. Start future work with
+[AGENTS.md](AGENTS.md), the [latest handoff](docs/handoffs/latest.md), the relevant
+[phase specification](docs/phases/phase-08.md), and the [context map](docs/context-map.md).
+[Progress](docs/progress.md) records actual verification; the original master prompt
+is [archived for audit](docs/archive/masterprompt-original.md).
 
 ## Run locally
 
@@ -48,7 +51,7 @@ the hot-auction bottleneck. Next.js presents public GET state and never optimist
 See [frontend](docs/frontend.md), [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
 [ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
 
-The remaining roadmap adds realtime delivery and later event/reconciliation systems. It does not claim
+The remaining roadmap adds job, event and reconciliation systems. It does not claim
 these problems are already solved. The current API has no authentication; bidder
 IDs are demo identity only. See [API usage](docs/api.md) and
 [ADR-002](docs/adr/002-core-auction-state.md) for the domain choices.

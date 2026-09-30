@@ -1,5 +1,11 @@
 # Progress
 
+> Historical phase log. Older recommended prompts below mention `masterprompt.md`;
+> those are retained as evidence, not current context instructions. Start with
+> `AGENTS.md`, `docs/handoffs/latest.md`, `docs/context-map.md`, and the relevant
+> `docs/phases/` specification. The original is archived at
+> `docs/archive/masterprompt-original.md`.
+
 ## Phase 0 — Repository Foundation
 
 Status: COMPLETE

@@ -53,7 +53,7 @@ Real PostgreSQL concurrency specs use committed rows and independent sessions.
 ## Later phases — not implemented
 
 Redis/Sidekiq in Phase 8; outbox in Phase 9; Kafka in Phase 10. Projections, reconciliation,
-observability, load testing, and deployment follow the master roadmap.
+observability, load testing, and deployment follow the [phase specifications](phases/phase-08.md).
 No component listed here is present merely because it appears in the future plan.
 
 

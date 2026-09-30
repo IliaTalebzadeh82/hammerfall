@@ -18,7 +18,8 @@ closing workers remain future work. Lock waiters consume connections; unexpected
 database errors propagate without broad retries. No failover or
 availability promise is made. Later phases must document Redis/Kafka outages, worker/consumer
 crashes, dropped WebSockets, publication delays, duplicate events, latency spikes,
-and delayed/concurrent closing workers using the master specification's questions:
+and delayed/concurrent closing workers using the
+[operations architecture](architecture/operations-and-security.md)'s questions:
 what remains correct, unavailable or stale, and how recovery happens.
 
 ## Phase 7 transport failure

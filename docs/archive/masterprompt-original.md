@@ -1,3 +1,7 @@
+> **HISTORICAL ARCHIVE — DO NOT LOAD BY DEFAULT.** This is the original 2,644-line master prompt preserved for migration audit. `AGENTS.md`, `docs/handoffs/latest.md`, the relevant `docs/phases/` and `docs/architecture/` files are the active context. Some instructions below were superseded by verified implementation or current phase boundaries; see `docs/context-map.md` and `docs/context-migration-review.md`.
+
+---
+
 # HAMMERFALL — MASTER ENGINEERING PROMPT
 
 You are the lead engineer responsible for designing and implementing **Hammerfall**, a production-grade real-time auction platform built as a serious distributed-systems portfolio project.
