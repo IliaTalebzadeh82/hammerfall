@@ -1,11 +1,11 @@
 # Context routing and migration map
 
-`AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the current-state entry point. The [archived original](archive/masterprompt-original.md) exists for audit and should not be loaded by default. Existing root `docs/*.md` and ADRs provide deeper adopted contracts and evidence; `docs/progress.md` is a chronological log, not a normal startup document. `docs/plans/` is reserved for an active substantial ExecPlan; no new-phase plan exists while Phase 8 is unstarted.
+`AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the current-state entry point. The [archived original](archive/masterprompt-original.md) exists for audit and should not be loaded by default. Existing root `docs/*.md` and ADRs provide deeper adopted contracts and evidence; `docs/progress.md` is a chronological log, not a normal startup document. `docs/plans/phase-08-execplan.md` records the completed Phase 8 execution; create a new plan only when substantial Phase 9 work is requested.
 
 | Working on | Required context | Optional targeted context |
 |---|---|---|
 | Any repository task | `AGENTS.md` | This map |
-| Starting Phase 8 | `AGENTS.md`, `docs/handoffs/latest.md`, `docs/phases/phase-08.md` | `docs/architecture/async-events.md`, realtime, operations, relevant ADRs |
+| Starting Phase 9 | `AGENTS.md`, `docs/handoffs/latest.md`, `docs/phases/phase-09.md` | `docs/architecture/async-events.md`, auction/idempotency boundaries, ADR-009 |
 | Auction lifecycle or schema | `docs/architecture/auction-state.md`, current phase spec | `docs/domain-model.md`, `docs/invariants.md`, ADR-002/003 |
 | Bidding/proxy/concurrency | `docs/architecture/bidding.md`, auction state | ADR-003/004, relevant tests |
 | Deadline/closing | `docs/architecture/deadlines.md` | ADR-005, closer specs |
@@ -51,7 +51,7 @@ The rows below cover every top-level numbered section and each named roadmap pha
 | 16. FRONTEND EXPERIENCE | Product/phase | `docs/architecture/realtime-and-frontend.md; docs/phases/phase-06.md; docs/frontend.md` | Preserved focused responsive auction UI, controls and shadcn basis. |
 | 17. READ MODELS | Architecture/phase | `docs/architecture/projections-and-reconciliation.md; docs/phases/phase-11.md` | Projection remains planned; PostgreSQL authority preserved. |
 | 18. RECONCILIATION | Architecture/phase | `docs/architecture/projections-and-reconciliation.md; docs/phases/phase-12.md` | Planned drift detection, repair, metrics, logging and operator boundary. |
-| 19. SIDEKIQ | Architecture/phase | `docs/architecture/async-events.md; docs/phases/phase-08.md` | Planned safely retryable application jobs. |
+| 19. SIDEKIQ | Architecture/phase | `docs/architecture/async-events.md; docs/phases/phase-08.md` | Implemented bounded-retry notification and read-only sweep jobs in Phase 8. |
 | 20. KAFKA CONSUMERS | Architecture/phase | `docs/architecture/async-events.md; docs/phases/phase-10.md` | Projection/notification/audit consumer examples and duplicate/restart/replay/poison ordering retained. |
 | 21. FAILURE MODEL | Operations | `docs/architecture/operations-and-security.md; docs/failure-model.md` | All named failures and four recovery questions retained. |
 | 22. OBSERVABILITY | Operations/phase | `docs/architecture/operations-and-security.md; docs/phases/phase-13.md` | Planned tracing of bidding/DB/outbox/async flows. |
@@ -136,6 +136,6 @@ The rows below cover every top-level numbered section and each named roadmap pha
 
 - All 64 numbered sections and 21 roadmap phases have trace rows above. The original body is byte-identical to the committed `masterprompt.md` after the archive banner.
 - Adopted invariants are routed to architecture, `docs/invariants.md` and ADRs; future outbox, Kafka, projection and reconciliation guarantees remain explicitly planned. No phase's original roadmap bullets were removed from its specification.
-- `AGENTS.md` holds durable process/domain guardrails only. The latest handoff describes current Phase 7 implementation and verified evidence, while chronology remains in `docs/progress.md`.
+- `AGENTS.md` holds durable process/domain guardrails only. The latest handoff describes the current completed phase and verified evidence, while chronology remains in `docs/progress.md`.
 - Detailed adopted decisions have one canonical ADR or technical document; the new architecture docs route readers to those details rather than duplicating decision tables. Old prompt references in historical progress/journal text are not active instructions.
 - Documentation links were checked, and no application source, schema, test, dependency or deployment configuration was changed in this migration.

@@ -6,18 +6,18 @@ Hammerfall tests how one correct auction outcome survives concurrent bids, async
 
 ## Current responsibilities
 
-Rails/ActiveRecord is the modular monolith and sole business authority. PostgreSQL persists users, auctions, bids, private maxima, winner and idempotency outcomes. Next.js/React/TypeScript presents the versioned REST API and ephemeral Action Cable invalidations. Compose currently runs PostgreSQL, API, web and a separate Rails closer role. See [ADR-001](../adr/001-modular-monolith.md), [architecture](../architecture.md) and [code map](../code-map.md).
+Rails/ActiveRecord is the modular monolith and sole business authority. PostgreSQL persists users, auctions, bids, private maxima, winner and idempotency outcomes. Next.js/React/TypeScript presents the versioned REST API and ephemeral Action Cable invalidations. Compose currently runs PostgreSQL, Redis, API, web, Sidekiq, a read-only sweep scheduler and a separate Rails closer role. See [ADR-001](../adr/001-modular-monolith.md), [ADR-009](../adr/009-sidekiq-public-notifications-and-sweeps.md), [architecture](../architecture.md) and [code map](../code-map.md).
 
 ## Durable boundary
 
 - Do not move authoritative auction logic to Node, Go or a client. A cached or event-derived state never decides the winner.
 - Start with one Rails app. Extract a service only for a concrete independent scaling, availability, deployment, workload, ownership or fault-isolation reason, recorded in an ADR.
-- A future system may add Redis/Sidekiq, PostgreSQL outbox, Kafka and derived consumers in that order. They are not present merely because the roadmap names them. Kafka and Sidekiq have different responsibilities: domain event propagation versus application jobs.
+- Phase 8 added Redis/Sidekiq application jobs. A future phase may add the PostgreSQL outbox, Kafka and derived consumers in that order. Kafka and Sidekiq have different responsibilities: domain event propagation versus application jobs.
 - Keep the application usable and documented after every phase; do not introduce Kubernetes before local correctness, Compose, multi-instance tests, metrics and readiness evidence.
 
 ## Technology and documentation contracts
 
-The planned stack is Ruby/Rails API, ActiveRecord, PostgreSQL and RSpec; TypeScript, React, Next.js, Tailwind and shadcn/ui; Action Cable/WebSockets; later Redis, Sidekiq, Kafka, OpenTelemetry/Collector, Prometheus, Grafana, Tempo, k6, Kubernetes, Terraform and GCP. A change needs a reason and ADR. Docker Compose is the local foundation; GitHub Actions runs ordinary checks without deployment credentials. [README](../../README.md), [tooling](../tooling.md), [running locally](../running-locally.md) and [production readiness](../production-readiness.md) distinguish installed from future tools.
+The stack includes Ruby/Rails API, ActiveRecord, PostgreSQL, RSpec; TypeScript, React, Next.js, Tailwind and shadcn/ui; Action Cable/WebSockets; Redis and Sidekiq. Later phases plan Kafka, OpenTelemetry/Collector, Prometheus, Grafana, Tempo, k6, Kubernetes, Terraform and GCP. A change needs a reason and ADR. Docker Compose is the local foundation; GitHub Actions runs ordinary checks without deployment credentials. [README](../../README.md), [tooling](../tooling.md), [running locally](../running-locally.md) and [production readiness](../production-readiness.md) distinguish installed from future tools.
 
 Maintain ADRs with Context, Decision, Alternatives Considered, Consequences, Risks and Revisit When. The learning guide, workflow code map, substantive engineering journal, candid production readiness and final interview/review documents serve the owner's study goal. Do not exaggerate completion in README or operational claims.
 

@@ -289,3 +289,31 @@ Applying the final Compose worker setting interrupted an extra container RSpec r
 run. The next run exposed that fixture in collection/seed/closer tests. We inspected
 the failures and reset only the explicitly checked hammerfall_test domain tables,
 then reran the container suite. Development data was untouched.
+
+## 2026-09-30 — Phase 8 job boundary
+
+Keeping PostgreSQL Action Cable while adding Sidekiq avoided an unnecessary
+adapter change. The after-commit callback now enqueues only public identifiers;
+the job checks current revision before broadcasting. A worker-stop run made the
+notification queue grow 0 → 3 while bidding committed, then drain after restart.
+With Redis stopped, HTTP acceptance and exact idempotent replay still succeeded,
+but the enqueue warning proved that the hint was lost. Restarting API with Redis
+still down also succeeded. This makes the commit/enqueue gap observable; it is not
+solved by the Redis AOF volume or a retrying worker.
+
+Sidekiq 8.1.7's CLI did not accept `-r ./config/environment` without the `.rb`
+suffix in this runtime: the container repeatedly printed usage and restarted.
+Using `-r ./config/environment.rb` booted Rails and processed queued jobs. Compose
+`--wait` can report a service running during a restart loop, so we checked worker
+logs and actual queue processing rather than treating startup alone as proof.
+
+The read-only sweep uses a lateral latest-Bid lookup in one PostgreSQL statement
+per bounded batch, avoiding a cross-query false drift during concurrent commits.
+A 101-auction spec exercised cursor chaining beyond the first 100 rows. A test
+expectation initially used `not_to receive(:error)` across both a clean and an
+intentionally corrupted scan; the RSpec expectation remained active during the
+second half. Capturing messages in an array made both assertions independent.
+
+Three test-process-only mutations confirmed the checks fail for early publication,
+stale requested revision broadcast and uncaught enqueue errors. No source mutation
+was retained. The full normal container suite later passed 359 examples.

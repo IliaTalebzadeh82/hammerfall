@@ -1,6 +1,6 @@
 # Phase 08 — Sidekiq + Redis
 
-Status: Planned; begin only on an explicit request
+Status: COMPLETE — verified 2026-09-30; actual evidence in `docs/progress.md`.
 
 ## Goal
 

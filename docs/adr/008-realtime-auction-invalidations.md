@@ -93,3 +93,8 @@ stopping clients and preserving metadata; never silently reinterpret a live revi
 Framework references: [Action Cable guide](https://guides.rubyonrails.org/action_cable_overview.html)
 and [transaction callbacks](https://api.rubyonrails.org/classes/ActiveRecord/Transaction.html).
 Implementation was also checked against installed Rails 8.1.3.1 adapter/transaction source.
+
+Phase 8 follow-up: [ADR-009](009-sidekiq-public-notifications-and-sweeps.md)
+keeps this public protocol and PostgreSQL Cable adapter, but the after-commit
+callback now enqueues a Sidekiq job, which performs the broadcast asynchronously.
+This ADR describes the original Phase 7 direct-publication decision.

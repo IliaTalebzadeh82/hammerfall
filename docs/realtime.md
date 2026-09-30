@@ -1,9 +1,10 @@
-# Real-time auction updates — Phase 7
+# Real-time auction updates — Phases 7–8
 
 PostgreSQL owns auction truth. REST exposes current public state. Action Cable only
 announces that the browser should check again. The runtime uses PostgreSQL
-LISTEN/NOTIFY, so a mutation in Rails A reaches a socket attached to Rails B without
-adding Redis. Test adapter delivery alone is not evidence of this property.
+LISTEN/NOTIFY, so a job broadcast reaches a socket attached to another Rails
+process. Redis now queues that job; it is not the Cable adapter. Test adapter
+delivery alone is not evidence of cross-process behavior.
 
 ## Revision and publication
 
@@ -26,13 +27,15 @@ resolver rules; bid sequence alone cannot represent lifecycle/extension changes.
 The explicit domain save helper updates revision with state and registers the
 central publisher with `Auction.current_transaction.after_commit`. Nested savepoint
 callbacks transfer to the parent; rollback discards them. ID/revision are captured
-as scalars. No per-Bid model callback publishes incomplete contest state.
+as scalars. Phase 8's callback enqueues `AuctionChangedJob`; no per-Bid model
+callback publishes incomplete contest state.
 
 ```text
 Rails A                     PostgreSQL                Rails B               Browser
 lock + public mutation ---> row state + revision
 COMMIT -------------------> authoritative/visible
-transaction callback -----> NOTIFY -----------------> public stream ------> hint
+transaction callback -----> Redis queue -> Sidekiq job reads current revision
+                                          -> NOTIFY -> public stream ------> hint
                                                                          GET REST
                             current state <---------- Rails HTTP <----------|
 ```
@@ -88,13 +91,18 @@ REST failures remain independently visible. Listings use explicit REST paginatio
 
 ## Failure and operational limits
 
-Commit can succeed and the process can die before publication. Broadcast failures
-are logged with public ID/revision/error class and cannot undo a committed command
-or idempotency record. PostgreSQL NOTIFY and Cable do not retain missed events.
+Commit can succeed and the process can die before enqueue. Enqueue failures are
+logged with public ID/revision/error class and cannot undo a committed command
+or idempotency record. Redis/worker failure can delay or lose a queued hint;
+Sidekiq retries failed jobs five times and then retains them in its Dead set.
+The job reads current PostgreSQL revision so delayed/reordered work does not
+broadcast an older revision. Duplicate hints are harmless to the browser.
+PostgreSQL NOTIFY and Cable do not retain missed events.
 A continuously connected browser may remain stale after a lost hint until manual,
 visibility, command, countdown, later-hint or reconnection recovery. There is no
-outbox, event log, replay, durable queue, periodic reconciliation or exactly-once
-claim. Auction and history GETs can straddle commits; this is not an atomic snapshot.
+transactional outbox, domain-event log/replay, Redis projection repair or
+exactly-once claim. The Sidekiq queue does not bridge the commit-to-enqueue gap.
+Auction and history GETs can straddle commits; this is not an atomic snapshot.
 
 Each listening Rails process uses a dedicated PostgreSQL connection in addition to
 its ordinary pool. Default two Cable workers and three pooled connections are local
@@ -111,7 +119,9 @@ workflow guards and must not be used for ordinary domain changes.
 
 Committed PostgreSQL specs prove outermost-commit visibility, savepoint and outer
 rollback, one contest revision, private-only silence, replay/no-op silence, duplicate
-closers and post-commit broadcast failure isolation. Channel specs cover invalid
+closers and post-commit enqueue/broadcast failure isolation. Phase 8 job specs
+cover stale/duplicate hints, privacy, bounded sweep pagination and read-only drift.
+Channel specs cover invalid
 IDs and stream boundaries. Coordinator, subscription and component tests exercise
 ordering, coalescing, cleanup, reconnect, REST failure and ambiguous-command overlap.
 

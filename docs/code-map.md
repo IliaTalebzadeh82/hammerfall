@@ -291,3 +291,24 @@ All paths in this section begin under `apps/web` unless otherwise noted.
 - `apps/web/e2e/realtime.spec.ts`: real two-client proxy/extension/closure/reconnect.
 - `apps/web/scripts/verify-realtime.mjs`: independent API/Cable process proof and origin checks.
 - `docs/realtime.md`, `docs/adr/008-realtime-auction-invalidations.md`: protocol, rationale and limitations.
+
+## Phase 8 implementation map
+
+- `apps/api/app/models/auction.rb#persist_public_change!` increments revision in
+  the existing locked transaction; `AuctionPublication.after_commit` transfers
+  the callback to the outermost commit and then enqueues a scalar ID/revision.
+- `apps/api/app/jobs/auction_changed_job.rb` reads current PostgreSQL revision
+  and calls `AuctionPublication.broadcast` with the unchanged public-only payload;
+  the existing `AuctionChannel` and browser REST refresh coordinator remain.
+- `apps/api/app/jobs/reconciliation_sweep_job.rb` scans bounded SQL snapshots,
+  compares latest Bid to auction price/leader and closed winner, logs drift only,
+  and chains the next cursor. `ReconciliationScheduler` and
+  `bin/reconciliation_scheduler` periodically enqueue the first batch.
+- `docker-compose.yml`, `config/sidekiq.yml`, `.env.example` and CI configure
+  Redis, the worker, scheduler and two queues. API startup is Redis-independent.
+- `apps/api/spec/jobs`, `spec/integration/public_revision_spec.rb` test jobs,
+  commit/enqueue isolation, privacy, duplicates, ordering and read-only drift.
+  `apps/web/scripts/verify-realtime.mjs` and Playwright prove the actual
+  worker-to-Cable-to-REST flow across processes.
+- `docs/adr/009-sidekiq-public-notifications-and-sweeps.md` and
+  `docs/runbooks/sidekiq-redis.md` explain guarantees and operational recovery.

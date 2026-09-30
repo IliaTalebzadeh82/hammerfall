@@ -608,3 +608,46 @@ an accepted command may have been immediately outbid. Keep the opaque intention
 until a terminal response or safe idempotent replay resolves it. This remains true
 when an invalidation arrives before a lost command response. See realtime.md for the
 commit-to-Cable diagram and the exact protocol, and progress.md for sabotage evidence.
+
+## Phase 8 — Asynchronous public hints and read-only sweeps
+
+**Problem.** Direct after-commit Cable work tied the API process to broadcast
+latency; Phase 8 also needs useful background jobs and scheduled consistency
+checks. A naive queue call inside the bid transaction could announce uncommitted
+or rolled-back state and lengthen the hot auction lock. Treating Redis as auction
+truth would make Redis loss a correctness failure.
+
+**Chosen path.** The existing locked mutation commits state and public revision.
+The outermost callback enqueues only auction ID and revision. Sidekiq reads the
+current PostgreSQL revision and broadcasts the unchanged three-field hint through
+the PostgreSQL Cable adapter. Browser confirmation, reconnect and higher hints
+still trigger REST. Delayed and duplicate jobs may cause redundant GETs but cannot
+regress public revision or decide a bid. An API process, Redis, worker and Cable
+process can all be separate; the cross-process script verifies this path.
+
+```text
+auction transaction → COMMIT → enqueue to Redis → Sidekiq reads PostgreSQL
+                                     → Cable hint → browser REST GET
+                         ^
+                unprotected commit/enqueue gap
+```
+
+**Limits.** A crash or Redis outage before enqueue can permanently lose a hint.
+A worker crash, duplicate delivery or out-of-order jobs are tolerated only because
+the job is a harmless public invalidation and the browser reads current REST.
+Sidekiq's bounded retries and Dead set need operator attention; Redis AOF does not
+create a transactional event log. A client may stay stale until another refresh
+trigger. Idempotent command replay and PostgreSQL winner/deadline authority are
+unchanged. Phase 9 is required before claiming durable publication.
+
+The periodic reconciliation framework scans one bounded SQL statement per page,
+checking stored price/current leader/final winner against latest accepted Bid.
+It logs drift and never repairs or updates Redis. Naively writing a guessed repair
+would risk corrupting authoritative history. It has no projection to compare until
+Phase 11 and no repair policy until Phase 12. Duplicate scans only repeat logs.
+
+**Read first:** ADR-009, `auction_publication.rb`, `auction_changed_job.rb`,
+`reconciliation_sweep_job.rb`, the committed-publication and job specs, then the
+Sidekiq/Redis runbook. Explain the commit/enqueue gap, harmless duplicate/reorder
+behavior, and the distinction between a read-only PostgreSQL check and future
+projection repair.

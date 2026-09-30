@@ -1370,3 +1370,89 @@ leaving one auction/two users; the next run exposed that leftover test fixture.
 After explicitly verifying hammerfall_test and clearing only its domain tables,
 the full container rerun passed. Final Compose services are running; configured
 health checks are healthy. Git diff whitespace checks passed.
+
+## Phase 8 — Sidekiq + Redis
+
+Status: COMPLETE — verified 2026-09-30. Phase 9 has not begun.
+
+### Implemented and decisions
+
+Sidekiq 8.1.7 and Redis 7.4 run as separate Compose roles. The Rails API does not
+depend on Redis to boot or decide a bid. The existing PostgreSQL Action Cable
+adapter, public channel, `public_revision` and browser REST recovery remain.
+An outermost-commit callback now enqueues `AuctionChangedJob` with only auction ID
+and revision. The job reads current PostgreSQL revision and broadcasts the exact
+three-field `auction.changed.v1` hint. Duplicate, delayed and reordered jobs may
+repeat a current hint without changing domain state. Redis enqueue failure is
+logged after commit and does not alter an accepted bid or idempotent outcome.
+A job broadcast/DB failure reaches Sidekiq's five retries and then the Dead set.
+See ADR-009 for the adopted boundary and alternatives.
+
+A separate scheduler enqueues `ReconciliationSweepJob` every 60 seconds by default
+(minimum five; `--once` is operational). The job scans bounded 100-auction batches
+up to a captured ID, using one SQL statement per batch with latest accepted Bid.
+It reports price/leader/closed-winner drift by public auction ID only and never
+repairs PostgreSQL. Phase 11 Redis projection and Phase 12 repair remain absent.
+Compose Redis uses a local AOF volume; this is not a backup or event log. CI's
+Compose job now probes Redis and schedules one sweep before its real browser suite.
+
+### Verification actually completed
+
+- Focused final job and committed-publication specs: 19 examples, zero failures.
+- Native `./scripts/check` before the final two spec additions: 357 backend
+  examples, zero failures; RuboCop (85 files), Brakeman (zero warnings), Zeitwerk,
+  frontend lint/format/typecheck, 73 Vitest tests and Next production build passed.
+  The final two specs were then covered by the full container run below.
+- Final full container RSpec: 359 examples, zero failures (seed 5743). Targeted
+  RuboCop after the additions passed eight files; `bin/bundler-audit` found no
+  vulnerabilities. Compose config/build/start and all seven services passed their
+  configured startup/health checks. Hosted GitHub CI was not run (no remote).
+- Complete real-API Playwright suite: 7/7 in 1.6 minutes, including response-loss
+  replay, proxy contests, reconnect, 90-second extension and autonomous winner
+  publication through Sidekiq. Independent HTTP API A/3001 and Cable API B/3002
+  script passed: auction 151 revision 2 → job hint 3 → REST 3, exact payload,
+  stream isolation, malformed subscription and disallowed origin rejection. B was
+  stopped afterward.
+- Stopped Sidekiq, then accepted a real HTTP bid on labelled auction 153 at price
+  10,000/revision 3. Notification queue grew from 0 to 3 (schedule, activate,
+  bid); worker restart drained it and logs showed all three jobs completed.
+- Stopped Redis, accepted a real HTTP bid on labelled auction 155 at price
+  10,000/revision 3, and replayed the same key/body with status 201, unchanged
+  JSON and `Idempotency-Replayed: true`. API logged
+  `auction_notification enqueue_failed ... RedisClient::CannotConnectError`.
+  Redis restart showed notification queue length zero: the missed hints were not
+  reconstructed. The scheduler's one-shot command exited 1 while Redis was down,
+  then succeeded after recovery. With Redis down again, the API restarted healthy
+  and accepted a second bidder's 10,500 bid on auction 155 at revision 4.
+- Enqueued a deliberately future revision (4 for current revision 3) on auction
+  155; the real worker raised and Sidekiq's RetrySet held that job with
+  `retry_count: 0`/`RuntimeError`. The exact test job was removed from RetrySet.
+  This was a controlled worker-retry proof, not a claim of eventual delivery.
+- Test-process-only sabotage: immediate publication before outer commit made the
+  committed visibility spec fail (1/1); bypassing the job's current-revision read
+  made the stale-hint spec fail (1/1); removing enqueue-error isolation made the
+  committed idempotency success spec fail (1/1). The three `/tmp` overrides were
+  not written to application source. Final normal tests passed afterward, and the
+  test database had zero users/auctions/bids/idempotency rows after cleanup.
+
+### Known limits and next boundary
+
+There is still an unprotected PostgreSQL commit-to-Redis-enqueue gap. Failed
+enqueue, Redis data loss, worker exhaustion/dead jobs or a later Cable failure can
+lose a hint. A connected browser may stay stale until another recovery trigger.
+Queue drain does not prove all committed mutations produced notifications. Jobs
+can repeat, and the scheduler is neither exact-time nor singleton. Drift checks
+report but do not repair; no Redis auction projection exists. No throughput,
+capacity, backup/restore, authenticated identity, real-money readiness or hosted
+CI claim is made. Development proof rows remain labelled; existing user data was
+not reset. See the Phase 8 runbook and production-readiness document.
+
+**Phase 9 readiness:** Phase 8 runtime, tests and runbook are complete. Phase 9
+has not started: no outbox table/write, publisher, durable domain-event schema,
+Kafka integration or delivery guarantee exists. A fresh explicit request should
+start Phase 9 with its specification and the updated handoff; do not treat Redis
+jobs as an outbox.
+
+Commits: `f2d59cd` implements the Phase 8 runtime/config/tests; documentation
+completion is committed separately. The preceding `63edbb8` commit records the
+pre-existing context migration and contains no Phase 8 product code.

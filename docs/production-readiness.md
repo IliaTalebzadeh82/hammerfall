@@ -55,3 +55,14 @@ origin/WSS/proxy configuration, authentication and authorization, connection lim
 PostgreSQL listener connections, shared HTTP/Cable pool contention, hot-auction
 fanout and REST amplification. LISTEN/NOTIFY is ephemeral and has a commit/broadcast
 crash gap. No outbox, replay, delivery guarantee or measured capacity exists yet.
+
+## Phase 8 queue boundary
+
+Sidekiq and Redis now deliver public invalidations asynchronously and schedule a
+read-only PostgreSQL sweep. The commit-to-enqueue crash gap remains; Redis/worker
+outage or loss can leave clients stale. AOF and a local named volume are not a
+backup or delivery guarantee. Job retries are bounded and need Dead-set ownership.
+The sweep reports possible PostgreSQL drift without repair. There is still no
+authenticated identity, outbox, Kafka, Redis read projection, projection repair,
+capacity benchmark or production operations stack. Review Sidekiq/DB connection
+budgets, Redis persistence/HA and job/runbook ownership before public deployment.

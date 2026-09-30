@@ -2,11 +2,30 @@
 
 ## Status and responsibilities
 
-This is a future contract. Phase 7 has no Redis, Sidekiq, outbox, Kafka or domain-event consumers. Current Cable `auction.changed.v1` is an ephemeral public invalidation, not a durable domain event. [Event model](../event-model.md) and [failure model](../failure-model.md) must be updated as each phase lands.
+Phase 8 now runs Redis, Sidekiq notification/maintenance jobs and a read-only
+scheduled PostgreSQL sweep. There is still no outbox, Kafka, Redis auction
+projection or domain-event consumer. Cable `auction.changed.v1` remains an
+ephemeral public invalidation, not a durable domain event. See [ADR-009](../adr/009-sidekiq-public-notifications-and-sweeps.md),
+[event model](../event-model.md) and [failure model](../failure-model.md).
 
 ## Phase 8: jobs and Redis
 
-Use Sidekiq/Redis for application jobs: notification work, scheduled reconciliation scaffolding, cleanup and operational maintenance. Every job must tolerate retries; side effects that can duplicate need idempotency. Define duplicate, delayed, failed and reordered work, bounded retries and operator recovery. Redis can support ephemeral reads, presence or rate limiting, but never decides accepted bids or winners. Its total loss must leave PostgreSQL auction truth intact. Do not conflate Sidekiq jobs with Kafka domain-event propagation or claim the queue closes the commit/enqueue gap.
+After the outer commit, `AuctionPublication` enqueues `AuctionChangedJob` with
+public auction ID and revision only. It reads current PostgreSQL revision before
+broadcasting through the existing PostgreSQL Cable adapter. Duplicate, delayed
+and reordered jobs may repeat a harmless current hint; the browser still GETs
+REST. Queue/worker/Cable failure cannot change a committed domain or idempotency
+result. A failed enqueue can permanently lose a hint. Sidekiq retries a failed
+job five times before the Dead set; no exactly-once or guaranteed delivery claim
+is made.
+
+`ReconciliationScheduler` periodically enqueues bounded
+`ReconciliationSweepJob` batches. The job compares the authoritative auction
+price/leader/final winner with the latest accepted Bid in one SQL statement and
+logs drift without changing rows. Overlap and retries are safe. There is no
+Redis projection yet to reconcile or repair. Redis may later support ephemeral
+reads, presence or rate limits, but never decide a bid or winner. Sidekiq jobs
+are distinct from future Kafka domain-event consumers. See the [runbook](../runbooks/sidekiq-redis.md).
 
 ## Phases 9–10: outbox and Kafka
 

@@ -1,11 +1,12 @@
 # Architecture
 
-## What exists now — Phases 0–7
+## What exists now — Phases 0–8
 
 Next.js in apps/web provides the auction listing/detail and command UI. Rails in apps/api owns
 User, Auction, Bid, MaximumBid, explicit lifecycle operations, and a JSON REST API under
 `/api/v1`. PostgreSQL stores all domain state. The frontend consumes the versioned REST API through a transparent same-origin
-rewrite; Rails remains the sole command authority. Compose runs web, api, db and auction-closer.
+rewrite; Rails remains the sole command authority. Compose runs web, api, db,
+Redis, Sidekiq, a read-only sweep scheduler and the auction closer.
 
 ```text
 API client → controllers → IdempotentBidding (bid/max) → Auction → PostgreSQL
@@ -14,7 +15,8 @@ API client → controllers → IdempotentBidding (bid/max) → Auction → Postg
            JSON presenters        Bid + current_price transaction
 
 Browser / Next.js → REST reads and commands → Rails API → PostgreSQL
-Browser ← public revision hint ← Rails Cable B ← PostgreSQL NOTIFY ← Rails A after commit
+Browser ← public revision hint ← Rails Cable B ← PostgreSQL NOTIFY ← Sidekiq job
+Rails A after commit → Redis queue → Sidekiq job (reads current revision)
 
 Auction Closer (same Rails app/process role) → Auction#close! → PostgreSQL
 ```
@@ -32,7 +34,8 @@ Fresh validation, auction-local sequence assignment, bid insertion and price upd
 share that lock. Existing lifecycle/draft actions follow the same protocol. See
 [ADR-003](adr/003-auction-concurrency-control.md). Waiters consume database connections;
 a hot auction is intentionally serialized. Other auctions can progress independently.
-No process-local synchronization, external lock service or retry framework is used.
+No process-local synchronization or external lock service coordinates authoritative
+commands; Sidekiq retry applies only to non-authoritative jobs.
 
 Identity is a supplied existing bidder_id, supported by minimal user create/list
 endpoints for local demonstrations. It is not authenticated. Administrative-looking
@@ -52,8 +55,10 @@ Real PostgreSQL concurrency specs use committed rows and independent sessions.
 
 ## Later phases — not implemented
 
-Redis/Sidekiq in Phase 8; outbox in Phase 9; Kafka in Phase 10. Projections, reconciliation,
-observability, load testing, and deployment follow the [phase specifications](phases/phase-08.md).
+Redis/Sidekiq now handle public hint jobs and read-only scheduled consistency
+sweeps. Outbox in Phase 9 and Kafka in Phase 10 remain future work. Redis
+projections and projection reconciliation,
+observability, load testing, and deployment follow the [phase specifications](phases/phase-09.md).
 No component listed here is present merely because it appears in the future plan.
 
 

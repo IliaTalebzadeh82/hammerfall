@@ -57,3 +57,12 @@ its revision. A crash between commit and broadcast loses the hint; connection lo
 has no replay. Confirmation/reconfirmation always triggers REST recovery. A live
 socket does not imply current state or database health. Auction/history GETs remain
 separate observations and may straddle another commit. See realtime.md and ADR-008.
+
+## Phase 8 job consistency
+
+After commit, Sidekiq carries a public ID/revision hint and reads current
+PostgreSQL revision before broadcasting. Delayed/reordered jobs do not regress
+the hint, but enqueue loss and exhausted retries can leave clients stale. The
+periodic sweep checks selected PostgreSQL cross-row facts read-only; it is not a
+Redis projection and cannot repair authoritative drift. No durable domain-event
+publication or cache consistency guarantee has been added. See ADR-009.

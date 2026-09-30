@@ -369,3 +369,35 @@ NEXT_PUBLIC_CABLE_URL=ws://127.0.0.1:3002/cable and an allowed frontend origin.
 Cable defaults to two workers; each Rails listener also uses a dedicated PostgreSQL
 connection outside the ordinary pool. Size total connection capacity across API and
 closer processes before increasing workers. This is not a production sizing result.
+
+## Phase 8 Redis, Sidekiq and sweeps
+
+Compose now starts Redis (loopback port `REDIS_PORT`, default 6379), a two-thread
+Sidekiq process, and a separate `reconciliation-scheduler` alongside the existing
+API, web, database and authoritative closer. Redis uses a named local volume with
+append-only persistence; it is not a backup. Native processes use `REDIS_URL`
+(default `redis://127.0.0.1:6379/0`); Compose supplies `redis://redis:6379/0`.
+The API does not require Redis to boot or accept bids.
+
+```sh
+docker compose up --build --wait
+docker compose exec -T redis redis-cli ping
+docker compose ps sidekiq reconciliation-scheduler
+docker compose exec -T reconciliation-scheduler bin/reconciliation_scheduler --once
+docker compose logs --tail 100 --no-color sidekiq reconciliation-scheduler api
+```
+
+`RECONCILIATION_INTERVAL` defaults to 60 seconds (minimum 5). Each sweep checks
+bounded groups of PostgreSQL auctions against their latest accepted Bid and logs
+drift without repairs. `--once` fails visibly when Redis cannot accept a job. The
+Sidekiq `notifications` and `maintenance` queues retry job failures five times;
+the Dead set needs operator inspection. Use the [runbook](runbooks/sidekiq-redis.md)
+for queue counts, outage and recovery. Do not expose an unauthenticated Sidekiq
+Web UI or mistake queue drain for guaranteed notification delivery.
+
+`AuctionPublication` enqueues only after outer commit; `AuctionChangedJob` reads
+current revision and broadcasts the same public Cable hint through PostgreSQL.
+The existing independent API A/Cable B script still proves cross-process delivery
+with Sidekiq running. Redis outage may lose a hint while HTTP mutation and
+idempotent replay succeed; browser REST recovery still applies. No outbox or
+Kafka exists in Phase 8.

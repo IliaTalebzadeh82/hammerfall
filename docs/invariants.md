@@ -151,3 +151,16 @@ replays and no-ops emit no new invalidation. Publication occurs after the outerm
 commit; savepoint rollback drops its callback. A notification contains only type,
 auction_id and revision. The browser cannot derive acceptance or winner from it,
 and never replaces displayed auction state with an older REST revision.
+
+## Phase 8 background-work boundaries
+
+| Boundary | Enforcement | Evidence |
+| --- | --- | --- |
+| Redis/Sidekiq failure cannot roll back a committed bid or idempotency outcome | Queue push occurs only after the outermost PostgreSQL commit; enqueue errors are logged and isolated | `spec/integration/public_revision_spec.rb` Redis enqueue failure; real Redis-stop HTTP/replay proof in progress log |
+| Delayed, duplicate or reordered notification jobs cannot mutate auction state or send a regressed revision | Job reads current PostgreSQL `public_revision` and broadcasts only public ID/revision | `spec/jobs/auction_changed_job_spec.rb`; stale-revision sabotage |
+| A failed broadcast is retryable without repeating domain work | Job raises to bounded Sidekiq retry; no auction write in job | Job spec and real RetrySet proof |
+| Scheduled sweeps cannot repair or alter authoritative state | Read-only SQL comparison, fixed public-ID drift log and bounded cursor | `spec/jobs/reconciliation_sweep_job_spec.rb` corruption and pagination tests |
+
+These are safety properties, not delivery or freshness guarantees. A crash after
+commit but before enqueue, Redis loss or exhausted retries can lose a hint. A
+connected browser still needs REST recovery. Phase 9 outbox is not present.
