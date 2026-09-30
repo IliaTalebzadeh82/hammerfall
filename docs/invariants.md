@@ -93,8 +93,22 @@ the concurrency suite; actual mutation/repetition results are recorded in progre
 | Repeated and concurrent repair is safe | Atomic duplicate/stale handling; idempotent current-state seed | Two-reconciler, repeat and crash-after-write tests |
 | Scheduled scans cannot multiply indefinitely | PostgreSQL lease per scan type, token/cursor fencing, DB-clock expiry and 100-row pages | `reconciliation_lease_spec.rb`, cursor-fence sabotage and Compose scheduler smoke |
 | Failed or crashed scheduled ownership is recoverable | Expired lease reclaimed; replacement restarts at ID zero; final page releases | Abandoned owner, post-advance crash and completion tests |
+| A reclaimed lease receives fresh expiry after a database row-lock wait | Conflict update samples `clock_timestamp()` after acquiring the lease row | `reconciliation_lease_spec.rb` delayed-claim test |
+
 Normal accepted sequences are contiguous while history is immutable, but the public
 contract promises monotonicity, not gaplessness after privileged changes.
+
+## Phase 12.5 public event integrity
+
+Kafka decoding and Redis projection reads share `PublicAuctionSnapshot`: exact
+public fields, bounded money, ordered deadlines, price floor, closed-at iff
+closed, and winner matching the leader only on closure. Invalid derived state
+stops consumer progress or triggers operator review without changing auction
+truth. New outbox occurrence timestamps use PostgreSQL insertion wall time;
+historical rows retain their old transaction-start value. Active Record treats
+committed event identity, payload and occurrence time as readonly while allowing
+publisher acknowledgments. SQL restricts new domain snapshots to known types
+and JSON objects; historical invalidation-only rows remain allowed.
 
 
 ## Phase 3 proxy invariants

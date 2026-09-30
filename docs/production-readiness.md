@@ -8,6 +8,8 @@ or throughput claim exists. Long outer transactions retain locks longer.
 There is no authentication, authorization,
 rate limiting, production backup/restore procedure, production deployment or
 production-grade operating program. Local runbooks cover specific failures.
+Production Rails boot requires an explicit `API_ALLOWED_HOSTS` allowlist, but
+host filtering does not make the unauthenticated demo API safe to expose.
 Reads spanning multiple queries are not snapshot-consistent.
 Local Compose credentials are disposable; services bind to loopback. Named volumes
 provide local persistence, not backups. The sequence migration requires stopping

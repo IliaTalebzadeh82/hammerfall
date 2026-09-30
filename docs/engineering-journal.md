@@ -420,3 +420,20 @@ fences that handoff. A crash after advancement but before enqueue cannot be
 made exactly once by this queue; expiry and restart from ID zero preserve
 eventual progress. The lease coordinates maintenance load only and never
 touches auction command decisions.
+
+## 2026-10-01 — Phase 12.5 review: semantic state and stale lease expiry
+
+The Kafka codec checked the shape of each public field, but a complete,
+well-typed snapshot could still contradict PostgreSQL's price, deadline and
+closure constraints. Redis read validation previously manufactured a Kafka
+envelope to reuse that shape check. A small public-only validator now gives
+both paths one semantic contract, and a deliberately impossible Redis value
+with a recomputed digest is still escalated for review.
+
+The reconciliation lease had token/cursor fencing, but a claimant waiting on
+the row could reuse the `EXCLUDED` expiry calculated before the wait. A short
+lease and a real PostgreSQL lock-wait test exposed the timing; the conflict
+update now samples database wall time after the lock. Fencing still handles a
+worker whose single row takes longer than the lease; it may duplicate bounded
+maintenance work, not decide an auction outcome. Publisher I/O and idempotency
+key privacy remain for the next Phase 12.5 session.

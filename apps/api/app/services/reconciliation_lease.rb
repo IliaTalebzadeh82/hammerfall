@@ -13,7 +13,7 @@ class ReconciliationLease
       INSERT INTO reconciliation_leases (name, owner_token, cursor, expires_at)
       VALUES (?, ?::uuid, 0, clock_timestamp() + interval '#{DURATION}')
       ON CONFLICT (name) DO UPDATE
-        SET owner_token = EXCLUDED.owner_token, cursor = 0, expires_at = EXCLUDED.expires_at
+        SET owner_token = EXCLUDED.owner_token, cursor = 0, expires_at = clock_timestamp() + interval '#{DURATION}'
       WHERE reconciliation_leases.expires_at <= clock_timestamp()
       RETURNING owner_token
     SQL

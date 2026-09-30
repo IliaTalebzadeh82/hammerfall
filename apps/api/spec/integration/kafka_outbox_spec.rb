@@ -35,6 +35,58 @@ RSpec.describe "Kafka domain outbox", type: :model do
     expect(KafkaEventCodec.decode(JSON.generate(event.kafka_envelope), key: auction.id.to_s)["event_id"]).to eq(event.event_id)
   end
 
+  it "rejects impossible public snapshots before a Kafka consumer accepts them" do
+    auction = active_auction
+    event = event_for(auction).kafka_envelope.stringify_keys
+    data = event.fetch("data")
+    invalid = [
+      { "current_price" => data.fetch("starting_price") - 1 },
+      { "starts_at" => data.fetch("ends_at") },
+      { "ends_at" => (Time.iso8601(data.fetch("original_ends_at")) - 1).iso8601(6) },
+      { "closed_at" => data.fetch("ends_at") },
+      { "winner_id" => @bidder.id },
+      { "status" => "closed" },
+      { "title" => "   " }
+    ]
+    invalid.each do |change|
+      candidate = event.deep_dup
+      candidate.fetch("data").merge!(change)
+      expect { KafkaEventCodec.decode(JSON.generate(candidate), key: auction.id.to_s) }
+        .to raise_error(KafkaEventCodec::InvalidEvent, /invalid public data/)
+    end
+
+    auction.place_bid!(bidder: @bidder, amount: 10_000)
+    closed = event_for(expire_fixture(auction).close!).kafka_envelope.stringify_keys
+    closed.fetch("data")["winner_id"] = nil
+    expect { KafkaEventCodec.decode(JSON.generate(closed), key: auction.id.to_s) }
+      .to raise_error(KafkaEventCodec::InvalidEvent, /invalid public data/)
+  end
+
+  it "keeps committed event identity and payload immutable while allowing publisher acknowledgments" do
+    event = event_for(active_auction)
+    { event_id: SecureRandom.uuid, event_type: "auction.other.v1", schema_version: 2,
+      auction_id: event.auction_id + 1,
+      public_revision: event.public_revision + 1, domain_event_type: "auction.closed.v1",
+      domain_payload: event.domain_payload.merge("status" => "closed"),
+      occurred_at: event.occurred_at + 1 }.each do |field, value|
+      expect { event.update!(field => value) }.to raise_error(ActiveRecord::ReadonlyAttributeError)
+      expect(event.reload.public_revision).to be_positive
+    end
+    event.domain_payload["status"] = "closed"
+    event.save!
+    expect(event.reload.domain_payload.fetch("status")).to eq("active")
+    expect { event.update!(published_at: Time.current, kafka_published_at: Time.current) }.not_to raise_error
+  end
+
+  it "rejects unknown domain types and non-object payloads at the database boundary" do
+    event = event_for(active_auction)
+    [ { domain_event_type: "auction.unknown.v1" }, { domain_payload: [ "invalid" ] } ].each do |change|
+      expect do
+        ApplicationRecord.transaction(requires_new: true) { OutboxEvent.where(id: event.id).update_all(change) }
+      end.to raise_error(ActiveRecord::StatementInvalid) { |error| expect(error.cause).to be_a(PG::CheckViolation) }
+    end
+  end
+
   it "classifies public terms, lifecycle and closure snapshots without a winner invention" do
     auction = create_auction
     @auction_ids << auction.id

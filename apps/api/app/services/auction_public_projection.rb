@@ -53,14 +53,12 @@ class AuctionPublicProjection
       %w[kafka postgresql_seed].include?(state["source"]) &&
       (state["source"] != "kafka" || (state["event_id"].is_a?(String) && state["public_revision"].positive?)) &&
       (state["source"] != "postgresql_seed" || state["event_id"].nil?)
-    envelope = { event_id: state["event_id"] || "00000000-0000-4000-8000-000000000000",
-      event_type: "auction.price_changed.v1", schema_version: 1,
-      aggregate_id: auction_id, aggregate_version: [ state["public_revision"], 1 ].max,
-      occurred_at: state["occurred_at"], data: state["data"] }
-    KafkaEventCodec.decode(JSON.generate(envelope), key: auction_id.to_s)
+    raise InvalidProjection, "invalid event identity" if state["event_id"] && !state["event_id"].match?(/\A[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\z/i)
+    raise InvalidProjection, "invalid occurrence time" unless state["occurred_at"].is_a?(String) && Time.iso8601(state["occurred_at"])
+    PublicAuctionSnapshot.validate!(state["data"])
     raise InvalidProjection, "projection digest mismatch" unless state["data_digest"] == digest(state["data"])
     state
-  rescue JSON::ParserError, KafkaEventCodec::InvalidEvent
+  rescue JSON::ParserError, ArgumentError, PublicAuctionSnapshot::InvalidSnapshot
     raise InvalidProjection, "invalid projection state"
   end
 

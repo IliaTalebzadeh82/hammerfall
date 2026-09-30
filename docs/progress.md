@@ -1744,3 +1744,25 @@ counters, and no finite convergence bound, production capacity or HA claim
 is made. The demo API remains unauthenticated. The separate Phase 0–11
 hardening findings remain outside Phase 12; Phase 13 requires an explicit
 request.
+
+## Phase 12.5 — Correctness and production hardening (active)
+
+The user explicitly opened a cross-phase repair pass after Phase 12. Session 1
+reviewed the auction, proxy, deadline, idempotency, outbox, publishers,
+consumers, Redis/reconciliation, lease, API, frontend retry, SQL, CI and
+security defaults. It repaired shared semantic validation of public snapshots,
+new outbox occurrence timestamps, model readonly event fields, lease expiry
+after a conflicting row-lock wait, SQL domain snapshot shape, and production
+host allowlisting. No Phase 13 work began. The active
+[ExecPlan](plans/phase-12-5-hardening-execplan.md) contains classified findings,
+deferred decisions and the Evidence Index.
+
+Focused checks: 44 real PostgreSQL/Redis integration examples passed on an
+isolated Redis DB (seed 17640), 78 adjacent auction/projection examples passed
+(seed 22605), 12 changed Ruby files passed RuboCop and Zeitwerk passed. A
+production config boot admitted an explicit host and rejected an empty host
+list. One earlier DB 0 lease-spec run collided with the running development
+projection consumer; isolated DB 1 tests passed without weakening assertions.
+Full regression, operational publisher/privacy work, browser/runtime and
+hosted CI remain for later Phase 12.5 sessions. This is a checkpoint, not
+phase completion.

@@ -124,6 +124,20 @@ RSpec.describe "Transactional public outbox", type: :model do
     end
   end
 
+  it "records occurrence at insertion wall time even after a long outer transaction" do
+    auction = active_auction
+    started_at = nil
+    event = nil
+    ApplicationRecord.transaction do
+      started_at = ApplicationRecord.connection.select_value("SELECT transaction_timestamp()")
+      ApplicationRecord.connection.execute("SELECT pg_sleep(0.12)")
+      auction.place_bid!(bidder: @bidder, amount: 10_000)
+      event = events(auction).last
+    end
+    expect(event.occurred_at - started_at).to be >= 0.10
+    expect(event.occurred_at).to be <= ApplicationRecord.connection.select_value("SELECT clock_timestamp()")
+  end
+
   it "uses PostgreSQL skip-locked claims across concurrent publishers" do
     auction = active_auction
     OutboxPublisher.new.run_once

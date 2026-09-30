@@ -358,6 +358,8 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
 
 - `AuctionPublicProjection` owns the versioned Redis key, public snapshot
   validation/digest, atomic revision compare, read and PostgreSQL seed.
+- `PublicAuctionSnapshot` centralizes public field semantics for Kafka decoding
+  and projection validation without synthesizing a Kafka envelope.
 - `KafkaProjectionConsumer` and `bin/kafka_projection_consumer` own the separate
   group, v1 envelope validation, Redis effect and subsequent offset commit.
   `docker-compose.yml` starts the consumer separately from the audit group.

@@ -787,3 +787,14 @@ freshness guarantee. Read ADR-013, `AuctionProjectionReconciler`,
 `ReconciliationLease`, the Phase 12 integration specs and the reconciliation
 runbook. Explain why expiry and cursor fencing bound maintenance work while
 the database remains the only auction authority.
+
+## Phase 12.5 — A public snapshot is more than a field list
+
+An envelope can have every expected key and type while claiming a closed
+auction without `closed_at`, a winner unlike its leader, or a price below the
+start. `PublicAuctionSnapshot` validates those relationships once for Kafka
+decoding and Redis reads. A matching Redis digest proves only that the stored
+bytes are self-consistent, so reconciliation still treats an impossible value
+as corrupt. The outbox now timestamps insertion using PostgreSQL wall time;
+that differs from the earlier locked decision time, transaction start, commit,
+publisher acknowledgment and Redis write. None is a bid-ordering clock.

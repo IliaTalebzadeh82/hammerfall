@@ -141,6 +141,27 @@ RSpec.describe "Scheduled reconciliation lease" do
     2.times { release << true } if release
   end
 
+  it "starts a reclaimed lease after its lock wait, not before it" do
+    ReconciliationLease.claim(ReconciliationLease::PROJECTION)
+    expire(ReconciliationLease::PROJECTION)
+    stub_const("ReconciliationLease::DURATION", "1 second")
+    pids = Queue.new
+    claimant = nil
+    ApplicationRecord.transaction do
+      ApplicationRecord.connection.execute("SELECT 1 FROM reconciliation_leases WHERE name = 'projection' FOR UPDATE")
+      claimant = worker do |connection|
+        pids << connection.select_value("SELECT pg_backend_pid()")
+        ReconciliationLease.claim(ReconciliationLease::PROJECTION)
+      end
+      wait_for_lock(take(pids))
+      sleep 1.1
+    end
+    expect(result(claimant)).to be_present
+    remaining = ApplicationRecord.connection.select_value(
+      "SELECT EXTRACT(EPOCH FROM (expires_at - clock_timestamp())) FROM reconciliation_leases WHERE name = 'projection'")
+    expect(remaining.to_f).to be > 0
+  end
+
   it "releases a claim when the initial queue write fails" do
     scheduler = ReconciliationScheduler.new(interval: 5)
     allow(AuctionProjectionReconciliationJob).to receive(:perform_async).and_raise(IOError)

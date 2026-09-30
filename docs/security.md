@@ -14,7 +14,8 @@ expected-error codes. It does not broadly rescue unexpected programming errors.
 Ignore .env, Rails master keys, dependency folders, logs, and generated build files.
 .env.example contains only explicitly local dummy credentials. Never reuse these
 for deployment. Rails generates a development secret; production must receive
-SECRET_KEY_BASE and DATABASE_URL from its environment. No encrypted credential
+SECRET_KEY_BASE, DATABASE_URL and a comma-separated API_ALLOWED_HOSTS allowlist
+from its environment. An empty host allowlist prevents production boot. No encrypted credential
 file is needed for the current app.
 
 RuboCop and Brakeman run in checks; bundler-audit runs in CI and is available

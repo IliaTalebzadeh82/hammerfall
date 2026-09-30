@@ -13,8 +13,10 @@ PostgreSQL is the single auction authority. The browser renders REST observation
 `AuctionProjectionReconciler` compares the PostgreSQL auction's
 `public_revision` and exactly the public `KafkaEventCodec::DATA_KEYS`
 presenter fields with a strictly validated Redis projection. Source, event
-ID and write time are metadata, not part of public-state equality. An absent
-key or valid lower revision is seeded from current PostgreSQL through the
+ID and write time are metadata, not part of public-state equality. A present
+key whose public fields violate `PublicAuctionSnapshot` is corrupt, even if its
+stored digest matches; Kafka decode uses the same semantic field contract.
+An absent key or valid lower revision is seeded from current PostgreSQL through the
 existing atomic Redis revision/digest script. An equal, identical key is
 healthy without mutation. Equal-revision conflicting data, a malformed or
 digest-invalid key, and a Redis revision ahead of a freshly reloaded

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_01_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_01_011000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -136,7 +136,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000000) do
     t.datetime "kafka_published_at"
     t.string "last_error"
     t.datetime "next_attempt_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
-    t.datetime "occurred_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.datetime "occurred_at", default: -> { "clock_timestamp()" }, null: false
     t.bigint "public_revision", null: false
     t.datetime "published_at"
     t.integer "schema_version", null: false
@@ -146,6 +146,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000000) do
     t.index ["next_attempt_at", "id"], name: "index_outbox_events_due", where: "(published_at IS NULL)"
     t.check_constraint "auction_id > 0 AND public_revision > 0 AND attempts >= 0", name: "outbox_events_positive_values"
     t.check_constraint "domain_event_type IS NULL AND domain_payload IS NULL AND kafka_published_at IS NOT NULL OR domain_event_type IS NOT NULL AND domain_payload IS NOT NULL", name: "outbox_events_domain_payload_pair"
+    t.check_constraint "domain_event_type IS NULL OR (domain_event_type::text = ANY (ARRAY['auction.closed.v1'::character varying, 'auction.status_changed.v1'::character varying, 'auction.terms_changed.v1'::character varying, 'auction.price_changed.v1'::character varying, 'auction.extended.v1'::character varying]::text[])) AND jsonb_typeof(domain_payload) = 'object'::text", name: "outbox_events_known_domain_snapshot"
     t.check_constraint "event_type::text = 'auction.changed.v1'::text AND schema_version = 1", name: "outbox_events_known_version"
     t.check_constraint "kafka_attempts >= 0", name: "outbox_events_kafka_attempts_nonnegative"
   end

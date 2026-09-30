@@ -1,11 +1,12 @@
 # Context routing and migration map
 
-`AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the compact current-state entry point. The [context lifecycle and ExecPlan convention](context-lifecycle.md) governs checkpoints and resumption; `docs/plans/phase-12-execplan.md` records completed Phase 12 evidence. [Phase specifications](phases/) hold the scope for each requested phase. [Progress](progress.md) is historical evidence, not startup context; the [archived original](archive/masterprompt-original.md) is for a specific missing historical fact only. Do not start Phase 13 without an explicit request.
+`AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the compact current-state entry point. The [context lifecycle and ExecPlan convention](context-lifecycle.md) governs checkpoints and resumption; the active [Phase 12.5 ExecPlan](plans/phase-12-5-hardening-execplan.md) holds current findings and evidence, while `docs/plans/phase-12-execplan.md` records completed Phase 12 evidence. [Phase specifications](phases/) hold the scope for each requested phase. [Progress](progress.md) is historical evidence, not startup context; the [archived original](archive/masterprompt-original.md) is for a specific missing historical fact only. Do not start Phase 13 without an explicit request.
 
 | Working on | Required context | Optional targeted context |
 |---|---|---|
 | Any repository task | `AGENTS.md` | This map |
 | Substantial phase kickoff or resume | Latest handoff, current phase spec, active ExecPlan if resuming | Context lifecycle convention; targeted architecture/ADR/source |
+| Resuming Phase 12.5 | `AGENTS.md`, latest handoff, `docs/phases/phase-12-5.md`, active Phase 12.5 ExecPlan | Targeted source/tests and architecture for the next deferred finding |
 | Reviewing completed Phase 12 | `AGENTS.md`, `docs/handoffs/latest.md`, `docs/plans/phase-12-execplan.md` | `docs/architecture/projections-and-reconciliation.md`, ADR-012/013 and Phase 12 evidence |
 | Auction lifecycle or schema | `docs/architecture/auction-state.md`, current phase spec | `docs/domain-model.md`, `docs/invariants.md`, ADR-002/003 |
 | Bidding/proxy/concurrency | `docs/architecture/bidding.md`, auction state | ADR-003/004, relevant tests |

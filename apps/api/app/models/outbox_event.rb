@@ -1,6 +1,8 @@
 # Public invalidation intent, committed with its auction revision.
 class OutboxEvent < ApplicationRecord
   EVENT_TYPE = "auction.changed.v1"
+  attr_readonly :event_id, :event_type, :schema_version, :auction_id, :public_revision,
+    :domain_event_type, :domain_payload, :occurred_at
 
   def self.record_auction_change!(auction_id:, revision:, domain_event_type:, domain_payload:)
     create!(event_type: EVENT_TYPE, schema_version: 1, auction_id: auction_id, public_revision: revision,

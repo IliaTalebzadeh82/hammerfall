@@ -31,6 +31,9 @@ lease; a later tick can claim it and restart the scan. The lease is ten minutes
 and renewed every 25 rows plus page boundaries. A stalled page can finish at
 most bounded work after ownership changes; fencing prevents it from extending
 an old chain. A new owner never waits on an auction row lock.
+The reclaim path computes the replacement expiry after the conflicting lease
+row is locked. A claim that waited behind a transaction therefore receives a
+fresh ten-minute lease instead of an already expired `EXCLUDED` timestamp.
 
 If a worker crashes after cursor advancement but before successor enqueue,
 the lease eventually expires and a later scheduler restarts from ID zero.

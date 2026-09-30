@@ -1,38 +1,35 @@
-# Current handoff — Phase 12 complete
+# Current handoff — Phase 12.5 in progress
 
-Updated: 2026-10-01. Phase 12 reconciliation is complete. Phase 13 and the
-separate post-Phase-12 hardening pass have not started; each needs an explicit
-request. Use `AGENTS.md`, the requested phase specification and
-[context map](../context-map.md) for future work. This handoff and the
-[Phase 12 ExecPlan](../plans/phase-12-execplan.md) carry the completed state
-and detailed Evidence Index.
+Updated: 2026-10-01. The user explicitly started Phase 12.5 as a cross-phase
+correctness and production-hardening pass over the completed Phase 0–12 system.
+Phase 13 observability has not begun. Use `AGENTS.md`, the
+[Phase 12.5 specification](../phases/phase-12-5.md), [context map](../context-map.md) and the active
+[Phase 12.5 ExecPlan](../plans/phase-12-5-hardening-execplan.md). The plan holds
+the finding ledger, decisions, Evidence Index and next-session action; do not
+reconstruct the previous conversation or read archived prompts.
 
-PostgreSQL remains the only auction authority. `AuctionProjectionReconciler`
-compares its public revision and fields against validated Redis state, seeds
-missing/lower-revision keys through the atomic writer, and leaves
-equal-conflicting, corrupt or ahead keys for operator review. Equal identical
-state is a no-op. The existing PostgreSQL consistency sweep remains read-only
-and separate. Each scheduled scan checks at most 100 ID-ordered rows per job.
-PostgreSQL leases with token/cursor fencing prevent ticks, multiple schedulers
-and Sidekiq replay from multiplying scan chains; expiry restarts abandoned
-work from ID zero. Neither the lease nor Redis participates in bids.
+Session 1 reviewed auction/proxy/closing/idempotency, public revision and
+outbox, both publishers/consumers, Redis/reconciliation/leases, SQL schema,
+API/security config, frontend retry and CI. It repaired public snapshot
+cross-field validation shared by Kafka and Redis, outbox insertion wall-time
+semantics and model readonly identity/payload, a stale expiry after a blocked
+lease reclaim, SQL checks for domain snapshot type/object shape, and an explicit
+production `API_ALLOWED_HOSTS` requirement. PostgreSQL remains auction
+authority; no bid, close, proxy or frontend protocol changed. New occurrence
+semantics apply only to new outbox rows. See [event model](../event-model.md),
+[projection architecture](../architecture/projections-and-reconciliation.md)
+and [ADR-013](../adr/013-bounded-reconciliation-scan-ownership.md).
 
-Commits `ceb3d04` and `3b7e64f` contain the primary implementation and live
-campaign; `6f8f94b` adds bounded scheduled ownership. The live campaign
-verified real Kafka race orderings, concurrent reconcilers, outages, crash
-recovery, corruption/review and four successful sabotage experiments. Final
-backend regression: 410 examples, 0 failures, 2 explicitly gated live Kafka
-examples pending; RuboCop 108 files/0 offenses, Brakeman 0 warnings,
-bundler-audit no vulnerabilities and Zeitwerk passed. Frontend lint, format,
-types, production build and 73 Vitest tests passed. Compose startup, service
-health, scheduler/Kafka/API/concurrent/proxy/publisher/closer smokes passed.
-Real Playwright with installed system Chrome passed 7/7 after a browser test
-waited for the asynchronous Cable hint. Hosted CI was not run.
+Focused evidence: 44 integration examples passed on isolated PostgreSQL/Redis
+(seed 17640); 78 adjacent auction/projection examples passed (seed 22605);
+changed Ruby lint 12/12 files clean and Zeitwerk passed. Production boot
+accepted an explicitly configured host and rejected an empty host list.
+One intermediate Redis DB 0 test run collided with the running development
+projection consumer; the isolated DB 1 rerun passed. Broad Phase 12.5
+regression, live Kafka failure campaign, browser/runtime checks and hosted CI
+have not run. The demo API is still unauthenticated and not public-ready.
 
-Limits: valid stale Redis state can persist until a successful scan; ambiguous
-states require operator review. A lost page handoff can delay until the
-ten-minute lease expires. Per-batch structured log counts are not exported
-Prometheus counters. No fixed convergence time, production capacity, HA or
-real-money readiness is claimed. The demo API remains unauthenticated. See
-[ADR-013](../adr/013-bounded-reconciliation-scan-ownership.md) and the
-[runbook](../runbooks/projection-reconciliation.md) for ownership and recovery.
+Next fresh session: measure and decide the publisher database-lock/I/O design,
+resolve idempotency-key HMAC/privacy and request-size boundary, then run the
+planned operational failure/sabotage campaign. The ExecPlan records exact
+deferred findings and limits. Do not start Phase 13.

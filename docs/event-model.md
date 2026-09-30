@@ -6,13 +6,25 @@ not Kafka events. See [ADR-011](adr/011-kafka-domain-events.md).
 
 Each `outbox_events` row retains the Phase 9 `event_id` (stable UUID),
 `event_type` (`auction.changed.v1`), `schema_version` (1), `auction_id`,
-`public_revision`, `occurred_at` (PostgreSQL transaction time), Sidekiq retry
+`public_revision`, `occurred_at` (PostgreSQL wall time at outbox insertion), Sidekiq retry
 fields and `published_at` (successful queue enqueue). The unique
 `(auction_id, public_revision)` key gives one intent per public version.
 Phase 10 adds `domain_event_type`, `domain_payload`, `kafka_next_attempt_at`,
 `kafka_attempts`, `kafka_last_error` and `kafka_published_at`. Sidekiq and Kafka
 acknowledgments are independent. Phase 9 rows without historical domain
 snapshots were marked Kafka-acknowledged by migration, not fabricated.
+Historical rows inserted before Phase 12.5 retain their original transaction-start
+`occurred_at`; the migration changes the default for new rows only. Auction
+`decision_time` is sampled after its row lock for eligibility/closure. Event
+occurrence follows the auction mutation and is not commit time. Retry scheduling
+defaults may use transaction start; publisher acknowledgment timestamps are
+sampled after delivery, and Redis `projected_at_ms` is Redis write time. None
+of these timestamps orders bids or replaces the auction-local sequence.
+
+Normal Active Record updates cannot change a committed event's identity, type,
+revision, public payload or occurrence time. Publisher retry and acknowledgment
+fields remain mutable. The database admits only known domain types and object
+payloads for new snapshots; old invalidation-only rows remain valid.
 
 ## Public invalidation — Phases 7–10
 
@@ -43,6 +55,12 @@ carry a changed deadline. Existing v1 fields and meanings are immutable; an
 incompatible shape requires a new type/schema/topic version and reviewed
 consumer migration. Consumers reject unknown versions, types, keys or fields
 instead of silently advancing offsets.
+
+`PublicAuctionSnapshot` validates the same public field set for Kafka decoding
+and Redis projection reads, including amount bounds, deadline order, closure
+metadata and winner/leader consistency. A semantically impossible snapshot is
+poison or a corrupt projection and requires review; it is not repaired by
+inventing another event envelope.
 
 Kafka records can be duplicated or reordered because PostgreSQL publisher
 claims are concurrent. `aggregate_version` and event ID, rather than broker
