@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_30_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_01_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -43,7 +43,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000002) do
     t.check_constraint "public_revision >= 0", name: "auctions_public_revision_nonnegative"
     t.check_constraint "starting_price >= 1 AND starting_price <= '1000000000000'::bigint", name: "auctions_starting_price_range"
     t.check_constraint "status::text <> 'closed'::text OR NOT winner_id IS DISTINCT FROM current_leader_id", name: "auctions_final_winner"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'scheduled'::character varying::text, 'active'::character varying::text, 'closed'::character varying::text, 'cancelled'::character varying::text])", name: "auctions_valid_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'scheduled'::character varying, 'active'::character varying, 'closed'::character varying, 'cancelled'::character varying]::text[])", name: "auctions_valid_status"
     t.check_constraint "title::text ~ '[^[:space:]]'::text", name: "auctions_title_present"
     t.check_constraint "winner_id IS NULL OR status::text = 'closed'::text", name: "auctions_winner_only_when_closed"
   end
@@ -59,7 +59,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000002) do
     t.index ["auction_id", "sequence"], name: "index_bids_on_auction_id_and_sequence", unique: true
     t.index ["bidder_id"], name: "index_bids_on_bidder_id"
     t.check_constraint "amount >= 1 AND amount <= '1000000000000'::bigint", name: "bids_amount_range"
-    t.check_constraint "origin::text = ANY (ARRAY['manual'::character varying::text, 'automatic'::character varying::text])", name: "bids_valid_origin"
+    t.check_constraint "origin::text = ANY (ARRAY['manual'::character varying, 'automatic'::character varying]::text[])", name: "bids_valid_origin"
     t.check_constraint "sequence > 0", name: "bids_sequence_positive"
   end
 
@@ -92,7 +92,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000002) do
     t.index ["expires_at", "id"], name: "index_idempotency_records_for_pruning", where: "((status)::text = 'completed'::text)"
     t.check_constraint "expires_at > created_at", name: "idempotency_retention"
     t.check_constraint "key_digest::text ~ '^[0-9a-f]{64}$'::text AND request_fingerprint::text ~ '^[0-9a-f]{64}$'::text", name: "idempotency_digests"
-    t.check_constraint "operation::text = ANY (ARRAY['place_bid'::character varying::text, 'set_maximum_bid'::character varying::text])", name: "idempotency_operation"
+    t.check_constraint "operation::text = ANY (ARRAY['place_bid'::character varying, 'set_maximum_bid'::character varying]::text[])", name: "idempotency_operation"
     t.check_constraint "status::text = 'processing'::text AND response_status IS NULL AND response_body IS NULL OR status::text = 'completed'::text AND (response_status = ANY (ARRAY[200, 201, 404, 422])) AND response_status IS NOT NULL AND response_body IS NOT NULL AND jsonb_typeof(response_body) = 'object'::text", name: "idempotency_outcome"
   end
 
@@ -106,7 +106,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000002) do
     t.datetime "recorded_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
     t.index ["consumer_name", "auction_id", "public_revision"], name: "index_kafka_audit_entries_revision", unique: true
     t.index ["consumer_name", "event_id"], name: "index_kafka_audit_entries_identity", unique: true
-    t.check_constraint "arrival_order::text = ANY (ARRAY['first'::character varying::text, 'next'::character varying::text, 'gap'::character varying::text, 'stale'::character varying::text])", name: "kafka_audit_entries_arrival_order"
+    t.check_constraint "arrival_order::text = ANY (ARRAY['first'::character varying, 'next'::character varying, 'gap'::character varying, 'stale'::character varying]::text[])", name: "kafka_audit_entries_arrival_order"
   end
 
   create_table "maximum_bids", force: :cascade do |t|
@@ -148,6 +148,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000002) do
     t.check_constraint "domain_event_type IS NULL AND domain_payload IS NULL AND kafka_published_at IS NOT NULL OR domain_event_type IS NOT NULL AND domain_payload IS NOT NULL", name: "outbox_events_domain_payload_pair"
     t.check_constraint "event_type::text = 'auction.changed.v1'::text AND schema_version = 1", name: "outbox_events_known_version"
     t.check_constraint "kafka_attempts >= 0", name: "outbox_events_kafka_attempts_nonnegative"
+  end
+
+  create_table "reconciliation_leases", force: :cascade do |t|
+    t.bigint "cursor", default: 0, null: false
+    t.datetime "expires_at", null: false
+    t.string "name", null: false
+    t.uuid "owner_token", null: false
+    t.index ["name"], name: "index_reconciliation_leases_on_name", unique: true
+    t.check_constraint "cursor >= 0", name: "reconciliation_leases_nonnegative_cursor"
+    t.check_constraint "name::text = ANY (ARRAY['postgresql_state'::character varying, 'projection'::character varying]::text[])", name: "reconciliation_leases_known_names"
   end
 
   create_table "users", force: :cascade do |t|

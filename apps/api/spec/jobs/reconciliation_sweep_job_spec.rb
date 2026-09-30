@@ -4,6 +4,7 @@ require_relative "../support/committed_auction_context"
 RSpec.describe ReconciliationSweepJob do
   self.use_transactional_tests = false
   include_context "committed auction concurrency"
+  after { ApplicationRecord.connection.execute("DELETE FROM reconciliation_leases") }
   it "reports drift read-only and remains safe to run twice" do
     auction = active_auction
     auction.place_bid!(bidder: @bidder, amount: 10_000)
@@ -21,7 +22,7 @@ RSpec.describe ReconciliationSweepJob do
     expect(auction.reload.current_price).to eq(11_000)
   end
 
-  it "can be scheduled repeatedly without modifying authoritative records" do
+  it "deduplicates overlapping scheduled sweeps without modifying authoritative records" do
     auction = active_auction
     before = auction.reload.attributes
     Sidekiq.testing!(:fake) do
@@ -29,10 +30,10 @@ RSpec.describe ReconciliationSweepJob do
       AuctionProjectionReconciliationJob.clear
       scheduler = ReconciliationScheduler.new(interval: 5)
       2.times { scheduler.run_once }
-      expect(described_class.jobs.length).to eq(2)
-      described_class.jobs.each { |job| expect(job.fetch("args")).to eq([]) }
-      expect(AuctionProjectionReconciliationJob.jobs.length).to eq(2)
-      AuctionProjectionReconciliationJob.jobs.each { |job| expect(job.fetch("args")).to eq([]) }
+      expect(described_class.jobs.length).to eq(1)
+      expect(described_class.jobs.first.fetch("args")).to match([ 0, nil, a_kind_of(String) ])
+      expect(AuctionProjectionReconciliationJob.jobs.length).to eq(1)
+      expect(AuctionProjectionReconciliationJob.jobs.first.fetch("args")).to match([ 0, nil, a_kind_of(String) ])
     ensure
       described_class.clear
       AuctionProjectionReconciliationJob.clear

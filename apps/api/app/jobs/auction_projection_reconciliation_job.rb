@@ -5,18 +5,25 @@ class AuctionProjectionReconciliationJob
 
   BATCH_SIZE = 100
 
-  def perform(after_id = 0, up_to_id = nil)
+  def perform(after_id = 0, up_to_id = nil, lease_token = nil)
     cursor = Integer(after_id)
     raise ArgumentError, "invalid projection cursor" if cursor.negative?
+    return unless lease_active?(lease_token, cursor)
+
     ceiling = up_to_id.nil? ? Auction.maximum(:id) : Integer(up_to_id)
-    return if ceiling.nil?
+    if ceiling.nil?
+      release_lease(lease_token, cursor)
+      return
+    end
     raise ArgumentError, "invalid projection ceiling" if ceiling.negative?
 
     counts = Hash.new(0)
     rows = Auction.where("id > ? AND id <= ?", cursor, ceiling).order(:id).limit(BATCH_SIZE).to_a
     reconciler = AuctionProjectionReconciler.new
     begin
-      rows.each do |auction|
+      rows.each_with_index do |auction, index|
+        return unless lease_active?(lease_token, cursor) if index.positive? && (index % ReconciliationLease::HEARTBEAT_ROWS).zero?
+
         counts[:checked] += 1
         begin
           result = reconciler.check(auction)
@@ -48,10 +55,34 @@ class AuctionProjectionReconciliationJob
         unavailable: counts[:unavailable],
         operator_review: counts[:operator_review]))
     end
-    self.class.perform_async(rows.last.id, ceiling) if rows.length == BATCH_SIZE
+    if rows.length == BATCH_SIZE
+      if lease_token
+        return unless ReconciliationLease.advance(ReconciliationLease::PROJECTION, lease_token, cursor, rows.last.id)
+      end
+
+      args = [ rows.last.id, ceiling ]
+      args << lease_token if lease_token
+      self.class.perform_async(*args)
+    else
+      release_lease(lease_token, cursor)
+    end
   rescue ActiveRecord::ActiveRecordError => error
     Rails.logger.error(JSON.generate(event: "auction_projection_reconciliation", result: "postgresql_unavailable",
       error_class: error.class.name))
     raise
+  end
+
+  private
+
+  def lease_active?(token, cursor)
+    return true unless token
+    return true if ReconciliationLease.renew(ReconciliationLease::PROJECTION, token, cursor)
+
+    Rails.logger.warn(JSON.generate(event: "auction_projection_reconciliation", result: "lease_lost"))
+    false
+  end
+
+  def release_lease(token, cursor)
+    ReconciliationLease.release(ReconciliationLease::PROJECTION, token, cursor) if token
   end
 end

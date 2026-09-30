@@ -1,4 +1,4 @@
-# Non-authoritative periodic sweep trigger; duplicate schedules are harmless.
+# Non-authoritative periodic trigger; PostgreSQL leases bound scheduled overlap.
 class ReconciliationScheduler
   def initialize(interval: ENV.fetch("RECONCILIATION_INTERVAL", "60"), logger: Rails.logger)
     @interval = Float(interval)
@@ -12,8 +12,8 @@ class ReconciliationScheduler
   end
 
   def run_once
-    ReconciliationSweepJob.perform_async
-    AuctionProjectionReconciliationJob.perform_async
+    enqueue_scan(ReconciliationLease::POSTGRESQL_STATE, ReconciliationSweepJob)
+    enqueue_scan(ReconciliationLease::PROJECTION, AuctionProjectionReconciliationJob)
   end
 
   def run(once: false)
@@ -36,5 +36,23 @@ class ReconciliationScheduler
     end
   ensure
     @logger.info("reconciliation_scheduler stopped")
+  end
+
+  private
+
+  def enqueue_scan(name, job)
+    token = ReconciliationLease.claim(name)
+    unless token
+      @logger.info(JSON.generate(event: "reconciliation_scheduler", scan: name, result: "already_active"))
+      return
+    end
+
+    begin
+      job.perform_async(0, nil, token)
+    rescue StandardError
+      ReconciliationLease.release(name, token)
+      raise
+    end
+    @logger.info(JSON.generate(event: "reconciliation_scheduler", scan: name, result: "enqueued"))
   end
 end
