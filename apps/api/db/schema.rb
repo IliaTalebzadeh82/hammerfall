@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_30_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_30_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -63,6 +63,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000000) do
     t.check_constraint "sequence > 0", name: "bids_sequence_positive"
   end
 
+  create_table "consumed_kafka_events", force: :cascade do |t|
+    t.bigint "auction_id", null: false
+    t.datetime "consumed_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.string "consumer_name", null: false
+    t.uuid "event_id", null: false
+    t.string "event_type", null: false
+    t.string "payload_digest", limit: 64
+    t.bigint "public_revision", null: false
+    t.index ["consumer_name", "auction_id", "public_revision"], name: "index_consumed_kafka_events_revision", unique: true
+    t.index ["consumer_name", "event_id"], name: "index_consumed_kafka_events_identity", unique: true
+    t.check_constraint "auction_id > 0 AND public_revision > 0", name: "consumed_kafka_events_positive_values"
+    t.check_constraint "payload_digest IS NULL OR payload_digest::text ~ '^[0-9a-f]{64}$'::text", name: "consumed_kafka_events_payload_digest"
+  end
+
   create_table "idempotency_records", force: :cascade do |t|
     t.bigint "actor_id", null: false
     t.datetime "created_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
@@ -82,6 +96,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000000) do
     t.check_constraint "status::text = 'processing'::text AND response_status IS NULL AND response_body IS NULL OR status::text = 'completed'::text AND (response_status = ANY (ARRAY[200, 201, 404, 422])) AND response_status IS NOT NULL AND response_body IS NOT NULL AND jsonb_typeof(response_body) = 'object'::text", name: "idempotency_outcome"
   end
 
+  create_table "kafka_audit_entries", force: :cascade do |t|
+    t.string "arrival_order", null: false
+    t.bigint "auction_id", null: false
+    t.string "consumer_name", null: false
+    t.uuid "event_id", null: false
+    t.string "event_type", null: false
+    t.bigint "public_revision", null: false
+    t.datetime "recorded_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.index ["consumer_name", "auction_id", "public_revision"], name: "index_kafka_audit_entries_revision", unique: true
+    t.index ["consumer_name", "event_id"], name: "index_kafka_audit_entries_identity", unique: true
+    t.check_constraint "arrival_order::text = ANY (ARRAY['first'::character varying::text, 'next'::character varying::text, 'gap'::character varying::text, 'stale'::character varying::text])", name: "kafka_audit_entries_arrival_order"
+  end
+
   create_table "maximum_bids", force: :cascade do |t|
     t.bigint "auction_id", null: false
     t.bigint "bidder_id", null: false
@@ -99,8 +126,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000000) do
   create_table "outbox_events", force: :cascade do |t|
     t.integer "attempts", default: 0, null: false
     t.bigint "auction_id", null: false
+    t.string "domain_event_type"
+    t.jsonb "domain_payload"
     t.uuid "event_id", default: -> { "gen_random_uuid()" }, null: false
     t.string "event_type", null: false
+    t.integer "kafka_attempts", default: 0, null: false
+    t.string "kafka_last_error"
+    t.datetime "kafka_next_attempt_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.datetime "kafka_published_at"
     t.string "last_error"
     t.datetime "next_attempt_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
     t.datetime "occurred_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
@@ -109,9 +142,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000000) do
     t.integer "schema_version", null: false
     t.index ["auction_id", "public_revision"], name: "index_outbox_events_on_auction_id_and_public_revision", unique: true
     t.index ["event_id"], name: "index_outbox_events_on_event_id", unique: true
+    t.index ["kafka_next_attempt_at", "id"], name: "index_outbox_events_kafka_due", where: "(kafka_published_at IS NULL)"
     t.index ["next_attempt_at", "id"], name: "index_outbox_events_due", where: "(published_at IS NULL)"
     t.check_constraint "auction_id > 0 AND public_revision > 0 AND attempts >= 0", name: "outbox_events_positive_values"
+    t.check_constraint "domain_event_type IS NULL AND domain_payload IS NULL AND kafka_published_at IS NOT NULL OR domain_event_type IS NOT NULL AND domain_payload IS NOT NULL", name: "outbox_events_domain_payload_pair"
     t.check_constraint "event_type::text = 'auction.changed.v1'::text AND schema_version = 1", name: "outbox_events_known_version"
+    t.check_constraint "kafka_attempts >= 0", name: "outbox_events_kafka_attempts_nonnegative"
   end
 
   create_table "users", force: :cascade do |t|

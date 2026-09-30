@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+$stdout.sync = true
+require_relative "../config/environment"
+abort "Usage: bin/kafka_outbox_publisher [--once]" unless ARGV.empty? || ARGV == [ "--once" ]
+publisher = KafkaOutboxPublisher.new(logger: ActiveSupport::Logger.new($stdout))
+%w[TERM INT].each { |signal| Signal.trap(signal) { publisher.stop } }
+publisher.run(once: ARGV.include?("--once"))

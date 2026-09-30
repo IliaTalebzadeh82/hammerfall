@@ -190,7 +190,26 @@ class Auction < ApplicationRecord
     self.public_revision += 1 if changed
     @persisting_public_change = true
     save!(context: context)
-    OutboxEvent.record_auction_change!(auction_id: id, revision: public_revision) if changed
+    if changed
+      event_type = if saved_change_to_status? && status == "closed"
+        "auction.closed.v1"
+      elsif saved_change_to_status?
+        "auction.status_changed.v1"
+      elsif context == :draft_edit
+        "auction.terms_changed.v1"
+      elsif saved_change_to_current_price? || saved_change_to_current_leader_id?
+        "auction.price_changed.v1"
+      else
+        "auction.extended.v1"
+      end
+      public_data = { title: title, description: description, status: status,
+        starting_price: starting_price, minimum_increment: minimum_increment,
+        starts_at: starts_at.utc.iso8601(6), original_ends_at: original_ends_at.utc.iso8601(6),
+        current_price: current_price, current_leader_id: current_leader_id,
+        ends_at: ends_at.utc.iso8601(6), closed_at: closed_at&.utc&.iso8601(6), winner_id: winner_id }
+      OutboxEvent.record_auction_change!(auction_id: id, revision: public_revision,
+        domain_event_type: event_type, domain_payload: public_data)
+    end
   ensure
     @persisting_public_change = false
   end

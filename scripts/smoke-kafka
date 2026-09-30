@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+require "./config/environment"
+
+bidder = User.create!(name: "Kafka Compose smoke")
+now = AuctionClock.now
+auction = Auction.create_draft!(title: "Kafka smoke", description: "Public", starting_price: 10_000,
+  minimum_increment: 500, starts_at: now - 60, ends_at: now + 1200)
+auction.schedule!
+auction.activate!
+auction.place_bid!(bidder: bidder, amount: 10_000)
+expected = auction.reload.public_revision
+deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 30
+loop do
+  rows = OutboxEvent.where(auction_id: auction.id)
+  break if rows.count == expected && rows.where.not(kafka_published_at: nil).count == expected &&
+    ConsumedKafkaEvent.where(auction_id: auction.id).count == expected
+  abort "Kafka smoke timed out auction=#{auction.id} revision=#{expected} acknowledged=#{rows.where.not(kafka_published_at: nil).count} consumed=#{ConsumedKafkaEvent.where(auction_id: auction.id).count}" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+  sleep 0.1
+end
+abort "Kafka changed auction truth" unless auction.reload.current_price == 10_000 && auction.public_revision == expected
+puts "Kafka smoke passed auction=#{auction.id} revision=#{expected} events=#{expected}"

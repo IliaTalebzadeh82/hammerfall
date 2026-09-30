@@ -30,6 +30,39 @@ services:
       timeout: 3s
       retries: 10
 
+  kafka:
+    image: apache/kafka:4.1.2
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093,HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,HOST://127.0.0.1:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "127.0.0.1:${KAFKA_PORT:-29092}:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  kafka-init:
+    image: apache/kafka:4.1.2
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: ["/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "kafka:9092", "--create", "--if-not-exists", "--topic", "hammerfall.auction-events.v1", "--partitions", "3", "--replication-factor", "1"]
+
   api:
     image: hammerfall-api
     build:
@@ -129,6 +162,49 @@ services:
     restart: on-failure
     stop_grace_period: 15s
 
+  kafka-outbox-publisher:
+    image: hammerfall-api
+    environment:
+      RAILS_ENV: development
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${PGUSER:-hammerfall}
+      PGPASSWORD: ${PGPASSWORD:?Copy .env.example to .env before starting Compose}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_PUBLISH_INTERVAL: ${KAFKA_PUBLISH_INTERVAL:-1}
+      KAFKA_PUBLISH_BATCH_SIZE: ${KAFKA_PUBLISH_BATCH_SIZE:-100}
+    volumes:
+      - ./apps/api:/app
+      - api_bundle:/usr/local/bundle
+    depends_on:
+      api:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    command: ["bin/kafka_outbox_publisher"]
+    restart: on-failure
+    stop_grace_period: 15s
+
+  kafka-audit-consumer:
+    image: hammerfall-api
+    environment:
+      RAILS_ENV: development
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${PGUSER:-hammerfall}
+      PGPASSWORD: ${PGPASSWORD:?Copy .env.example to .env before starting Compose}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    volumes:
+      - ./apps/api:/app
+      - api_bundle:/usr/local/bundle
+    depends_on:
+      api:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    command: ["bin/kafka_audit_consumer"]
+    stop_grace_period: 15s
+
   reconciliation-scheduler:
     image: hammerfall-api
     environment:
@@ -178,6 +254,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  kafka_data:
   api_bundle:
   api_tmp:
   web_node_modules:

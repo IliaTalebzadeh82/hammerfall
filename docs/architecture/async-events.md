@@ -2,10 +2,10 @@
 
 ## Status and responsibilities
 
-Phase 9 runs a PostgreSQL transactional outbox and an independent publisher,
-alongside Redis, Sidekiq notification/maintenance jobs and a read-only sweep.
-There is no Kafka, Redis auction projection or domain-event consumer. Cable
-`auction.changed.v1` remains a public invalidation. See [ADR-010](../adr/010-transactional-public-outbox.md), [ADR-009](../adr/009-sidekiq-public-notifications-and-sweeps.md),
+Phase 10 runs two independent publishers from the committed PostgreSQL outbox:
+Sidekiq/Cable public invalidations and Kafka public domain events. A Kafka audit
+consumer records receipt and side effect; no Redis auction projection exists.
+Cable `auction.changed.v1` remains a public invalidation. See [ADR-011](../adr/011-kafka-domain-events.md), [ADR-010](../adr/010-transactional-public-outbox.md), [ADR-009](../adr/009-sidekiq-public-notifications-and-sweeps.md),
 [event model](../event-model.md) and [failure model](../failure-model.md).
 
 ## Phase 8: jobs and Redis
@@ -26,7 +26,7 @@ price/leader/final winner with the latest accepted Bid in one SQL statement and
 logs drift without changing rows. Overlap and retries are safe. There is no
 Redis projection yet to reconcile or repair. Redis may later support ephemeral
 reads, presence or rate limits, but never decide a bid or winner. Sidekiq jobs
-are distinct from future Kafka domain-event consumers. See the [runbook](../runbooks/sidekiq-redis.md).
+are distinct from Kafka domain-event consumers. See the [runbook](../runbooks/sidekiq-redis.md).
 
 ## Phase 9: public outbox
 
@@ -46,18 +46,27 @@ browser received it. Duplicate enqueue and reordered jobs remain possible and
 safe for current-revision invalidations. See [the event model](../event-model.md)
 and [the runbook](../runbooks/sidekiq-redis.md).
 
-## Phase 10: future Kafka domain events
+## Phase 10: Kafka domain events
 
-Kafka-specific domain events remain a separate phase. Future consumers must use
-committed outbox intent without moving auction decisions into the broker.
-
-Use explicit versioned schemas such as `bid.accepted.v1`, `auction.extended.v1`, `auction.closed.v1`, `auction.won.v1`. Define event ID/type/schema version/aggregate ID/version or sequence/occurred_at/relevant payload and trace context when appropriate. Do not expose private maxima unnecessarily. Kafka is propagation, not auction authority. Consumers for projection, notification or append-only audit must tolerate duplicates, restart, replay, poison records and ordering gaps. Prefer honest at-least-once semantics; do not claim exactly once without proof. Document schema compatibility and consequences before publishing.
+The same public outbox insert stores one versioned public domain snapshot per
+revision. `KafkaOutboxPublisher` claims committed rows, waits for an `rdkafka`
+broker delivery report, then sets `kafka_published_at`. Its retry state is
+independent of Redis acknowledgment. Topic `hammerfall.auction-events.v1` has
+three local partitions, keyed by auction ID. Concurrent publisher claims can
+still place revisions out of order. The initial `hammerfall.audit.v1` consumer
+group validates v1 envelopes, writes a receipt and public audit entry in one
+PostgreSQL transaction, then commits the Kafka offset. Duplicate IDs are
+harmless; gaps and stale arrivals are classified. Poison events stop the
+consumer at the uncommitted offset for operator review. See the [event model](../event-model.md),
+[Kafka runbook](../runbooks/kafka.md) and [ADR-011](../adr/011-kafka-domain-events.md).
 
 ## Failure semantics
 
-Today a Redis outage leaves authoritative bidding available while outbox backlog
+Redis outage leaves authoritative bidding available while Sidekiq outbox backlog
 grows; restoring Redis and the publisher drains due rows. A process crash after
 commit retains the row. A crash after enqueue but before acknowledgment can
 duplicate a job. Redis loss after acknowledgment or exhausted worker retries
-can still lose the hint; REST recovery remains necessary. Kafka outage and
-consumer replay behavior are future Phase 10 work.
+can still lose the hint; REST recovery remains necessary. Kafka outage leaves
+Kafka outbox rows pending while Sidekiq/Cable can continue. After recovery the
+publisher drains rows; crash ambiguity and consumer replay can duplicate events
+without repeating the audit effect or changing auction truth.
