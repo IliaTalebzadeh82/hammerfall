@@ -24,6 +24,8 @@ The local broker uses a named volume and one replica; see the [Kafka runbook](ru
 for outage, lag, poison and replay commands.
 The [projection runbook](runbooks/redis-projection.md) covers the explicit
 eventual read, Redis loss and manual PostgreSQL rebuild.
+The [reconciliation runbook](runbooks/projection-reconciliation.md) covers
+scheduled drift repair, lease recovery and operator review.
 
 Containers run as non-root users. On Linux, set `LOCAL_UID` and `LOCAL_GID` in
 `.env` to your `id -u` and `id -g` values before building if they differ from 1000.
@@ -399,7 +401,10 @@ docker compose logs --tail 100 --no-color outbox-publisher sidekiq reconciliatio
 
 `RECONCILIATION_INTERVAL` defaults to 60 seconds (minimum 5). Each sweep checks
 bounded groups of PostgreSQL auctions against their latest accepted Bid and logs
-drift without repairs. `--once` fails visibly when Redis cannot accept a job. The
+drift without changing PostgreSQL state. A separate projection job compares
+Redis against PostgreSQL and repairs safe missing/stale keys. Both scheduled
+chains use expiring PostgreSQL leases to avoid overlap; `--once` skips an
+already active chain and fails visibly when enqueue or lease acquisition fails. The
 Sidekiq `notifications` and `maintenance` queues retry job failures five times;
 the Dead set needs operator inspection. Use the [runbook](runbooks/sidekiq-redis.md)
 for queue counts, outage and recovery. Do not expose an unauthenticated Sidekiq

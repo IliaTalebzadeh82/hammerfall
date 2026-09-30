@@ -8,6 +8,34 @@ PostgreSQL is the single auction authority. The browser renders REST observation
 
 `hammerfall.projection.v1` consumes committed public Kafka v1 snapshots into `hammerfall:auction-public:v1:<auction_id>`. Each value includes the public revision, source, event/write times, public data and digest. An atomic Redis revision check rejects stale replay and equal-revision conflicts; equal content is a duplicate. The explicit `/public-state` GET discloses Redis source and age or uses PostgreSQL fallback. Existing GET and commands remain PostgreSQL-backed. Operators can manually rebuild current state from PostgreSQL; no automatic freshness bound or drift repair is promised. See [the runbook](../runbooks/redis-projection.md).
 
-## Planned reconciliation
+## Phase 12 reconciliation
 
-A scheduled checker should compare derived state to PostgreSQL by explicit fields/version, detect drift, repair safe cases idempotently and flag cases needing operator action. It should expose drift, repair and repair-failure counts and structured repair logs without sensitive values. Tests must deliberately corrupt projections and prove convergence and failure behavior. Document comparison scope, automatic-repair boundary, replay/duplicate behavior, stale-age visibility and operator runbook. Read-model inconsistency must be both detectable and repairable; `docs/failure-model.md` should state what stays correct, unavailable or stale during Redis/Kafka/worker failures.
+`AuctionProjectionReconciler` compares the PostgreSQL auction's
+`public_revision` and exactly the public `KafkaEventCodec::DATA_KEYS`
+presenter fields with a strictly validated Redis projection. Source, event
+ID and write time are metadata, not part of public-state equality. An absent
+key or valid lower revision is seeded from current PostgreSQL through the
+existing atomic Redis revision/digest script. An equal, identical key is
+healthy without mutation. Equal-revision conflicting data, a malformed or
+digest-invalid key, and a Redis revision ahead of a freshly reloaded
+PostgreSQL row require operator review. Redis never corrects PostgreSQL.
+
+The atomic write rejects an old repair after a newer Kafka projection has
+arrived; the reverse order advances normally when Kafka later delivers.
+Repeated repair and concurrent reconcilers may do duplicate work, but cannot
+regress the key. A repair is a current-state seed, not replay of intermediate
+history or an exactly-once event. Redis or PostgreSQL outage raises for
+Sidekiq retry and leaves auction truth unchanged. Valid stale Redis reads can
+persist until a scheduled scan; no finite freshness bound is promised. See
+[ADR-013](../adr/013-bounded-reconciliation-scan-ownership.md), the
+[consistency model](../consistency-model.md), [failure model](../failure-model.md)
+and [reconciliation runbook](../runbooks/projection-reconciliation.md).
+
+The existing PostgreSQL consistency sweep remains read-only and separate.
+Both scheduled scan types use 100-row ID-ordered pages under a fixed maximum
+ID ceiling. A PostgreSQL maintenance lease per type prevents periodic ticks
+from starting overlapping chains. Each page renews a database-clock lease;
+only one attempt can advance its cursor and enqueue a successor. A crash or
+lost continuation eventually lets the lease expire, after which a new scan
+starts at ID zero. A manual unleased job may overlap by operator choice.
+The scheduler is a maintenance trigger, never an auction correctness boundary.

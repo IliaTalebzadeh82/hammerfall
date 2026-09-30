@@ -14,7 +14,8 @@ Phase 13 plans OpenTelemetry spans for HTTP, auction lock wait, validation, prox
 
 The [Kafka runbook](../runbooks/kafka.md) covers backlog, poison, replay and
 operator offset recovery. The [Redis projection runbook](../runbooks/redis-projection.md)
-covers loss and manual PostgreSQL rebuild. Future runbooks still need projection drift, close
+covers loss and manual PostgreSQL rebuild. The [reconciliation runbook](../runbooks/projection-reconciliation.md)
+covers drift, safe repair, leases and operator review. Future runbooks still need close
 lag and PostgreSQL lock contention. The [failure model](../failure-model.md)
 covers current PostgreSQL/Redis/Kafka outage, worker/consumer/Rails crash,
 dropped sockets, delayed publication and duplicate delivery; later phases

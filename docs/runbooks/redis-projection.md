@@ -5,6 +5,9 @@ Redis holds a disposable derived snapshot. The ordinary auction GET and all
 commands use PostgreSQL. The explicit `/public-state` GET can be stale and
 falls back to PostgreSQL on a missing, malformed or unavailable Redis value.
 See [ADR-012](../adr/012-redis-public-projection.md).
+Scheduled Phase 12 drift detection and safe repair are covered by the
+[reconciliation runbook](projection-reconciliation.md); the manual rebuild
+below remains available for deliberate operator recovery.
 
 ## Inspect
 
@@ -63,8 +66,9 @@ projection. Check consumer lag and the endpoint again.
 
 ## Limits
 
-No automatic drift detection or repair runs in Phase 11. A valid but stale
-projection remains a Redis response until a later event or manual rebuild.
+Phase 11 had no automatic drift detection or repair. Phase 12's scheduled
+checker can repair valid stale keys after it scans them; a valid stale
+projection remains a Redis response until a later event or successful scan.
 Kafka retention and legacy rows prevent assuming full replay coverage. The
 local single-node broker/Redis and observed campaign provide no fixed recovery
 time, production capacity or HA assurance.

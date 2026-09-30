@@ -1682,3 +1682,65 @@ automated projection drift detection/repair awaits Phase 12. Local Redis/Kafka
 provide no measured production capacity, fixed replay time or HA guarantee.
 The demo API remains unauthenticated. Phase 12 is ready only for a separate
 explicit request.
+
+## Phase 12 — Reconciliation
+
+Status: COMPLETE — verified 2026-10-01. Phase 13 has not started. The
+[ExecPlan](plans/phase-12-execplan.md) indexes commands, live logs, failures,
+sabotage and limits. [ADR-013](adr/013-bounded-reconciliation-scan-ownership.md)
+and the [runbook](runbooks/projection-reconciliation.md) define scheduled
+ownership and operations.
+
+### Implementation and live campaign
+
+The checker compares PostgreSQL public revision and the exact public v1
+presenter fields against a validated Redis key. Missing and valid lower
+revisions are seeded from PostgreSQL through the Phase 11 atomic Redis writer;
+equal identical state is healthy. Equal conflicts, corrupt state and Redis
+ahead of a fresh PostgreSQL row remain for review. The separate PostgreSQL
+consistency sweep still reports authoritative anomalies read-only.
+
+Live tests proved a Kafka N+1 projection cannot be regressed by repair from
+snapshot N, while the opposite order converges. Two reconcilers safely
+attempted the same repair, and a crash after Redis write retried harmlessly.
+Redis outage left a bid committed at revision 3/price 10000 and recovery
+seeded the missing key; PostgreSQL outage prevented speculative repair.
+A 101-row test split into 100+1, and a Compose scan split 196 rows into
+100+96. Four temporary sabotages of revision, conflict, authority and atomic
+repair protections each failed the relevant test, then were restored.
+
+An adversarial review found that fixed-size jobs alone did not bound
+overlapping scheduled chains. PostgreSQL now holds one database-clock lease
+per scan type, renewed by pages with token/cursor fencing. Two scheduler
+instances cannot claim one chain; a repeated Sidekiq page cannot fork
+successors. Completion releases the lease; a crash or lost handoff can delay
+until ten-minute expiry, when a later tick restarts at ID zero. The lease
+never participates in bidding. Cursor-fence sabotage failed its test and was
+restored. Live Redis outage during scheduler enqueue released its claim
+(`remaining_leases=0`); PostgreSQL outage made the one-shot scheduler fail
+visibly. The scheduler-focused suite passed 20 examples before the broad run.
+
+### Final regression and limits
+
+The full backend suite passed 410 examples, 0 failures, 2 intentional live
+Kafka pending (seed 28745). RuboCop inspected 108 files with no offenses;
+Brakeman found zero warnings, bundler-audit no vulnerabilities, and Zeitwerk
+passed. Frontend lint, format, typecheck and production build passed; Vitest
+passed 73 tests. Compose rebuilt and all services became healthy. Health,
+Redis/Kafka, one-shot scheduler, Kafka/API, concurrent/proxy bidding,
+publishers and closer smokes passed. Real Playwright using system Chrome
+passed 7/7 after the closer test waited for its asynchronous Cable hint.
+The first full browser attempts showed a timing assertion race: REST had
+already shown the closed winner before the Cable hint arrived. The isolated
+closer scenario passed, and the final full suite passed with the bounded
+wait. The Playwright CDN download returned a location-based 403, so the
+installed system Chrome was used. Hosted CI itself was not run.
+
+No known serious Phase 12 correctness bug remains. Valid stale projections
+may persist until a successful scan; corrupt, conflicting and ahead states
+need operator review. A lost handoff can delay a new scan until lease
+expiry. Per-batch structured log counts are not exported Prometheus
+counters, and no finite convergence bound, production capacity or HA claim
+is made. The demo API remains unauthenticated. The separate Phase 0–11
+hardening findings remain outside Phase 12; Phase 13 requires an explicit
+request.

@@ -368,3 +368,25 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   revisions, retries, outage, fallback, recovery and public-only content.
 - [ADR-012](adr/012-redis-public-projection.md), [projection architecture](architecture/projections-and-reconciliation.md)
   and [runbook](runbooks/redis-projection.md) explain the consistency boundary.
+
+## Phase 12 implementation map
+
+- `AuctionProjectionReconciler#check` reads PostgreSQL public revision and
+  presenter fields independently of Redis. Missing/lower-revision keys call
+  `AuctionPublicProjection#seed`, which uses the existing atomic Redis script;
+  conflicts, ahead keys and corrupt envelopes produce operator-review logs.
+- `AuctionProjectionReconciliationJob` scans at most 100 auction IDs per page
+  under a fixed ceiling, emits per-batch count logs and chains the cursor.
+  `ReconciliationSweepJob` remains a separate read-only PostgreSQL check.
+- `ReconciliationScheduler` claims one lease per scan type before enqueue.
+  `ReconciliationLease` and `reconciliation_leases` use PostgreSQL clock,
+  owner token and cursor fencing so retries and multiple schedulers cannot
+  fork scheduled chains. Expired ownership restarts from ID zero; manual
+  tokenless jobs are independent.
+- `auction_projection_reconciliation_spec.rb`,
+  `auction_projection_reconciliation_live_spec.rb`,
+  `reconciliation_lease_spec.rb` and `reconciliation_sweep_job_spec.rb` cover
+  drift, Kafka races, concurrency, bounded pages and crash recovery. The
+  [ExecPlan](plans/phase-12-execplan.md) indexes live outage/sabotage evidence;
+  [ADR-013](adr/013-bounded-reconciliation-scan-ownership.md) and the
+  [runbook](runbooks/projection-reconciliation.md) define operations.

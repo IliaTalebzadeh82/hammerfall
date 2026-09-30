@@ -400,3 +400,23 @@ restored. Finalization found that the new real-Redis integration spec needs a
 Redis service in the API CI job; the workflow was updated accordingly. This
 phase exposes staleness rather than hiding it and leaves scheduled drift
 repair for a separately requested Phase 12.
+
+## 2026-10-01 — Phase 12 bounds repair and its own scheduling load
+
+The checker can seed a missing or lower-revision Redis key from current
+PostgreSQL state, but must preserve equal-revision conflicts, invalid keys and
+ahead revisions for review. A real Kafka message arriving between comparison
+and seed proved the existing atomic writer prevents an old repair from
+regressing the key. Redis outage left a PostgreSQL bid accepted; PostgreSQL
+outage stopped comparison rather than promoting Redis. Four temporary
+sabotages made the corresponding safety tests fail.
+
+The live campaign then exposed a different risk: 100-row jobs were bounded,
+but every scheduler tick could begin another full chain. A PostgreSQL lease
+per scan type now limits scheduled overlap. The first lease design used an
+owner token and expiry, but review found that Sidekiq replay after a successor
+enqueue could fork a chain with the *same* token. Cursor compare-and-advance
+fences that handoff. A crash after advancement but before enqueue cannot be
+made exactly once by this queue; expiry and restart from ID zero preserve
+eventual progress. The lease coordinates maintenance load only and never
+touches auction command decisions.

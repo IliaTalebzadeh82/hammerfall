@@ -60,10 +60,12 @@ All 15 original master invariants remain requirements. Their current status is:
 12. **Duplicate delivery does not duplicate domain effects:** Sidekiq jobs read
     current revision and only request REST refresh. The Kafka audit consumer
     commits one receipt and audit effect per event ID before offset commit.
-13. **Read-model inconsistency is detectable:** Phase 11 exposes source, revision
-    and age for manual comparison; scheduled drift detection belongs to Phase 12.
-14. **Read-model inconsistency is repairable:** Phase 11 has a manual PostgreSQL
-    rebuild; automated drift comparison and repair belong to Phase 12.
+13. **Read-model inconsistency is detectable:** Phase 11 exposes source,
+    revision and age; Phase 12 compares a validated Redis projection with
+    current PostgreSQL public fields in bounded scheduled scans.
+14. **Read-model inconsistency is repairable:** Phase 12 seeds missing and
+    valid lower-revision Redis keys from PostgreSQL through the atomic
+    revision guard. Conflicting, corrupt and ahead keys require review.
 15. **Redis or Kafka loss cannot invalidate authoritative state:** both are
     downstream transports; outage preserves committed PostgreSQL state and
     pending transport intent until successful acknowledgment.
@@ -80,6 +82,17 @@ the concurrency suite; actual mutation/repetition results are recorded in progre
 | Equal data is idempotent; equal revision with different data stops | Public digest comparison before offset commit | Focused conflict/duplicate tests; live duplicate and crash replay |
 | Projection loss cannot erase auction truth | Commands and ordinary GET use PostgreSQL; eventual read falls back | Focused outage tests and live Redis stop/full-loss campaign |
 | Rebuild preserves public privacy and current state | Presenter allowlist and same atomic revision rule | Rebuild privacy regression; live PostgreSQL seed and replay |
+
+## Phase 12 reconciliation invariants
+
+| Invariant | Enforcement | Evidence |
+| --- | --- | --- |
+| PostgreSQL remains auction authority | Checker reads PostgreSQL public revision/fields; Redis and lease are maintenance inputs only | Redis/PostgreSQL outage campaign and bid-under-lease integration test |
+| Old repair cannot regress newer Kafka delivery | Existing atomic Redis revision/digest writer; no direct repair SET | Real Kafka race in both orders, concurrency tests and stale-overwrite sabotage |
+| Ambiguous Redis state is never guessed away | Equal conflicts, ahead state, malformed envelope/digest trigger operator review without key mutation | Deliberate corruption and operator-log tests; equal-conflict sabotage |
+| Repeated and concurrent repair is safe | Atomic duplicate/stale handling; idempotent current-state seed | Two-reconciler, repeat and crash-after-write tests |
+| Scheduled scans cannot multiply indefinitely | PostgreSQL lease per scan type, token/cursor fencing, DB-clock expiry and 100-row pages | `reconciliation_lease_spec.rb`, cursor-fence sabotage and Compose scheduler smoke |
+| Failed or crashed scheduled ownership is recoverable | Expired lease reclaimed; replacement restarts at ID zero; final page releases | Abandoned owner, post-advance crash and completion tests |
 Normal accepted sequences are contiguous while history is immutable, but the public
 contract promises monotonicity, not gaplessness after privileged changes.
 

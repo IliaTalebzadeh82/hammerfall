@@ -751,3 +751,39 @@ read. Read ADR-012, `AuctionPublicProjection`, `KafkaProjectionConsumer`,
 `redis_projection_spec.rb` and the projection runbook. Explain the crash,
 total-loss, privacy and poison boundaries without claiming exactly-once or
 automatic drift repair.
+
+## Phase 12 — Detecting and repairing a derived projection
+
+**Problem.** Redis may be missing, stale or corrupt even while Kafka delivery
+and PostgreSQL bidding remain healthy. Checking only projection age or replaying
+Kafka cannot establish current auction truth. The checker reads the PostgreSQL
+public revision and exact public presenter fields, validates Redis, then
+classifies the difference. It seeds missing and valid lower revisions through
+the existing atomic Redis writer. Equal identical state is a no-op; equal
+conflicts, ahead Redis revisions and corrupt values stay for operator review.
+
+**Race.** PostgreSQL snapshot N can become stale while Kafka writes N+1. A
+direct `SET` by repair would regress Redis; the Lua revision guard returns
+`stale` instead. If repair writes first, later Kafka delivery advances the
+key. Two reconcilers can repeat a repair, and a crash after Redis write can
+retry safely. None of this makes Redis an authority or promises exactly-once
+reconciliation.
+
+**Scheduled load.** The PostgreSQL consistency sweep remains read-only and
+separate from the projection checker. Each job reads at most 100 auction IDs
+within a captured maximum ID. A PostgreSQL maintenance lease for each scan
+type prevents periodic ticks from growing overlapping chains. Jobs renew a
+database-clock lease and atomically advance its cursor before enqueueing a
+successor. A worker dying after cursor advancement can lose that handoff;
+lease expiry lets a later tick start again at ID zero. No auction transaction
+or row lock is held across the scan. A manual tokenless job can overlap by
+operator choice.
+
+**Limits.** Valid stale state may persist until the next successful scan;
+corrupt/conflicting/ahead state needs review. PostgreSQL outage prevents safe
+comparison, and Redis outage delays repair without changing bids. Per-batch
+structured log counts are operational evidence, not a Prometheus exporter or
+freshness guarantee. Read ADR-013, `AuctionProjectionReconciler`,
+`ReconciliationLease`, the Phase 12 integration specs and the reconciliation
+runbook. Explain why expiry and cursor fencing bound maintenance work while
+the database remains the only auction authority.

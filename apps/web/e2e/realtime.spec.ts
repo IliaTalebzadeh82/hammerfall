@@ -240,7 +240,9 @@ test("autonomous closer publishes the final winner to connected clients", async 
     ).toHaveCount(0);
     const after = await state(request, id);
     expect(after.public_revision).toBe(before.public_revision + 1);
-    expect(notified).toContain(after.public_revision);
+    await expect
+      .poll(() => [...notified], { timeout: 10000 })
+      .toContain(after.public_revision);
     console.log(
       `Realtime closer auction=${id} revision=${before.public_revision}->${after.public_revision} winner=${after.winner_id} notification observed`,
     );

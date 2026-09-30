@@ -1,21 +1,21 @@
 # Phase 12 ExecPlan — projection reconciliation
 
-Status: Active; live verification checkpoint, 2026-10-01. Phase 12 is not complete.
-Current milestone: Live drift, Kafka race, concurrency, outage, crash, bounded scan, scheduler and sabotage campaign completed. Stop this session at the hard checkpoint; resume finalization in a fresh session.
-Completed: Primary implementation in `ceb3d04`; this milestone added live integration coverage, explicit healthy batch counts and stronger no-mutation/operator-log assertions. No auction command, Kafka consumer or atomic Redis writer code changed.
-Verified: 19 Phase 12 examples, 0 failures, seed 62495, against local PostgreSQL/Redis and real Kafka for two gated race examples; RuboCop 3 changed Ruby files/0 offenses. Real Redis and PostgreSQL outages, recovery, 100+1 scan, Compose scheduler/Sidekiq, four sabotage mutations and restoration are detailed below. These are not the final broad regression or phase-completion gate.
-Remaining: Assess and resolve or explicitly constrain scheduler overlap under sustained backlog; broad backend/frontend regression, Compose/runtime/browser/security/static checks required by phase scope; Phase 12 ADR, runbook and architecture/invariants/failure/observability/learning/code-map/progress updates; final adversarial closure, handoff and clean commits. Do not start Phase 13 or the separate Phase 0–11 hardening pass.
-Known failures/limitations: No campaign test currently fails. The scheduler starts an independent scan every interval: each chain is finite and each job is capped at 100, but sustained scans slower than the interval can accumulate duplicate chains. This operational bound needs a deliberate Phase 12 decision before completion. Counters are structured per-batch logs, not an exported Prometheus endpoint. Corrupt/equal-conflict/ahead keys require operator review. Phase 11's valid stale reads until a scan, poison offset and finite Kafka retention remain.
+Status: Complete — verified 2026-10-01. Phase 13 has not started.
+Current milestone: Phase 12 implementation, live campaign, overlap repair, broad regression and durable documentation complete.
+Completed: PostgreSQL-authoritative Redis comparison/repair (`ceb3d04`), live failure/sabotage campaign (`3b7e64f`), and database-clock lease with token/cursor fencing for both scheduled scan types (`6f8f94b`). The old PostgreSQL sweep stays read-only. A browser test now waits for its asynchronous Cable hint. No auction command, Kafka consumer or atomic Redis projection writer code changed.
+Verified: 19 live Phase 12 examples with real PostgreSQL/Redis/Kafka, 0 failures (seed 62495); 20 lease/scheduler focused examples, 0 failures (seed 47932); full backend 410 examples/0 failures/2 intentional Kafka pending (seed 28745); RuboCop 108 files/0 offenses; Brakeman 0 warnings, bundler-audit no vulnerabilities, Zeitwerk passed. Frontend 73 Vitest tests, lint/format/types/build, Compose and smokes passed; final real-browser run 7/7 with system Chrome. Evidence below.
+Remaining: No Phase 12 work. Phase 13 and the separate Phase 0–11 hardening pass require explicit user requests.
+Known failures/limitations: Valid stale Redis state may persist until a successful scan; corrupt/equal-conflicting/ahead keys require review. Lost continuation after cursor advancement can delay a fresh scan until the ten-minute lease expires. Per-batch structured log counts are not exported Prometheus counters; no finite convergence, production capacity or HA guarantee is claimed. Hosted CI was not run. The local Playwright CDN returned a location-based 403; final browser checks used installed system Chrome.
 Relevant files: `apps/api/app/services/{auction_public_projection,auction_projection_reconciler,reconciliation_scheduler,kafka_projection_consumer}.rb`, `app/jobs/{auction_projection_reconciliation_job,reconciliation_sweep_job}.rb`, `spec/integration/{auction_projection_reconciliation,auction_projection_reconciliation_live,redis_projection}_spec.rb`, `spec/jobs/reconciliation_sweep_job_spec.rb`.
-Relevant ADRs: [ADR-012](../adr/012-redis-public-projection.md); record adopted Phase 12 policy in a new ADR during finalization.
-Next-session starting point: Read this plan, handoff and Phase 12 spec. First review scheduler overlap/backlog behavior and decide whether to add a safe single-flight bound or document a quantified operational constraint, with a relevant test. Then run the broad completion gate and write durable Phase 12 docs. Do not rerun the completed live campaign without a concrete regression risk.
+Relevant ADRs: [ADR-012](../adr/012-redis-public-projection.md), [ADR-013](../adr/013-bounded-reconciliation-scan-ownership.md).
+Next-session starting point: Do not continue Phase 12 or begin Phase 13 without a new explicit request. The [latest handoff](../handoffs/latest.md) and [progress record](../progress.md) give the phase boundary and limits.
 
 ## Decisions
 
 - Authority: compare PostgreSQL `Auction.public_revision` and the exact `KafkaEventCodec::DATA_KEYS` public presenter fields against the validated Redis envelope. PostgreSQL is read independently of Redis; Redis never decides bidding, closure or winner.
 - Drift model: missing and valid lower-revision keys are safe to seed from PostgreSQL. Equal revision with identical public data is healthy regardless of source/write time. Equal revision with different data, Redis ahead of PostgreSQL after a fresh check, and malformed/digest-invalid keys require operator review; do not silently overwrite them. Redis or PostgreSQL unavailability is reported and retried, not treated as drift.
-- Repair uses the existing atomic Redis revision/digest Lua operation. It is safe against duplicate work and a concurrently delivered higher revision. A concurrent equal conflict is escalated. No global lock or auction row lock is needed for a derived-state snapshot; a later PostgreSQL change may make a just-written seed stale until Kafka delivery or the next scan.
-- Keep the existing read-only PostgreSQL sweep distinct. The existing scheduler will enqueue a separate projection reconciliation chain; each job handles at most 100 ID-ordered rows under a fixed ceiling, then enqueues the next cursor. Counters are emitted per batch as bounded-cardinality structured log metrics with required metric names; Phase 13 can add a scraper/exporter.
+- Repair uses the existing atomic Redis revision/digest Lua operation. It is safe against duplicate work and a concurrently delivered higher revision. A concurrent equal conflict is escalated. No auction row lock is needed for a derived-state snapshot; a later PostgreSQL change may make a just-written seed stale until Kafka delivery or the next scan.
+- Keep the existing read-only PostgreSQL sweep distinct. Each job handles at most 100 ID-ordered rows under a fixed ceiling. Both scheduled scan types use independent PostgreSQL leases with database-clock expiry and token/cursor fencing; no transaction spans a scan chain. A failed queue handoff can require lease expiry and restart from ID zero. See ADR-013. Counters are per-batch structured log deltas with required names; Phase 13 can add an exporter.
 
 ## Evidence Index
 
@@ -34,7 +34,14 @@ Next-session starting point: Read this plan, handoff and Phase 12 spec. First re
 | Sabotage A–D | Temporary source mutations, focused tests, restore byte-for-byte | A stale overwrite 1 failure (`:repaired` vs `:raced`); B equal conflict overwrite 1 failure; C stale Redis accepted as healthy 1 failure; D direct SET seed 1 failure; source restored | `/tmp/hammerfall-p12-sabotage-{A,B,C,D}.log` |
 | Operator/metric visibility | Focused assertions and live Rails logs | Explicit checked/healthy/drift/attempt/repair/failure/unavailable/review counters; operator log includes kind and ID, excludes private fields; no ID metric label | Phase 12 specs; `apps/api/log/{test,development}.log` |
 | CI mode and Ruby lint | Kafka flag absent, live spec; RuboCop changed Ruby | 5 examples, 0 failures, 2 explicit Kafka pending; 3 files/0 offenses | `/tmp/hammerfall-p12-ci-mode.log`; `/tmp/hammerfall-p12-campaign-rubocop.log` |
-| Full regression/runtime | Pending | Unrun | — |
+| Scheduler lease and cursor fence | Real PostgreSQL/Redis focused specs on lease, jobs and reconciler | 20 examples, 0 failures, seed 47932; multiple schedulers/ticks, completion, expiry, duplicate retry, failed enqueue and bid independence | `/tmp/hammerfall-p12-lease-focused.log`; `reconciliation_lease_spec.rb` |
+| Cursor-fence sabotage | Temporarily bypass cursor predicates in lease renew/advance, run post-advance crash example, restore byte-for-byte | 1 expected failure, then 1/0 after restoration | `/tmp/hammerfall-p12-lease-sabotage.log`; `/tmp/hammerfall-p12-lease-sabotage-restored.log` |
+| New scheduler outage boundaries | Pause actual Redis, then stop actual PostgreSQL around one-shot test runner; restore both | Redis enqueue error released claim (`remaining_leases=0`); DB outage raised `ActiveRecord::DatabaseConnectionError` before scheduling | `/tmp/hammerfall-p12-lease-{redis,pg}-outage.log` |
+| Full backend regression | `REDIS_URL=.../1 bundle exec rspec` | 410 examples, 0 failures, 2 intentional live Kafka pending; seed 28745 | `/tmp/hammerfall-p12-full-rspec.log` |
+| Backend static/security | `bundle exec rubocop`; `bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error`; `bin/bundler-audit`; `bin/rails zeitwerk:check` | 108 files/0 offenses; 0 warnings; no vulnerabilities; Zeitwerk passed | `/tmp/hammerfall-p12-{full-rubocop,brakeman,audit,zeitwerk}.log` |
+| Frontend and build | `npm run lint`, `format:check`, `typecheck`, `test`, `build` | All passed; Vitest 73/73; Next production build succeeded | `/tmp/hammerfall-p12-web-{lint,format,typecheck,test,build}.log` |
+| Compose/runtime | `docker compose config --quiet`; `up --build --wait`; health, Redis/Kafka, scheduler, Kafka/API/concurrent/proxy, publishers and closer smokes | All services healthy; smoke commands passed; scheduler acquired/released both leases | `/tmp/hammerfall-p12-compose-up.log`; `/tmp/hammerfall-p12-smoke-*.log`; Compose/Rails logs |
+| Browser/E2E | `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/google-chrome npm run test:e2e` | 7/7 final. Initial full runs 6/7 because closer test asserted Cable hint immediately after REST/UI close; bounded polling fixed test timing. CDN browser download 403 in this location | `/tmp/hammerfall-p12-web-e2e-final.log`; initial/isolated logs |
 
 ## Primary implementation checkpoint
 
@@ -54,6 +61,37 @@ Adversarial conclusions:
 - Two independent reconcilers can both attempt the same missing key; the Lua operation gives `applied` then `duplicate`, and repeated checks are healthy. A crash after the Redis write leaves a valid key; the next run is healthy. No exactly-once claim is made.
 - Redis did not affect the accepted bid during its actual outage. PostgreSQL outage prevented comparison and caused no Redis mutation. Neither failure was turned into a successful repair. Sidekiq retry and the next scheduled scan provide later opportunities; logs carry error class, and unavailable batches carry a count. Repair-write failures are separately counted by existing focused tests.
 - Equal-revision conflicting, ahead, malformed and digest-invalid projections remain unchanged for operator review. Sabotage of the equal-revision guard made the between-detection-and-seed safety test fail. Suppressing stale repair made the behind test fail. Direct `SET` in `seed` made the Kafka race fail. All sabotage source edits were restored byte-for-byte and are absent from the commit.
-- Job work is bounded by an ID cursor, fixed max-ID ceiling and `LIMIT 100`. The 101-row test and 196-row live scheduler run proved continuation. **Open operational issue:** independent scheduler ticks can overlap; under a sustained backlog the number of duplicate chains is not capped. The atomic writer protects state, but queue and database work could grow. Resolve or constrain this before Phase 12 is marked complete.
+- Job work is bounded by an ID cursor, fixed max-ID ceiling and `LIMIT 100`. The 101-row test and 196-row live scheduler run proved continuation. This campaign exposed an operational issue: independent ticks could start duplicate chains under sustained backlog. The finalization section records the lease/cursor repair.
 - Batch logs now report `checked` and explicit `healthy`, plus named drift, repair attempt, repair and repair-failure counters, unavailable and operator-review counts. No metric label includes auction or event IDs. Per-auction logs include ID, state/result and error class but no public payload, private maximum, priority, bid origin or idempotency material. These log counters need a documented collection/aggregation procedure; a Prometheus exporter belongs to Phase 13.
 - No Phase 13 tracing/dashboard implementation or separate Phase 0–11 hardening change was introduced. Ordinary authoritative reads remain PostgreSQL based; the explicit eventual public-state endpoint keeps its Phase 11 behavior.
+
+## Scheduler repair and final adversarial closure
+
+ADR-013 records why a PostgreSQL lease was chosen over a process-local flag,
+Redis uniqueness or a connection-held advisory lock. Each scan type has one
+database-clock lease and owner token. Jobs renew it every 25 rows and at page
+boundaries. Cursor compare-and-advance permits only one successor handoff per
+page, including under Sidekiq replay. A dead owner or a crash after cursor
+advance but before enqueue leaves an expiring lease; a later tick reclaims it
+and starts from ID zero. Final pages delete only their own token/cursor row.
+Manual tokenless jobs remain explicitly uncoordinated operator actions.
+
+Final challenge results: parallel claims produced one owner; repeat ticks
+queued one chain per type; a bid committed while both leases were held;
+completion permitted new claims; expiration fenced an old queued page; a
+duplicate page could not branch after handoff; and Redis/PG outages failed
+without leaving permanent ownership. A temporary removal of cursor predicates
+made the targeted test fail and was restored. Each job still has a 100-row
+bound, no auction lock and no long transaction. A frozen worker may finish
+part of one page after its lease expires; it cannot extend that old chain.
+PostgreSQL remains the only auction authority. Kafka/repair race, concurrent
+repair, operator-review and privacy behavior from the live campaign were
+preserved by the full regression. Metric labels remain fixed-cardinality;
+auction IDs occur only in diagnostic logs. No Phase 13 exporter or tracing
+was added.
+
+The final browser run exposed and resolved a test timing assumption, not an
+auction state defect: REST/countdown could show the closed winner before the
+asynchronous Cable hint arrived. The test now waits up to ten seconds for
+the actual hint and the full seven-scenario run passes. This change does not
+alter frontend runtime behavior.

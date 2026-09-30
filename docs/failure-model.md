@@ -110,3 +110,25 @@ automatically; operators seed current auction state with
 poison records make Kafka-only reconstruction unreliable. A corrupt key must
 be removed before replay/seed can write it. See [ADR-012](adr/012-redis-public-projection.md)
 and the [recovery runbook](runbooks/redis-projection.md).
+
+## Phase 12 reconciliation failure
+
+The checker needs PostgreSQL truth before it can compare or repair Redis.
+PostgreSQL outage raises and logs `postgresql_unavailable`; no Redis value is
+speculatively written. Redis read/write outage raises for Sidekiq retry and
+logs unavailability or repair failure. Bidding, closing and ordinary GET
+remain PostgreSQL operations. After Redis returns, a retry or later scheduled
+scan can seed missing or lower-revision keys. Valid stale keys may remain
+until such a scan; ambiguous corrupt, equal-conflicting and ahead keys are
+left for operator review rather than guessed repair.
+
+Two scheduled scan types hold independent, expiring PostgreSQL maintenance
+leases. A scheduler crash after claiming but before enqueue, lost Sidekiq
+continuation, or worker crash can delay scanning until the ten-minute lease
+expires. A later tick restarts at ID zero. A retry after cursor advancement
+cannot fork duplicate successor chains; a crash between that advancement and
+enqueue waits for expiry/restart. Within-page repeated repair is idempotent
+through the Redis revision guard. The lease never participates in auction
+commands or holds a transaction across Redis work. See
+[ADR-013](adr/013-bounded-reconciliation-scan-ownership.md) and the
+[runbook](runbooks/projection-reconciliation.md).

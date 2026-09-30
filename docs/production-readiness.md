@@ -102,7 +102,10 @@ Redis now holds a derived public snapshot for an explicit eventual endpoint.
 Atomic revisions handle duplicate and reordered Kafka records; they do not
 guarantee synchronous freshness. Ordinary GET and commands remain PostgreSQL
 backed. The Redis keyspace is disposable, with manual PostgreSQL seeding after
-loss. A valid stale key requires observation or manual intervention until
-Phase 12 reconciliation work is separately authorized. The local outage,
+loss. A valid stale key can remain until Phase 12's scheduled scan detects
+and repairs it; manual rebuild remains available. Equal-conflicting,
+corrupt and ahead keys still require operator review. The local outage,
 replay and rebuild checks do not establish production replay time, capacity,
-Redis/Kafka HA or backup policy. See [ADR-012](adr/012-redis-public-projection.md).
+Redis/Kafka HA or backup policy. The lease bounds scheduled overlap but no
+maximum detection or repair delay is guaranteed. See [ADR-012](adr/012-redis-public-projection.md)
+and [ADR-013](adr/013-bounded-reconciliation-scan-ownership.md).

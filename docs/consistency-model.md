@@ -103,3 +103,23 @@ current PostgreSQL public read and labels it accordingly. A well-formed but
 stale key remains an eventual result. Redis loss after offset acknowledgment
 requires a manual PostgreSQL rebuild; finite Kafka retention is insufficient
 as a general recovery guarantee. See ADR-012 and the projection runbook.
+
+## Phase 12 reconciliation consistency
+
+The scheduled checker compares PostgreSQL `public_revision` and the exact
+public presenter fields carried by Kafka v1 `data` with a validated Redis
+envelope. Missing and valid lower-revision keys can be seeded from current
+PostgreSQL. Equal identical keys cause no write. Equal conflicts, ahead keys,
+malformed envelopes and bad digests remain unchanged for operator review.
+Metadata differences alone do not constitute drift. The atomic Redis writer
+prevents a repair based on an older PostgreSQL snapshot from replacing a
+newer Kafka delivery. Neither read model nor maintenance lease decides a bid,
+deadline or winner.
+
+Each scheduled page checks at most 100 IDs within one fixed ceiling. The two
+scan types have independent PostgreSQL leases with token/cursor fencing and
+database-clock expiry. Repeated scheduler ticks cannot multiply active
+chains; an abandoned chain is restarted from ID zero after lease expiry.
+Manual unleased scans may overlap and remain safe but consume extra work.
+Detection and repair are eventual, with no finite convergence or freshness
+guarantee. See [ADR-013](adr/013-bounded-reconciliation-scan-ownership.md).

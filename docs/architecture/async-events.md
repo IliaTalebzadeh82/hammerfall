@@ -24,7 +24,8 @@ is made.
 `ReconciliationScheduler` periodically enqueues bounded
 `ReconciliationSweepJob` batches. The job compares the authoritative auction
 price/leader/final winner with the latest accepted Bid in one SQL statement and
-logs drift without changing rows. Overlap and retries are safe. This job does
+logs drift without changing rows. Retries are safe; Phase 12 adds scheduled
+lease ownership to bound overlap. This job does
 not reconcile or repair the Phase 11 Redis projection. Redis never decides a
 bid or winner. Sidekiq jobs
 are distinct from Kafka domain-event consumers. See the [runbook](../runbooks/sidekiq-redis.md).
@@ -70,8 +71,19 @@ equal revision with different data stops processing for review. The Redis key
 holds only public state plus version/freshness metadata. The explicit eventual
 GET can read it or fall back to PostgreSQL. The ordinary GET and every auction
 command use PostgreSQL. A manual PostgreSQL seed recovers lost Redis state;
-there is no scheduled projection repair. See [ADR-012](../adr/012-redis-public-projection.md)
+Phase 11 itself had no scheduled projection repair. See [ADR-012](../adr/012-redis-public-projection.md)
 and the [projection runbook](../runbooks/redis-projection.md).
+
+## Phase 12: scheduled projection reconciliation
+
+`AuctionProjectionReconciliationJob` compares validated Redis public state to
+current PostgreSQL public revision/fields. It uses the existing atomic Redis
+writer for missing or lower-revision keys and leaves ambiguous keys for
+operator review. The read-only PostgreSQL sweep remains distinct. Both
+scheduled chains use PostgreSQL maintenance leases to bound overlap; worker
+pages renew token/cursor ownership without holding an auction transaction.
+See [ADR-013](../adr/013-bounded-reconciliation-scan-ownership.md) and the
+[reconciliation runbook](../runbooks/projection-reconciliation.md).
 
 ## Failure semantics
 

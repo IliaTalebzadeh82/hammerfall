@@ -1,6 +1,8 @@
 # Phase 12 — Reconciliation
 
-Status: Planned; begin only on an explicit request
+Status: Complete — 2026-10-01. See the [ExecPlan](../plans/phase-12-execplan.md)
+and [progress](../progress.md) for actual verification and limits. Phase 13
+requires a separate explicit request.
 
 ## Goal
 

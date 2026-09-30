@@ -1,9 +1,38 @@
-# Current handoff — Phase 12 live verification checkpoint
+# Current handoff — Phase 12 complete
 
-Updated: 2026-10-01. Phase 12 reconciliation remains active, not complete. Continue only this phase from [the ExecPlan](../plans/phase-12-execplan.md), [phase specification](../phases/phase-12.md) and `AGENTS.md`. Phase 13 and the separate post-Phase-12 hardening pass have not started.
+Updated: 2026-10-01. Phase 12 reconciliation is complete. Phase 13 and the
+separate post-Phase-12 hardening pass have not started; each needs an explicit
+request. Use `AGENTS.md`, the requested phase specification and
+[context map](../context-map.md) for future work. This handoff and the
+[Phase 12 ExecPlan](../plans/phase-12-execplan.md) carry the completed state
+and detailed Evidence Index.
 
-The primary implementation is `ceb3d04`. This live campaign verified missing/behind repair, healthy no-mutation repeats, operator review for conflicting/ahead/corrupt keys, real Kafka delivery in both race orders, simultaneous reconcilers, crash-after-write retry, 100-row continuation, actual Redis and PostgreSQL outages/recovery, and Compose scheduler/Sidekiq processing. Four temporary sabotage mutations each caused the expected safety test failure and were restored. The current branch adds a live integration spec, stronger safety/log assertions and an explicit healthy batch count. The ExecPlan Evidence Index has commands, counts, logs and limitations.
+PostgreSQL remains the only auction authority. `AuctionProjectionReconciler`
+compares its public revision and fields against validated Redis state, seeds
+missing/lower-revision keys through the atomic writer, and leaves
+equal-conflicting, corrupt or ahead keys for operator review. Equal identical
+state is a no-op. The existing PostgreSQL consistency sweep remains read-only
+and separate. Each scheduled scan checks at most 100 ID-ordered rows per job.
+PostgreSQL leases with token/cursor fencing prevent ticks, multiple schedulers
+and Sidekiq replay from multiplying scan chains; expiry restarts abandoned
+work from ID zero. Neither the lease nor Redis participates in bids.
 
-The final live run passed 19 RSpec examples with real PostgreSQL/Redis/Kafka, 0 failures (seed 62495); changed-file RuboCop found 0 offenses. Redis/Kafka test isolation uses Redis DB 1 and the dedicated `hammerfall.phase12.verify` topic; the two Kafka examples require `PHASE12_LIVE_KAFKA=1` and skip in ordinary backend CI. Redis and PostgreSQL containers were restored healthy. PostgreSQL remains authoritative; no command, Kafka consumer or atomic projection-write code changed.
+Commits `ceb3d04` and `3b7e64f` contain the primary implementation and live
+campaign; `6f8f94b` adds bounded scheduled ownership. The live campaign
+verified real Kafka race orderings, concurrent reconcilers, outages, crash
+recovery, corruption/review and four successful sabotage experiments. Final
+backend regression: 410 examples, 0 failures, 2 explicitly gated live Kafka
+examples pending; RuboCop 108 files/0 offenses, Brakeman 0 warnings,
+bundler-audit no vulnerabilities and Zeitwerk passed. Frontend lint, format,
+types, production build and 73 Vitest tests passed. Compose startup, service
+health, scheduler/Kafka/API/concurrent/proxy/publisher/closer smokes passed.
+Real Playwright with installed system Chrome passed 7/7 after a browser test
+waited for the asynchronous Cable hint. Hosted CI was not run.
 
-Next: assess scheduler overlap under sustained backlog. Each scan chain is finite and each job checks at most 100 rows, but repeated scheduler ticks can accumulate duplicate chains if scans take longer than the interval. Resolve or explicitly constrain this before completion. Then run broad regression and final Compose/runtime/browser/security/static checks, write the Phase 12 ADR/runbook and other durable docs, record final review/evidence, and complete the handoff. Do not repeat the finished live campaign without a concrete regression risk.
+Limits: valid stale Redis state can persist until a successful scan; ambiguous
+states require operator review. A lost page handoff can delay until the
+ten-minute lease expires. Per-batch structured log counts are not exported
+Prometheus counters. No fixed convergence time, production capacity, HA or
+real-money readiness is claimed. The demo API remains unauthenticated. See
+[ADR-013](../adr/013-bounded-reconciliation-scan-ownership.md) and the
+[runbook](../runbooks/projection-reconciliation.md) for ownership and recovery.
