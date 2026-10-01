@@ -46,6 +46,24 @@ def main():
     verify = json.loads((path / "verify.json").read_text())
     env = before["environment"]
     fixture = env["manifest"]
+    measurement_command = next((line.removeprefix("measurement: ") for line in
+                                (path / "commands.txt").read_text().splitlines()
+                                if line.startswith("measurement: ")), "unknown")
+    iterations = metric(summary, "iterations") or 0
+    command_count = None
+    maximum_count = None
+    if fixture["scenario"] == "normal":
+        cycles, remainder = divmod(iterations, 10)
+        expected_bids = 2 * cycles + sum(slot < remainder for slot in (7, 8))
+        expected_maxima = cycles
+        observed_mutations = sum(metric(summary, name) or 0 for name in
+                                 ("benchmark_mutation_accepted", "benchmark_mutation_domain_rejected"))
+        if observed_mutations == expected_bids + expected_maxima:
+            command_count, maximum_count = expected_bids, expected_maxima
+    elif fixture["scenario"] == "hot":
+        command_count = iterations
+    elif fixture["scenario"] == "duplicate":
+        command_count = iterations
     lines = [f"# {fixture['scenario']} — {fixture['run_id']}", "",
              f"Recorded from commit `{before['git_sha']}` at {before['captured_at_utc']} UTC.", "",
              "## Environment and method", "",
@@ -55,16 +73,20 @@ def main():
              f"- Kafka topic: {env['kafka_topic_partitions']} partitions; Redis settings: {env['redis_config']}; API OTEL_ENABLED={env['api_otel_enabled']}.",
              f"- Fixture: {len(fixture['auctions'])} auction(s), {len(fixture['users'])} bidder(s), starting price {fixture['starting_price']} cents, increment {fixture['minimum_increment']} cents, ends at {fixture['ends_at']}.",
              "- Separate read-only warm-up: 1 VU for 5 seconds. Exact commands and load configuration are in `commands.txt`; raw summary, log and snapshots are adjacent.",
+             f"- Measurement command: `{measurement_command}`; achieved VUs: {metric(summary, 'vus_max', 'max') or 'see summary.json'}.",
              "", "## Results", "",
              "| Measure | Count/rate | p50 | p95 | p99 |", "|---|---:|---:|---:|---:|",]
     for label, name, count_name in [
         ("All HTTP requests", "http_req_duration", "http_reqs"),
-        ("Bid HTTP duration", "benchmark_bid_duration", None),
-        ("Maximum HTTP duration", "benchmark_maximum_duration", None),
+        ("Bid HTTP duration", "benchmark_bid_duration", "_derived_bid"),
+        ("Maximum HTTP duration", "benchmark_maximum_duration", "_derived_maximum"),
         ("Replay HTTP duration", "benchmark_replay_duration", "benchmark_idempotent_replay"),
     ]:
         if name in summary:
-            count = metric(summary, count_name) if count_name else "see outcome counts"
+            count = (command_count if count_name == "_derived_bid" else
+                     maximum_count if count_name == "_derived_maximum" else
+                     metric(summary, count_name))
+            count = count if count is not None else "see outcome counts"
             lines.append(f"| {label} | {count} | {fmt(metric(summary, name, 'med'))} ms | {fmt(metric(summary, name, 'p(95)'))} ms | {fmt(metric(summary, name, 'p(99)'))} ms |")
     lines += ["", f"Achieved request rate: {fmt(metric(summary, 'http_reqs', 'rate'))}/s; iterations: {metric(summary, 'iterations')}; unexpected HTTP failures: {metric(summary, 'http_req_failed', 'passes') or 0}.",
               "", "| Classified outcome | Count |", "|---|---:|"]
@@ -95,7 +117,10 @@ def main():
     ]:
         count, bounds = bucket_bounds(bucket_delta(before, after, source, labels))
         if count:
-            lines.append(f"- {label}: {int(count)} observed histogram samples; p50/p95/p99 **bucket upper bounds** {', '.join(fmt(x * 1000) + ' ms' for x in bounds)}.")
+            if count < 20:
+                lines.append(f"- {label}: {int(count)} observed histogram samples; too few for useful percentile reporting.")
+            else:
+                lines.append(f"- {label}: {int(count)} observed histogram samples; p50/p95/p99 **bucket upper bounds** {', '.join(fmt(x * 1000) + ' ms' for x in bounds)}.")
     lines += ["", "## Interpretation and limits", "",
               "This is one short local run on a shared host. It establishes no production capacity or SLO. A single during-run PostgreSQL sample can miss a peak; Prometheus counters can lag k6 at snapshot time. Histogram figures are bucket bounds, not exact percentiles. Kafka lag gauges can remain stale while idle. Compare only like configurations and repeat before concluding a bottleneck.", ""]
     (path / "report.md").write_text("\n".join(lines))

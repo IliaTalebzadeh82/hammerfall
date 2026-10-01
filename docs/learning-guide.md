@@ -861,3 +861,21 @@ and process identity before diagnosing a present naming defect from retained
 history. The final distributed trace also had one short HTTP root and later
 consumer child spans, so trace parentage did not imply a synchronous request
 waiting for Kafka or Sidekiq.
+
+## Phase 14 — Measuring load without changing auction authority (in progress)
+
+A 2xx-only load script would confuse successful reads, accepted bids and
+idempotent replays, while treating expected stale bids as failures. The k6
+harness classifies these separately and verifies committed PostgreSQL state
+rather than trusting transport status. Fresh labeled fixtures, a read-only
+warm-up, exact configuration and retained raw output make each local run
+interpretable. Read `load-tests/README.md`, `load-tests/common.js`,
+`apps/api/script/benchmark_verify.rb` and `docs/benchmarks/README.md`.
+
+One hot auction intentionally serializes mutations. The first 8 VU primary
+run measured 1,519 bid attempts, 370 accepted bids and 1,149 expected domain
+rejections with no database-check failure. Lock-wait p95 fell within the 50 ms
+histogram bucket, while bid HTTP p95 was 96.42 ms. Neither a row lock nor a
+single CPU sample proves the dominant bottleneck; later steps must separate
+post-lock work, server queueing, pool pressure and shared-host effects. The
+remaining Phase 14 scenarios and saturation study are still open.

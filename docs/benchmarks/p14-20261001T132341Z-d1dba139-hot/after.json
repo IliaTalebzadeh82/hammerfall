@@ -1,0 +1,1400 @@
+{
+  "stage": "after",
+  "captured_at_utc": "2026-10-01T13:24:30.596491+00:00",
+  "run_id": "p14-20261001T132341Z-d1dba139",
+  "git_sha": "44864cd360b3af0dd65d8ca5e5ac6f0db554e07b",
+  "pg_state": {
+    "sessions": 11,
+    "active": 1,
+    "lock_waiters": 0,
+    "fixture_sidekiq_pending": 0,
+    "fixture_kafka_pending": 0
+  },
+  "docker_stats": [
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.44%",
+      "Container": "ae121d51fc6b2e3e0e164de6e857eedff8f5f6e2a42f5751e4275435d84fa2ac",
+      "ID": "ae121d51fc6b",
+      "MemPerc": "0.28%",
+      "MemUsage": "87.72MiB / 30.32GiB",
+      "Name": "hammerfall-outbox-publisher-1",
+      "NetIO": "1.73MB / 1.49MB",
+      "PIDs": "6"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.07%",
+      "Container": "c0c85fb47b69868f71e555560b255f24d3cf23a862bfd5639b8bb2feb55f387e",
+      "ID": "c0c85fb47b69",
+      "MemPerc": "0.30%",
+      "MemUsage": "91.71MiB / 30.32GiB",
+      "Name": "hammerfall-sidekiq-1",
+      "NetIO": "2.03MB / 1.13MB",
+      "PIDs": "10"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.07%",
+      "Container": "bd618a3c839bdff8a3de66459833dbaad72b911ddc667319c2593b2e724ecfed",
+      "ID": "bd618a3c839b",
+      "MemPerc": "0.26%",
+      "MemUsage": "81.09MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-projection-consumer-1",
+      "NetIO": "1.1MB / 1.94MB",
+      "PIDs": "11"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.47%",
+      "Container": "2119f47aa43b4a2ae3191fb1484cc60d16ed00aa146f797da41f1e7135812fe9",
+      "ID": "2119f47aa43b",
+      "MemPerc": "0.28%",
+      "MemUsage": "88.44MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-outbox-publisher-1",
+      "NetIO": "1.77MB / 1.8MB",
+      "PIDs": "10"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.28%",
+      "Container": "4b009cf9ba8e3bab62d206663c98209a08c09f91c6838f554efc7a855fa8863f",
+      "ID": "4b009cf9ba8e",
+      "MemPerc": "0.24%",
+      "MemUsage": "75.63MiB / 30.32GiB",
+      "Name": "hammerfall-auction-closer-1",
+      "NetIO": "62.3kB / 81.1kB",
+      "PIDs": "6"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.08%",
+      "Container": "9ab302df6e31cad3c60e61165365386532352de2d4a7d471f1e65ab5c819a23d",
+      "ID": "9ab302df6e31",
+      "MemPerc": "0.26%",
+      "MemUsage": "80.15MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-audit-consumer-1",
+      "NetIO": "1.85MB / 2.16MB",
+      "PIDs": "11"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.06%",
+      "Container": "0af2cb302acf4d9a11e0fad28b4c0d44bfd4bdb0b17b9fa30367bc17fa9cee48",
+      "ID": "0af2cb302acf",
+      "MemPerc": "0.24%",
+      "MemUsage": "75.7MiB / 30.32GiB",
+      "Name": "hammerfall-reconciliation-scheduler-1",
+      "NetIO": "26kB / 16.1kB",
+      "PIDs": "6"
+    },
+    {
+      "BlockIO": "0B / 4.14MB",
+      "CPUPerc": "0.12%",
+      "Container": "51d393ccb79da491bc38cd3e930e8e70221d6cf4a37f852549c46f2a35c44bd1",
+      "ID": "51d393ccb79d",
+      "MemPerc": "0.36%",
+      "MemUsage": "111.4MiB / 30.32GiB",
+      "Name": "hammerfall-api-1",
+      "NetIO": "15.7MB / 17.2MB",
+      "PIDs": "13"
+    },
+    {
+      "BlockIO": "48.2MB / 12.4MB",
+      "CPUPerc": "0.20%",
+      "Container": "681cabaa77ed96f860cf8547dbbed452fb913461b6649795256c3da79cd0984d",
+      "ID": "681cabaa77ed",
+      "MemPerc": "0.28%",
+      "MemUsage": "86.25MiB / 30.32GiB",
+      "Name": "hammerfall-grafana-1",
+      "NetIO": "357kB / 798kB",
+      "PIDs": "29"
+    },
+    {
+      "BlockIO": "1.09MB / 63.2MB",
+      "CPUPerc": "0.54%",
+      "Container": "720f0755c9c2db3a8ab431d87af9b5b4ee132f36dfbbb1282952df9b636bf85c",
+      "ID": "720f0755c9c2",
+      "MemPerc": "0.37%",
+      "MemUsage": "113.8MiB / 30.32GiB",
+      "Name": "hammerfall-tempo-1",
+      "NetIO": "1.55MB / 128kB",
+      "PIDs": "28"
+    },
+    {
+      "BlockIO": "332kB / 5.97MB",
+      "CPUPerc": "0.25%",
+      "Container": "8d777dd3cc060ac3ee621699e588f4da47571f1f73a801f809444f9fc1cc8597",
+      "ID": "8d777dd3cc06",
+      "MemPerc": "0.10%",
+      "MemUsage": "31.61MiB / 30.32GiB",
+      "Name": "hammerfall-prometheus-1",
+      "NetIO": "1.82MB / 1.94MB",
+      "PIDs": "26"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.61%",
+      "Container": "206406c8fa349b2b53a7290bff8ccded8eb01690596bf01682498ebc669815f1",
+      "ID": "206406c8fa34",
+      "MemPerc": "0.19%",
+      "MemUsage": "57.93MiB / 30.32GiB",
+      "Name": "hammerfall-otel-collector-1",
+      "NetIO": "5.83MB / 3.07MB",
+      "PIDs": "24"
+    },
+    {
+      "BlockIO": "872kB / 193MB",
+      "CPUPerc": "257.95%",
+      "Container": "ee4ffecd23c674330a4c31431a4c0fd4a868d852c21d2524f33b70c7c89f1872",
+      "ID": "ee4ffecd23c6",
+      "MemPerc": "3.55%",
+      "MemUsage": "1.076GiB / 30.32GiB",
+      "Name": "hammerfall-kafka-1",
+      "NetIO": "8.86MB / 10.5MB",
+      "PIDs": "156"
+    },
+    {
+      "BlockIO": "33.7MB / 31.7MB",
+      "CPUPerc": "4.49%",
+      "Container": "275c9fb461f3e56ae6a77a31c124f24f83db650039cf7ba150878d6e54821cb2",
+      "ID": "275c9fb461f3",
+      "MemPerc": "0.02%",
+      "MemUsage": "5.762MiB / 30.32GiB",
+      "Name": "hammerfall-redis-1",
+      "NetIO": "10.4MB / 23.5MB",
+      "PIDs": "6"
+    },
+    {
+      "BlockIO": "614kB / 61.2MB",
+      "CPUPerc": "0.00%",
+      "Container": "a2d7c0931c24009b271a844cee288eb89ba5a74ab5b50f7bd4ea6803e4025116",
+      "ID": "a2d7c0931c24",
+      "MemPerc": "4.77%",
+      "MemUsage": "1.447GiB / 30.32GiB",
+      "Name": "hammerfall-web-1",
+      "NetIO": "10.9MB / 111MB",
+      "PIDs": "91"
+    },
+    {
+      "BlockIO": "16MB / 1.09GB",
+      "CPUPerc": "1.06%",
+      "Container": "7c6a9d3e6032e249674245fbbf50520464ee96348011cdadb4459f6775e9e345",
+      "ID": "7c6a9d3e6032",
+      "MemPerc": "0.27%",
+      "MemUsage": "85.26MiB / 30.32GiB",
+      "Name": "hammerfall-db-1",
+      "NetIO": "111MB / 147MB",
+      "PIDs": "19"
+    }
+  ],
+  "prometheus": {
+    "lock_wait_bucket": [
+      {
+        "metric": {
+          "le": "0.001",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "8"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "856"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1045"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1393"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1492"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1493"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1493"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1493"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1493"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1493"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1493"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1493"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1493"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1493"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.001",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "141"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf",
+          "operation": "set_maximum_bid"
+        },
+        "value": [
+          1790861073.172,
+          "152"
+        ]
+      }
+    ],
+    "bid_processing_bucket": [
+      {
+        "metric": {
+          "le": "0.001",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "6"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "477"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "585"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "585"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "585"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "585"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "585"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "585"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "585"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "585"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "585"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.001",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "2"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "130"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf",
+          "operation": "set_maximum_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790861073.356,
+          "152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.001",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "69"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "749"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "907"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "907"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "907"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "907"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "907"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "907"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "907"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "907"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790861073.356,
+          "907"
+        ]
+      }
+    ],
+    "publisher_duration_bucket": [
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.001"
+        },
+        "value": [
+          1790861073.53,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.005"
+        },
+        "value": [
+          1790861073.53,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.01"
+        },
+        "value": [
+          1790861073.53,
+          "289"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.025"
+        },
+        "value": [
+          1790861073.53,
+          "783"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.05"
+        },
+        "value": [
+          1790861073.53,
+          "784"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.1"
+        },
+        "value": [
+          1790861073.53,
+          "785"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.25"
+        },
+        "value": [
+          1790861073.53,
+          "785"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.5"
+        },
+        "value": [
+          1790861073.53,
+          "785"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "1.0"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "2.5"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "5.0"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "10.0"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "30.0"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "+Inf"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.001"
+        },
+        "value": [
+          1790861073.53,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.005"
+        },
+        "value": [
+          1790861073.53,
+          "753"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.01"
+        },
+        "value": [
+          1790861073.53,
+          "779"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.025"
+        },
+        "value": [
+          1790861073.53,
+          "785"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.05"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.1"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.25"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.5"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "1.0"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "2.5"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "5.0"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "10.0"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "30.0"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "+Inf"
+        },
+        "value": [
+          1790861073.53,
+          "786"
+        ]
+      }
+    ],
+    "outbox_pending": [
+      {
+        "metric": {
+          "__name__": "hammerfall_outbox_pending_events",
+          "channel": "kafka",
+          "exported_instance": "2119f47aa43b:1",
+          "exported_job": "hammerfall-kafka-outbox-publisher",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790861073.7,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_outbox_pending_events",
+          "channel": "sidekiq",
+          "exported_instance": "ae121d51fc6b:1",
+          "exported_job": "hammerfall-outbox-publisher",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790861073.7,
+          "0"
+        ]
+      }
+    ],
+    "outbox_oldest_age": [
+      {
+        "metric": {
+          "__name__": "hammerfall_outbox_oldest_event_age_seconds",
+          "channel": "kafka",
+          "exported_instance": "2119f47aa43b:1",
+          "exported_job": "hammerfall-kafka-outbox-publisher",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790861073.874,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_outbox_oldest_event_age_seconds",
+          "channel": "sidekiq",
+          "exported_instance": "ae121d51fc6b:1",
+          "exported_job": "hammerfall-outbox-publisher",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790861073.874,
+          "0"
+        ]
+      }
+    ],
+    "kafka_lag": [
+      {
+        "metric": {
+          "__name__": "hammerfall_kafka_consumer_lag",
+          "consumer_group": "hammerfall.audit.v1",
+          "exported_instance": "9ab302df6e31:1",
+          "exported_job": "hammerfall-kafka-audit-consumer",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "partition": "0"
+        },
+        "value": [
+          1790861074.045,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_kafka_consumer_lag",
+          "consumer_group": "hammerfall.projection.v1",
+          "exported_instance": "bd618a3c839b:1",
+          "exported_job": "hammerfall-kafka-projection-consumer",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "partition": "0"
+        },
+        "value": [
+          1790861074.045,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_kafka_consumer_lag",
+          "consumer_group": "hammerfall.projection.v1",
+          "exported_instance": "bd618a3c839b:1",
+          "exported_job": "hammerfall-kafka-projection-consumer",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "partition": "1"
+        },
+        "value": [
+          1790861074.045,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_kafka_consumer_lag",
+          "consumer_group": "hammerfall.projection.v1",
+          "exported_instance": "bd618a3c839b:1",
+          "exported_job": "hammerfall-kafka-projection-consumer",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "partition": "2"
+        },
+        "value": [
+          1790861074.045,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_kafka_consumer_lag",
+          "consumer_group": "hammerfall.audit.v1",
+          "exported_instance": "9ab302df6e31:1",
+          "exported_job": "hammerfall-kafka-audit-consumer",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "partition": "1"
+        },
+        "value": [
+          1790861074.045,
+          "2"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_kafka_consumer_lag",
+          "consumer_group": "hammerfall.audit.v1",
+          "exported_instance": "9ab302df6e31:1",
+          "exported_job": "hammerfall-kafka-audit-consumer",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "partition": "2"
+        },
+        "value": [
+          1790861074.045,
+          "1"
+        ]
+      }
+    ],
+    "reconciliation": [
+      {
+        "metric": {
+          "__name__": "hammerfall_projection_drift_total",
+          "exported_instance": "c0c85fb47b69:1",
+          "exported_job": "hammerfall-sidekiq",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "kind": "behind",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790861074.22,
+          "1"
+        ]
+      }
+    ]
+  }
+}

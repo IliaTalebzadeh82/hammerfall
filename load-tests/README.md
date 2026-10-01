@@ -61,7 +61,7 @@ client/server error and timeout separately. `http_req_failed` uses expected
 200/201/409/422 statuses; inspect the custom outcome counts for semantics.
 
 Use a distinct fixture for each step and repeat. Store `summary.json`, the full
-`k6.log`, environment/configuration, database verification, telemetry snapshots
+`k6.log.gz` (lossless compressed terminal output), environment/configuration, database verification, telemetry snapshots
 and a concise interpretation in the retained result directory. Important runs
 need a small, separate read-only warm-up; record it explicitly. Compare only
 runs with the same configuration, and report achieved rather than requested

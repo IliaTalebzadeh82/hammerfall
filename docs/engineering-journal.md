@@ -532,3 +532,22 @@ names from processes before the gauge-unit fix, while an instant query showed
 only the corrected current gauges. Instant samples and process identity matter
 when judging a final metric contract. Controlled loss and repair of one derived
 Redis key produced cumulative repair counters without changing PostgreSQL.
+
+## 2026-10-01 — Phase 14 benchmark setup failures were measurable
+
+The first normal smoke's `iteration % 10` workload slot and `iteration % 8`
+auction choice correlated: some auctions never received maximum commands.
+Decoupling auction choice from the slot spread manual and maximum commands
+across all eight. The first 30-second run found API `OTEL_ENABLED=false`
+despite running Collector/Prometheus containers; container health alone did
+not prove application instrumentation. An early hot after-snapshot captured
+fewer lock histogram samples than k6 bid attempts. Waiting 20 seconds for
+export/scrape settlement yielded exact agreement (1,519/1,519 in the primary
+hot run). These exploratory results remain labeled and should not be mixed
+with the committed-harness primary comparisons.
+
+At 8 VUs on one auction, the primary run showed a ≤50 ms p95 lock-wait bucket
+and 96.42 ms p95 bid HTTP duration, with 370 accepted and 1,149 expected
+rejections. One during-run sample saw 4 Sidekiq and 7 Kafka pending outbox
+rows, all drained afterward. This is evidence for deeper Phase 14 isolation,
+not proof of a saturation point or grounds for a Phase 15 redesign.

@@ -1,44 +1,28 @@
-# Current handoff — Phase 13 complete
+# Current handoff — Phase 14 Load Testing in progress
 
-Updated: 2026-10-01. Phase 13 Observability is complete after local and hosted
-verification. Phase 14 has not started and requires an explicit request. Read
-`AGENTS.md`, [the Phase 13 ExecPlan](../plans/phase-13-execplan.md), the
-[observability contract](../observability.md) and targeted context from the
-[map](../context-map.md) when revisiting this work. The ExecPlan Evidence Index
-holds exact commands, trace IDs, run URLs, results and limits.
+Updated: 2026-10-01. Phase 13 is complete; Phase 14 was explicitly requested
+and its first milestone is complete. This is a hard checkpoint. Resume in a
+fresh Codex conversation with `AGENTS.md`, [Phase 14](../phases/phase-14.md),
+the [active ExecPlan](../plans/phase-14-execplan.md) and targeted architecture
+from the [context map](../context-map.md). The ExecPlan Evidence Index and
+[benchmark index](../benchmarks/README.md) contain exact run evidence.
 
-Phase 13 commits `76df52c`, `51270a7`, `abeeb73` and `701aad6` established
-passive Rails telemetry, bounded OTLP export, an optional local
-Collector/Prometheus/Tempo/Grafana stack, structured boundary logs, W3C context
-through HTTP/Sidekiq/Kafka, async and consistency metrics and a provisioned
-operations dashboard. PostgreSQL authority, public Kafka v1 payload, Sidekiq
-args and offset/lock protocols remain unchanged. Collector/storage outages kept
-proxy bidding correct in local evidence.
+Harness commit `c86f4f8` added pinned k6 1.8.1, isolated demo-API fixtures,
+normal/hot/duplicate scenarios, read-only warm-up, environment/telemetry capture,
+PostgreSQL correctness verification and per-run reports. The primary runs used
+the unchanged Compose application configuration with API observability enabled.
+Normal 4 VU, hot 8 VU and duplicate 8 VU runs completed with zero unexpected
+HTTP failures and zero checker failures. One hot auction yielded 370 accepted
+bids and 1,149 expected domain rejections in 30 seconds. Duplicate retries
+produced one logical bid from 2,507 HTTP attempts. These are short local runs,
+not a capacity threshold. Earlier exploratory runs found and corrected a
+fixture-selection correlation, an observability enablement mistake and a
+too-early metric snapshot; the raw evidence is retained and labeled.
 
-Final backend regression passed 439 examples with zero failures and three
-separately gated cases; all three live Kafka cases passed. RuboCop, Zeitwerk,
-Brakeman and bundler-audit passed. Frontend passed 73 tests, lint, format,
-typecheck and build. Normal and observability-profile Compose startup and the
-full-stack smokes passed. Google Chrome 154 passed all 7 real browser scenarios.
-A fresh maximum-bid trace had 19 spans across six services with one short root
-and no missing parents. Current Prometheus series had bounded labels; 30/30
-dashboard queries were valid and 28 had data. Traces/logs/metric labels passed
-privacy review. A controlled derived Redis key loss was repaired and exported
-cumulative repair metrics. Final adversarial review found no new Critical or
-High Phase 13 defect.
-
-Hosted [run 36864158904](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36864158904)
-on implementation commit `701aad6d882c34e4eb912244cdde92c83080025a`
-passed API, web and Compose jobs, including all seven Chrome scenarios. The
-closure commit updates documentation only and is checked by a separate hosted
-run. No observability-profile step exists in CI; that stack was verified
-locally.
-
-Retained limits: unauthenticated demo; publisher row lock/connection held
-across external I/O; Kafka lag gauge can be stale when idle; alpha Ruby metrics
-SDK; Collector v0.136.0 optional-namespace log warning; no capacity or queue
-saturation evidence. Public production, HA, backups/restores, SLOs/alerts and
-Kubernetes deployment are not claimed. See [production readiness](../production-readiness.md)
-and the [observability runbook](../runbooks/observability.md). Phase 14 owns
-future capacity measurement; Phase 15 owns any publisher redesign justified by
-evidence. Do not begin either without a request.
+Next: closing storm and closer race, feasible 1,000-bidder challenge, WebSocket
+fanout, stepped saturation, repeatability, trace/lock/pool/publisher analysis,
+checker/classifier sabotage, full regression, Compose/browser/hosted CI and
+final documentation/adversarial review. No Phase 15 optimization has begun.
+Use fresh fixtures for each run, keep `OTEL_ENABLED=true` for primary evidence,
+and preserve PostgreSQL authority. The current tree should be clean after the
+checkpoint evidence commit; verify at resume.

@@ -1,0 +1,378 @@
+{
+  "stage": "before",
+  "captured_at_utc": "2026-10-01T13:20:57.890139+00:00",
+  "run_id": "p14-20261001T132051Z-129892c8",
+  "git_sha": "44864cd360b3af0dd65d8ca5e5ac6f0db554e07b",
+  "pg_state": {
+    "sessions": 11,
+    "active": 1,
+    "lock_waiters": 0,
+    "fixture_sidekiq_pending": 0,
+    "fixture_kafka_pending": 0
+  },
+  "docker_stats": [
+    {
+      "BlockIO": "811kB / 4.07MB",
+      "CPUPerc": "0.00%",
+      "Container": "dabf49c2702262bce801c5e3ee6dfe6cf5a965c98d9f0de3c02e8624ba54fc18",
+      "ID": "dabf49c27022",
+      "MemPerc": "0.30%",
+      "MemUsage": "92.36MiB / 30.32GiB",
+      "Name": "hammerfall-sidekiq-1",
+      "NetIO": "15.6MB / 3.45MB",
+      "PIDs": "8"
+    },
+    {
+      "BlockIO": "36.9kB / 0B",
+      "CPUPerc": "0.06%",
+      "Container": "5a2104305e451b14d906a79d99d130086c55e167fcbddc4aa540ec85a4c5652f",
+      "ID": "5a2104305e45",
+      "MemPerc": "0.25%",
+      "MemUsage": "78.71MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-audit-consumer-1",
+      "NetIO": "2.35MB / 2.22MB",
+      "PIDs": "9"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.57%",
+      "Container": "cb00e1761ca617bc575da8221b63c021d6171150977616fac3e28f3e53e96bfc",
+      "ID": "cb00e1761ca6",
+      "MemPerc": "0.25%",
+      "MemUsage": "78.51MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-outbox-publisher-1",
+      "NetIO": "3.9MB / 4.17MB",
+      "PIDs": "8"
+    },
+    {
+      "BlockIO": "12.3kB / 12.3kB",
+      "CPUPerc": "0.57%",
+      "Container": "72ade2cf1b39dbed5085cbef5ff823bc15a982df255d5790f07be07d1b1eab89",
+      "ID": "72ade2cf1b39",
+      "MemPerc": "0.25%",
+      "MemUsage": "78.26MiB / 30.32GiB",
+      "Name": "hammerfall-outbox-publisher-1",
+      "NetIO": "3.87MB / 3.82MB",
+      "PIDs": "4"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.23%",
+      "Container": "e1bd61c05e5a11674387f22c0dc0932ea7b3b813fa6ab23ba8a505acf12b4b9b",
+      "ID": "e1bd61c05e5a",
+      "MemPerc": "0.25%",
+      "MemUsage": "77.04MiB / 30.32GiB",
+      "Name": "hammerfall-auction-closer-1",
+      "NetIO": "785kB / 1.29MB",
+      "PIDs": "4"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.05%",
+      "Container": "2fed8b0afd89677266fd2c70a1e1d0a680e1247b0230f391f50ee2d6f8ccdc21",
+      "ID": "2fed8b0afd89",
+      "MemPerc": "0.25%",
+      "MemUsage": "76.41MiB / 30.32GiB",
+      "Name": "hammerfall-reconciliation-scheduler-1",
+      "NetIO": "64.8kB / 87.7kB",
+      "PIDs": "4"
+    },
+    {
+      "BlockIO": "12.3kB / 0B",
+      "CPUPerc": "0.06%",
+      "Container": "9baa7f65783c44ef723a0afd151d63de1acec124cec98b164e08b7a9fc5cf8fe",
+      "ID": "9baa7f65783c",
+      "MemPerc": "0.25%",
+      "MemUsage": "78.97MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-projection-consumer-1",
+      "NetIO": "1.88MB / 2.08MB",
+      "PIDs": "9"
+    },
+    {
+      "BlockIO": "1.97MB / 233kB",
+      "CPUPerc": "0.02%",
+      "Container": "676bed30c322e444bf6a06183ea4194a832984afbf710ec419af98ca1d9530bb",
+      "ID": "676bed30c322",
+      "MemPerc": "0.37%",
+      "MemUsage": "116.4MiB / 30.32GiB",
+      "Name": "hammerfall-api-1",
+      "NetIO": "9.71MB / 10.4MB",
+      "PIDs": "11"
+    },
+    {
+      "BlockIO": "48.2MB / 11.9MB",
+      "CPUPerc": "0.36%",
+      "Container": "681cabaa77ed96f860cf8547dbbed452fb913461b6649795256c3da79cd0984d",
+      "ID": "681cabaa77ed",
+      "MemPerc": "0.28%",
+      "MemUsage": "86.23MiB / 30.32GiB",
+      "Name": "hammerfall-grafana-1",
+      "NetIO": "337kB / 795kB",
+      "PIDs": "29"
+    },
+    {
+      "BlockIO": "1.09MB / 53.2MB",
+      "CPUPerc": "0.82%",
+      "Container": "720f0755c9c2db3a8ab431d87af9b5b4ee132f36dfbbb1282952df9b636bf85c",
+      "ID": "720f0755c9c2",
+      "MemPerc": "0.15%",
+      "MemUsage": "45.88MiB / 30.32GiB",
+      "Name": "hammerfall-tempo-1",
+      "NetIO": "756kB / 105kB",
+      "PIDs": "28"
+    },
+    {
+      "BlockIO": "332kB / 5.41MB",
+      "CPUPerc": "0.00%",
+      "Container": "8d777dd3cc060ac3ee621699e588f4da47571f1f73a801f809444f9fc1cc8597",
+      "ID": "8d777dd3cc06",
+      "MemPerc": "0.10%",
+      "MemUsage": "30.06MiB / 30.32GiB",
+      "Name": "hammerfall-prometheus-1",
+      "NetIO": "1.74MB / 1.92MB",
+      "PIDs": "26"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.06%",
+      "Container": "206406c8fa349b2b53a7290bff8ccded8eb01690596bf01682498ebc669815f1",
+      "ID": "206406c8fa34",
+      "MemPerc": "0.11%",
+      "MemUsage": "34.02MiB / 30.32GiB",
+      "Name": "hammerfall-otel-collector-1",
+      "NetIO": "2.68MB / 2.1MB",
+      "PIDs": "24"
+    },
+    {
+      "BlockIO": "872kB / 180MB",
+      "CPUPerc": "1.28%",
+      "Container": "ee4ffecd23c674330a4c31431a4c0fd4a868d852c21d2524f33b70c7c89f1872",
+      "ID": "ee4ffecd23c6",
+      "MemPerc": "3.30%",
+      "MemUsage": "1.002GiB / 30.32GiB",
+      "Name": "hammerfall-kafka-1",
+      "NetIO": "6.3MB / 7.14MB",
+      "PIDs": "125"
+    },
+    {
+      "BlockIO": "32.2MB / 25.4MB",
+      "CPUPerc": "4.56%",
+      "Container": "275c9fb461f3e56ae6a77a31c124f24f83db650039cf7ba150878d6e54821cb2",
+      "ID": "275c9fb461f3",
+      "MemPerc": "0.02%",
+      "MemUsage": "6.152MiB / 30.32GiB",
+      "Name": "hammerfall-redis-1",
+      "NetIO": "7.73MB / 21.7MB",
+      "PIDs": "6"
+    },
+    {
+      "BlockIO": "614kB / 61MB",
+      "CPUPerc": "0.01%",
+      "Container": "a2d7c0931c24009b271a844cee288eb89ba5a74ab5b50f7bd4ea6803e4025116",
+      "ID": "a2d7c0931c24",
+      "MemPerc": "4.77%",
+      "MemUsage": "1.446GiB / 30.32GiB",
+      "Name": "hammerfall-web-1",
+      "NetIO": "10.9MB / 111MB",
+      "PIDs": "91"
+    },
+    {
+      "BlockIO": "15.8MB / 891MB",
+      "CPUPerc": "0.53%",
+      "Container": "7c6a9d3e6032e249674245fbbf50520464ee96348011cdadb4459f6775e9e345",
+      "ID": "7c6a9d3e6032",
+      "MemPerc": "0.26%",
+      "MemUsage": "81.07MiB / 30.32GiB",
+      "Name": "hammerfall-db-1",
+      "NetIO": "93MB / 120MB",
+      "PIDs": "19"
+    }
+  ],
+  "prometheus": {
+    "lock_wait_bucket": [],
+    "bid_processing_bucket": [],
+    "publisher_duration_bucket": [],
+    "outbox_pending": [],
+    "outbox_oldest_age": [],
+    "kafka_lag": [],
+    "reconciliation": []
+  },
+  "environment": {
+    "host_os": "Linux-7.0.0-34-generic-x86_64-with-glibc2.43",
+    "cpu_model": "Intel(R) Core(TM) Ultra 7 155H",
+    "logical_cpus": 22,
+    "mem_total_kib": 31788696,
+    "docker_version": "29.8.1",
+    "k6_version": "k6 v1.8.1 (commit/73b044f9f9, go1.26.4, linux/amd64)",
+    "postgres_settings": [
+      "100",
+      "128MB",
+      "4MB",
+      "0",
+      "0"
+    ],
+    "api_otel_enabled": "false",
+    "api_rails_max_threads": "3",
+    "sidekiq_concurrency": 2,
+    "redis_config": [
+      "appendonly",
+      "yes",
+      "maxmemory",
+      "0"
+    ],
+    "kafka_topic_partitions": 3,
+    "container_limits": [
+      {
+        "name": "/hammerfall-api-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-auction-closer-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-db-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-grafana-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-kafka-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-kafka-audit-consumer-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-kafka-outbox-publisher-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-kafka-projection-consumer-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-otel-collector-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-outbox-publisher-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-prometheus-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-reconciliation-scheduler-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-redis-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-sidekiq-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-tempo-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      },
+      {
+        "name": "/hammerfall-web-1",
+        "memory_bytes": 0,
+        "nano_cpus": 0,
+        "cpu_quota": 0
+      }
+    ],
+    "manifest": {
+      "run_id": "p14-20261001T132051Z-129892c8",
+      "scenario": "normal",
+      "api_base_url": "http://127.0.0.1:3001",
+      "created_at": "2026-10-01T13:20:51.092164+00:00",
+      "starts_at": "2026-10-01T13:18:51.092164Z",
+      "ends_at": "2026-10-01T13:40:51.092164Z",
+      "starting_price": 10000,
+      "minimum_increment": 100,
+      "users": [
+        339,
+        340,
+        341,
+        342,
+        343,
+        344,
+        345,
+        346,
+        347,
+        348,
+        349,
+        350,
+        351,
+        352,
+        353,
+        354,
+        355,
+        356,
+        357,
+        358,
+        359,
+        360,
+        361,
+        362,
+        363,
+        364,
+        365,
+        366,
+        367,
+        368,
+        369,
+        370
+      ],
+      "auctions": [
+        411,
+        412,
+        413,
+        414,
+        415,
+        416,
+        417,
+        418
+      ],
+      "duplicate_key_sha256": "64d198ce1434910fa82940abe659a035065747d42e56b043c35eb0bee531cc19"
+    }
+  }
+}

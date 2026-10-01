@@ -1,0 +1,200 @@
+{
+  "stage": "after",
+  "captured_at_utc": "2026-10-01T13:21:40.549006+00:00",
+  "run_id": "p14-20261001T132051Z-129892c8",
+  "git_sha": "44864cd360b3af0dd65d8ca5e5ac6f0db554e07b",
+  "pg_state": {
+    "sessions": 11,
+    "active": 1,
+    "lock_waiters": 0,
+    "fixture_sidekiq_pending": 0,
+    "fixture_kafka_pending": 0
+  },
+  "docker_stats": [
+    {
+      "BlockIO": "811kB / 4.07MB",
+      "CPUPerc": "0.08%",
+      "Container": "dabf49c2702262bce801c5e3ee6dfe6cf5a965c98d9f0de3c02e8624ba54fc18",
+      "ID": "dabf49c27022",
+      "MemPerc": "0.30%",
+      "MemUsage": "92.6MiB / 30.32GiB",
+      "Name": "hammerfall-sidekiq-1",
+      "NetIO": "16.3MB / 3.78MB",
+      "PIDs": "8"
+    },
+    {
+      "BlockIO": "36.9kB / 0B",
+      "CPUPerc": "0.06%",
+      "Container": "5a2104305e451b14d906a79d99d130086c55e167fcbddc4aa540ec85a4c5652f",
+      "ID": "5a2104305e45",
+      "MemPerc": "0.25%",
+      "MemUsage": "78.47MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-audit-consumer-1",
+      "NetIO": "3.36MB / 3.24MB",
+      "PIDs": "9"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.55%",
+      "Container": "cb00e1761ca617bc575da8221b63c021d6171150977616fac3e28f3e53e96bfc",
+      "ID": "cb00e1761ca6",
+      "MemPerc": "0.25%",
+      "MemUsage": "78.52MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-outbox-publisher-1",
+      "NetIO": "4.84MB / 5.02MB",
+      "PIDs": "8"
+    },
+    {
+      "BlockIO": "12.3kB / 12.3kB",
+      "CPUPerc": "0.41%",
+      "Container": "72ade2cf1b39dbed5085cbef5ff823bc15a982df255d5790f07be07d1b1eab89",
+      "ID": "72ade2cf1b39",
+      "MemPerc": "0.25%",
+      "MemUsage": "78.01MiB / 30.32GiB",
+      "Name": "hammerfall-outbox-publisher-1",
+      "NetIO": "4.78MB / 4.45MB",
+      "PIDs": "4"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.22%",
+      "Container": "e1bd61c05e5a11674387f22c0dc0932ea7b3b813fa6ab23ba8a505acf12b4b9b",
+      "ID": "e1bd61c05e5a",
+      "MemPerc": "0.25%",
+      "MemUsage": "77.04MiB / 30.32GiB",
+      "Name": "hammerfall-auction-closer-1",
+      "NetIO": "798kB / 1.31MB",
+      "PIDs": "4"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.05%",
+      "Container": "2fed8b0afd89677266fd2c70a1e1d0a680e1247b0230f391f50ee2d6f8ccdc21",
+      "ID": "2fed8b0afd89",
+      "MemPerc": "0.25%",
+      "MemUsage": "76.16MiB / 30.32GiB",
+      "Name": "hammerfall-reconciliation-scheduler-1",
+      "NetIO": "66.5kB / 90.1kB",
+      "PIDs": "4"
+    },
+    {
+      "BlockIO": "12.3kB / 0B",
+      "CPUPerc": "0.06%",
+      "Container": "9baa7f65783c44ef723a0afd151d63de1acec124cec98b164e08b7a9fc5cf8fe",
+      "ID": "9baa7f65783c",
+      "MemPerc": "0.25%",
+      "MemUsage": "78.61MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-projection-consumer-1",
+      "NetIO": "2.46MB / 2.98MB",
+      "PIDs": "9"
+    },
+    {
+      "BlockIO": "1.97MB / 1.95MB",
+      "CPUPerc": "0.02%",
+      "Container": "676bed30c322e444bf6a06183ea4194a832984afbf710ec419af98ca1d9530bb",
+      "ID": "676bed30c322",
+      "MemPerc": "0.38%",
+      "MemUsage": "116.4MiB / 30.32GiB",
+      "Name": "hammerfall-api-1",
+      "NetIO": "15.5MB / 16.8MB",
+      "PIDs": "11"
+    },
+    {
+      "BlockIO": "48.2MB / 12.1MB",
+      "CPUPerc": "0.28%",
+      "Container": "681cabaa77ed96f860cf8547dbbed452fb913461b6649795256c3da79cd0984d",
+      "ID": "681cabaa77ed",
+      "MemPerc": "0.28%",
+      "MemUsage": "86.24MiB / 30.32GiB",
+      "Name": "hammerfall-grafana-1",
+      "NetIO": "347kB / 798kB",
+      "PIDs": "29"
+    },
+    {
+      "BlockIO": "1.09MB / 53.2MB",
+      "CPUPerc": "0.25%",
+      "Container": "720f0755c9c2db3a8ab431d87af9b5b4ee132f36dfbbb1282952df9b636bf85c",
+      "ID": "720f0755c9c2",
+      "MemPerc": "0.15%",
+      "MemUsage": "46.09MiB / 30.32GiB",
+      "Name": "hammerfall-tempo-1",
+      "NetIO": "757kB / 105kB",
+      "PIDs": "28"
+    },
+    {
+      "BlockIO": "332kB / 5.49MB",
+      "CPUPerc": "0.00%",
+      "Container": "8d777dd3cc060ac3ee621699e588f4da47571f1f73a801f809444f9fc1cc8597",
+      "ID": "8d777dd3cc06",
+      "MemPerc": "0.10%",
+      "MemUsage": "30.08MiB / 30.32GiB",
+      "Name": "hammerfall-prometheus-1",
+      "NetIO": "1.75MB / 1.93MB",
+      "PIDs": "26"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.04%",
+      "Container": "206406c8fa349b2b53a7290bff8ccded8eb01690596bf01682498ebc669815f1",
+      "ID": "206406c8fa34",
+      "MemPerc": "0.11%",
+      "MemUsage": "34.03MiB / 30.32GiB",
+      "Name": "hammerfall-otel-collector-1",
+      "NetIO": "2.68MB / 2.11MB",
+      "PIDs": "24"
+    },
+    {
+      "BlockIO": "872kB / 183MB",
+      "CPUPerc": "1.58%",
+      "Container": "ee4ffecd23c674330a4c31431a4c0fd4a868d852c21d2524f33b70c7c89f1872",
+      "ID": "ee4ffecd23c6",
+      "MemPerc": "3.30%",
+      "MemUsage": "1.002GiB / 30.32GiB",
+      "Name": "hammerfall-kafka-1",
+      "NetIO": "7.19MB / 8.29MB",
+      "PIDs": "125"
+    },
+    {
+      "BlockIO": "32.6MB / 28MB",
+      "CPUPerc": "0.64%",
+      "Container": "275c9fb461f3e56ae6a77a31c124f24f83db650039cf7ba150878d6e54821cb2",
+      "ID": "275c9fb461f3",
+      "MemPerc": "0.02%",
+      "MemUsage": "5.473MiB / 30.32GiB",
+      "Name": "hammerfall-redis-1",
+      "NetIO": "8.66MB / 22.2MB",
+      "PIDs": "6"
+    },
+    {
+      "BlockIO": "614kB / 61.1MB",
+      "CPUPerc": "54.55%",
+      "Container": "a2d7c0931c24009b271a844cee288eb89ba5a74ab5b50f7bd4ea6803e4025116",
+      "ID": "a2d7c0931c24",
+      "MemPerc": "4.72%",
+      "MemUsage": "1.43GiB / 30.32GiB",
+      "Name": "hammerfall-web-1",
+      "NetIO": "10.9MB / 111MB",
+      "PIDs": "91"
+    },
+    {
+      "BlockIO": "15.8MB / 956MB",
+      "CPUPerc": "0.42%",
+      "Container": "7c6a9d3e6032e249674245fbbf50520464ee96348011cdadb4459f6775e9e345",
+      "ID": "7c6a9d3e6032",
+      "MemPerc": "0.27%",
+      "MemUsage": "82.38MiB / 30.32GiB",
+      "Name": "hammerfall-db-1",
+      "NetIO": "98.3MB / 128MB",
+      "PIDs": "19"
+    }
+  ],
+  "prometheus": {
+    "lock_wait_bucket": [],
+    "bid_processing_bucket": [],
+    "publisher_duration_bucket": [],
+    "outbox_pending": [],
+    "outbox_oldest_age": [],
+    "kafka_lag": [],
+    "reconciliation": []
+  }
+}

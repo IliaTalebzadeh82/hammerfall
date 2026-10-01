@@ -1,0 +1,50 @@
+# Phase 14 benchmark evidence (in progress)
+
+These are local Compose runs on a shared Intel Core Ultra 7 155H host with
+30.3 GiB RAM, Docker 29.8.1 and k6 1.8.1. They are measurements of this
+environment, not production capacity or SLOs. Each retained `p14-*` directory
+contains `report.md`, exact commands, k6 summary/log, environment and telemetry
+snapshots, and PostgreSQL verification. The active [ExecPlan](../plans/phase-14-execplan.md)
+has the current Evidence Index and unresolved work.
+
+## Primary committed-harness runs
+
+All three used harness commit `c86f4f8`, API OTEL enabled, a separate 1 VU
+read-only five-second warm-up, fresh fixtures and no configured container CPU or
+memory limits. Durations are 30 seconds for normal/hot and 15 seconds for
+duplicate. p50/p95/p99 below are k6 **HTTP request** milliseconds; operation
+latencies and histogram bucket bounds are in the individual reports.
+
+| Scenario | VUs | HTTP requests / achieved rate | p50 / p95 / p99 ms | Mutation outcomes | Unexpected errors | PostgreSQL check |
+|---|---:|---:|---:|---|---:|---|
+| [Normal, 8 auctions](p14-20261001T133208Z-31a8c49a-normal/report.md) | 4 | 2,055 / 68.37/s | 10.60 / 55.92 / 70.46 | 474 accepted; 0 domain rejected | 0 | Passed |
+| [One hot auction](p14-20261001T133320Z-03f35c6c-hot/report.md) | 8 | 3,038 / 100.83/s | 52.23 / 88.94 / 107.64 | 370 accepted; 1,149 domain rejected | 0 | Passed |
+| [Duplicate retries](p14-20261001T133436Z-1f8c4b84-duplicate/report.md) | 8 | 2,507 / 165.07/s | 6.62 / 13.04 / 20.29 | 1 original; 2,381 replay; 125 intentional conflict | 0 | Passed; 1 logical bid |
+
+The normal and hot rows have different workload mixes and VU counts, so their
+HTTP rates are not a controlled throughput comparison. In the hot run, bid
+HTTP p95 was 96.42 ms and the lock-wait p95 fell in the ≤50 ms histogram bucket;
+post-lock work and other overhead remain to be isolated. One during-run sample
+saw 4 Sidekiq and 7 Kafka outbox rows pending, which drained afterward. This
+does not establish a queue saturation threshold. The duplicate outcome check
+found one stored command, one bid and no repeated deadline extension.
+
+## Exploratory and harness-validation runs
+
+- [Normal telemetry off](p14-20261001T132051Z-129892c8-normal/report.md) and
+  [normal telemetry on](p14-20261001T132222Z-5726b97d-normal/report.md) used
+  an uncommitted harness. They are retained for setup history and possible
+  variability context, not a reliable telemetry-overhead estimate.
+- [Hot initial](p14-20261001T132341Z-d1dba139-hot/report.md) and
+  [hot settled](p14-20261001T132634Z-e4799928-hot/report.md) used an
+  uncommitted harness. The initial hot metric snapshot was incomplete because
+  export/scrape had not settled. The later run captured all bid lock samples.
+- [Duplicate exploratory](p14-20261001T132438Z-af7f5e0e-duplicate/report.md)
+  used the earlier checker.
+- `validation-*` folders contain short harness smoke output. The first normal
+  smoke exposed a correlation between workload slot and auction selection;
+  the selection was fixed and validated across all eight auctions before the
+  primary runs. These are not benchmark comparisons.
+
+Closing-storm, WebSocket fanout, stepped saturation, a feasible 1,000-bidder
+attempt, repeatability and broader correctness/regression work remain open.

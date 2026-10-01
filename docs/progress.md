@@ -1865,3 +1865,24 @@ commit changes documentation only and receives its own hosted run. Phase 13
 is complete; Phase 14 has not begun. No new Critical or High Phase 13 defect
 remains after the adversarial review. Retained limits are in the ExecPlan and
 [production readiness](production-readiness.md).
+
+## Phase 14 — Load Testing (in progress, first milestone 2026-10-01)
+
+Harness commit `c86f4f8` added pinned k6 1.8.1, isolated HTTP fixtures,
+normal/hot/duplicate workloads, read-only warm-up, environment and telemetry
+capture, and an authoritative PostgreSQL checker. The [benchmark index](benchmarks/README.md)
+and [active ExecPlan](plans/phase-14-execplan.md) hold exact commands, raw
+outputs and run-specific limits. API observability was enabled for the primary
+runs; these are short local shared-host measurements, not capacity claims.
+
+| Primary run | Actual result | Database check |
+|---|---|---|
+| Normal, 4 VUs, 30 s, 8 auctions | 2,055 HTTP; 474 accepted mutations; HTTP p50/p95/p99 10.60/55.92/70.46 ms; zero unexpected errors | Passed |
+| One hot auction, 8 VUs, 30 s | 1,519 bids: 370 accepted, 1,149 expected domain rejections; bid p50/p95/p99 62.33/96.42/114.94 ms; zero unexpected errors | Passed |
+| Duplicate retries, 8 VUs, 15 s | 2,507 HTTP: 1 original, 2,381 replays, 125 intentional conflicts; replay p50/p95/p99 6.62/13.09/20.55 ms | Passed; one logical bid |
+
+Exploratory runs exposed and corrected operation/auction selection correlation,
+API telemetry being disabled despite running observability containers, and an
+early Prometheus snapshot. The retained exploratory reports label those limits.
+Closing storm, fanout, saturation, repeatability, sabotage, broad regression and
+hosted CI remain open. Phase 14 is not complete; Phase 15 has not begun.

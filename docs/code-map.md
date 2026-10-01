@@ -430,3 +430,19 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   boundaries between broker delivery, Redis projection and browser receipt.
   `docs/runbooks/observability.md` is the operator route for missing signals,
   export outages, backlog interpretation and trace correlation.
+
+## Phase 14 load-testing map (in progress)
+
+- `load-tests/prepare.py` creates labeled, isolated demo users/auctions through
+  HTTP and writes an ignored fixture manifest. `common.js` provides bounded
+  outcome classification; `normal-auction.js`, `hot-auction.js` and
+  `duplicate-retries.js` express the current workloads.
+- `load-tests/benchmark.sh` orchestrates a separate read-only warm-up, pinned
+  k6 container run, environment/telemetry capture and database check.
+  `capture.py` records PostgreSQL, container and Prometheus snapshots;
+  `report.py` generates a concise run report.
+- `apps/api/script/benchmark_verify.rb` independently checks auction history,
+  price/leader, maximum ceilings, revision/outbox continuity and duplicate
+  command effect against PostgreSQL. [Results](benchmarks/README.md) retain
+  machine output separately from fixture data. Closing/fanout scenarios remain
+  to be implemented.

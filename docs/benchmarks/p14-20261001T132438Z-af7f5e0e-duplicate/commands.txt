@@ -1,0 +1,5 @@
+git SHA: 44864cd360b3af0dd65d8ca5e5ac6f0db554e07b
+fixture: python3 load-tests/prepare.py --scenario duplicate --auctions 1 --users 1 --minutes 20 --output <ignored manifest>
+warm-up: load-tests/run.sh warmup <ignored manifest> 1 5s docs/benchmarks/p14-20261001T132438Z-af7f5e0e-duplicate/warmup
+measurement: load-tests/run.sh duplicate-retries <ignored manifest> 8 15s docs/benchmarks/p14-20261001T132438Z-af7f5e0e-duplicate
+checker: docker compose exec -T -e BENCHMARK_MANIFEST=<ignored manifest JSON> api bin/rails runner script/benchmark_verify.rb
