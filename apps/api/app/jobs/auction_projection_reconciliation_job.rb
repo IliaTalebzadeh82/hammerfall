@@ -18,40 +18,45 @@ class AuctionProjectionReconciliationJob
     raise ArgumentError, "invalid projection ceiling" if ceiling.negative?
 
     counts = Hash.new(0)
+    started = Observability.monotonic
     rows = Auction.where("id > ? AND id <= ?", cursor, ceiling).order(:id).limit(BATCH_SIZE).to_a
     reconciler = AuctionProjectionReconciler.new
     begin
-      rows.each_with_index do |auction, index|
-        return unless lease_active?(lease_token, cursor) if index.positive? && (index % ReconciliationLease::HEARTBEAT_ROWS).zero?
+      Observability.trace("hammerfall.reconciliation.batch") do
+        rows.each_with_index do |auction, index|
+          return unless lease_active?(lease_token, cursor) if index.positive? && (index % ReconciliationLease::HEARTBEAT_ROWS).zero?
 
-        counts[:checked] += 1
-        begin
-          result = reconciler.check(auction)
-        rescue AuctionProjectionReconciler::RepairUnavailable
-          counts[:drift] += 1
-          counts[:repair_attempt] += 1
-          counts[:repair_failure] += 1
-          counts[:unavailable] += 1
-          raise
-        rescue AuctionProjectionReconciler::ProjectionUnavailable
-          counts[:unavailable] += 1
-          raise
+          counts[:checked] += 1
+          begin
+            result = reconciler.check(auction)
+          rescue AuctionProjectionReconciler::RepairUnavailable
+            counts[:drift] += 1
+            counts[:repair_attempt] += 1
+            counts[:repair_failure] += 1
+            counts[:unavailable] += 1
+            raise
+          rescue AuctionProjectionReconciler::ProjectionUnavailable
+            counts[:unavailable] += 1
+            raise
+          end
+          counts[:healthy] += 1 if result == :healthy
+          counts[:drift] += 1 unless result == :healthy
+          counts[:repair_attempt] += 1 if %i[repaired raced repair_failed_review].include?(result)
+          counts[:repair] += 1 if result == :repaired
+          counts[:repair_failure] += 1 if result == :repair_failed_review
+          counts[:operator_review] += 1 if %i[operator_review repair_failed_review].include?(result)
         end
-        counts[:healthy] += 1 if result == :healthy
-        counts[:drift] += 1 unless result == :healthy
-        counts[:repair_attempt] += 1 if %i[repaired raced repair_failed_review].include?(result)
-        counts[:repair] += 1 if result == :repaired
-        counts[:repair_failure] += 1 if result == :repair_failed_review
-        counts[:operator_review] += 1 if %i[operator_review repair_failed_review].include?(result)
       end
     ensure
       reconciler.close
+      Observability.histogram("hammerfall_projection_batch_size", counts[:checked])
+      Observability.histogram("hammerfall_projection_scan_duration", Observability.monotonic - started)
       Rails.logger.info(JSON.generate(event: "auction_projection_reconciliation_metrics",
         after_id: cursor, up_to_id: ceiling, checked: counts[:checked], healthy: counts[:healthy],
-        auction_projection_drift_total: counts[:drift],
-        auction_projection_repair_attempt_total: counts[:repair_attempt],
-        auction_projection_repair_total: counts[:repair],
-        auction_projection_repair_failure_total: counts[:repair_failure],
+        auction_projection_drift_batch: counts[:drift],
+        auction_projection_repair_attempt_batch: counts[:repair_attempt],
+        auction_projection_repair_batch: counts[:repair],
+        auction_projection_repair_failure_batch: counts[:repair_failure],
         unavailable: counts[:unavailable],
         operator_review: counts[:operator_review]))
     end

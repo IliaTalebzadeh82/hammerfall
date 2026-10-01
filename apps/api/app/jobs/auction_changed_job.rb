@@ -14,6 +14,15 @@ class AuctionChangedJob
 
     # Current state may be ahead of the queued hint. Duplicate/reordered jobs
     # therefore only request a fresh REST read at a non-regressing revision.
-    AuctionPublication.broadcast(id, current)
+    result = AuctionPublication.broadcast(id, current)
+    Observability.websocket_lag(id, revision)
+    Observability.log(level: :info, component: "action_cable", operation: "broadcast",
+      result: "succeeded", auction_id: id, public_revision: current)
+    result
+  rescue StandardError => error
+    Observability.log(level: :warn, component: "auction_changed_job", operation: "perform",
+      result: "failed", error_class: error.class.name, auction_id: auction_id,
+      public_revision: requested_revision)
+    raise
   end
 end

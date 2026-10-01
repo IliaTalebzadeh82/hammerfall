@@ -25,10 +25,38 @@ module Observability
     "hammerfall_auction_extensions" => [ :counter, [] ],
     "hammerfall_auction_close_lag" => [ :histogram, [] ],
     "hammerfall_http_requests" => [ :counter, %w[route method status_class] ],
-    "hammerfall_http_duration" => [ :histogram, %w[route method status_class] ]
+    "hammerfall_http_duration" => [ :histogram, %w[route method status_class] ],
+    "hammerfall_outbox_publish_attempts" => [ :counter, %w[channel] ],
+    "hammerfall_outbox_retry_attempts" => [ :counter, %w[channel] ],
+    "hammerfall_outbox_publish_failures" => [ :counter, %w[channel] ],
+    "hammerfall_outbox_publish_duration" => [ :histogram, %w[channel] ],
+    "hammerfall_outbox_pending_events" => [ :gauge, %w[channel] ],
+    "hammerfall_outbox_oldest_event_age" => [ :gauge, %w[channel] ],
+    "hammerfall_sidekiq_queue_depth" => [ :gauge, %w[queue] ],
+    "hammerfall_sidekiq_jobs" => [ :counter, %w[queue result] ],
+    "hammerfall_sidekiq_job_duration" => [ :histogram, %w[queue result] ],
+    "hammerfall_kafka_consumed" => [ :counter, %w[consumer_group result] ],
+    "hammerfall_kafka_consumer_lag" => [ :gauge, %w[consumer_group partition] ],
+    "hammerfall_projection_writes" => [ :counter, %w[result] ],
+    "hammerfall_projection_checks" => [ :counter, [] ],
+    "hammerfall_projection_drift" => [ :counter, %w[kind] ],
+    "hammerfall_projection_repair_attempts" => [ :counter, [] ],
+    "hammerfall_projection_repairs" => [ :counter, [] ],
+    "hammerfall_projection_repair_failures" => [ :counter, [] ],
+    "hammerfall_projection_operator_review" => [ :counter, %w[kind] ],
+    "hammerfall_projection_batch_size" => [ :histogram, [] ],
+    "hammerfall_projection_scan_duration" => [ :histogram, [] ],
+    "hammerfall_projection_stale_age" => [ :histogram, %w[source] ],
+    "hammerfall_websocket_broadcasts" => [ :counter, %w[result] ],
+    "hammerfall_websocket_server_broadcast_lag" => [ :histogram, [] ]
   }.freeze
   OPERATIONS = %w[place_bid set_maximum_bid close edit schedule activate cancel].freeze
-  RESULTS = %w[accepted rejected replayed error].freeze
+  RESULTS = %w[accepted rejected replayed error first next gap stale duplicate applied conflict redis_failure succeeded failed].freeze
+  CHANNELS = %w[sidekiq kafka].freeze
+  QUEUES = %w[notifications maintenance default].freeze
+  CONSUMER_GROUPS = %w[hammerfall.audit.v1 hammerfall.projection.v1].freeze
+  DRIFT_KINDS = %w[missing behind conflict corrupt ahead unavailable].freeze
+  PROJECTION_SOURCES = %w[kafka postgresql_seed].freeze
   REASONS = %w[auction_ended auction_not_open bid_too_low invalid_auction_state
     maximum_bid_cannot_decrease maximum_bid_too_low validation_failed
     idempotency_key_required invalid_idempotency_key idempotency_key_conflict
@@ -41,7 +69,7 @@ module Observability
     /api/v1/auctions/:id/activate /api/v1/auctions/:id/close
     /api/v1/auctions/:id/cancel /cable other].freeze
   LOG_FIELDS = %w[operation component result error_class auction_status event_type
-    consumer_group partition retry_count public_revision auction_id event_id].freeze
+    consumer_group partition offset retry_count public_revision auction_id event_id].freeze
   SPAN_FIELDS = %w[hammerfall.operation hammerfall.event_type http.request.method http.route].freeze
 
   class << self
@@ -92,13 +120,17 @@ module Observability
       METRICS.each do |name, (type, _)|
         next unless type == :histogram
 
+        boundaries = name.end_with?("_size") ? [ 1, 10, 25, 50, 100 ] : DURATION_BOUNDARIES
         provider.add_view(name, aggregation: OpenTelemetry::SDK::Metrics::Aggregation::ExplicitBucketHistogram.new(
-          boundaries: DURATION_BOUNDARIES))
+          boundaries: boundaries))
       end
       meter = provider.meter("hammerfall")
       @instruments = METRICS.each_with_object({}) do |(name, (type, _)), instruments|
-        instruments[name] = type == :counter ? meter.create_counter(name, unit: "1") :
-          meter.create_histogram(name, unit: "s")
+        instruments[name] = case type
+        when :counter then meter.create_counter(name, unit: "1")
+        when :gauge then meter.create_gauge(name, unit: name.end_with?("_age") ? "s" : nil)
+        else meter.create_histogram(name, unit: name.end_with?("_size") ? "1" : "s")
+        end
       end
       @enabled = true
     rescue StandardError => error
@@ -157,6 +189,79 @@ module Observability
 
     def histogram(name, value, attributes: {})
       emit(name, value, attributes)
+    end
+
+    def gauge(name, value, attributes: {})
+      emit(name, value, attributes)
+    end
+
+    # Only W3C trace metadata crosses durable or transport boundaries.
+    def carrier
+      return {} unless enabled?
+
+      result = {}
+      OpenTelemetry.propagation.inject(result)
+      parent = result["traceparent"]
+      return {} unless parent.is_a?(String) && parent.match?(/\A00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}\z/)
+
+      state = result["tracestate"]
+      state = nil unless state.is_a?(String) && state.bytesize <= 512
+      { "traceparent" => parent, "tracestate" => state }.compact
+    rescue StandardError
+      {}
+    end
+
+    def extracted_context(carrier)
+      return nil unless enabled? && carrier.is_a?(Hash)
+
+      safe = carrier.slice("traceparent", "tracestate")
+      return nil unless safe["traceparent"].is_a?(String) && safe["traceparent"].bytesize <= 55 &&
+        (!safe.key?("tracestate") || (safe["tracestate"].is_a?(String) && safe["tracestate"].bytesize <= 512))
+
+      OpenTelemetry.propagation.extract(safe, context: OpenTelemetry::Context::ROOT)
+    rescue StandardError
+      nil
+    end
+
+    def with_carrier(carrier)
+      context = extracted_context(carrier)
+      context ? with_context(context) { yield } : yield
+    end
+
+    # Broker high watermark minus the next committed offset. Throttled per
+    # partition and capped at 100 ms; failure never participates in commits.
+    def kafka_lag(consumer, message, group, last_checked)
+      return unless enabled? && consumer.respond_to?(:query_watermark_offsets)
+
+      partition = message.partition
+      now = monotonic
+      return if now - last_checked.fetch(partition, 0) < 30
+
+      last_checked[partition] = now
+      _low, high = consumer.query_watermark_offsets(message.topic, partition, 100)
+      gauge("hammerfall_kafka_consumer_lag", [ high - message.offset - 1, 0 ].max,
+        attributes: { consumer_group: group, partition: partition })
+    rescue StandardError
+      nil
+    end
+
+    def sidekiq_queue_depth
+      return unless enabled?
+
+      require "sidekiq/api"
+      gauge("hammerfall_sidekiq_queue_depth", Sidekiq::Queue.new("notifications").size,
+        attributes: { queue: "notifications" })
+    rescue StandardError
+      nil
+    end
+
+    def websocket_lag(auction_id, revision)
+      return unless enabled?
+
+      occurred_at = OutboxEvent.where(auction_id: auction_id, public_revision: revision).pick(:occurred_at)
+      histogram("hammerfall_websocket_server_broadcast_lag", [ Time.now.utc - occurred_at, 0 ].max) if occurred_at
+    rescue StandardError
+      nil
     end
 
     def lock_wait(operation)
@@ -235,6 +340,12 @@ module Observability
       when "route" then ROUTES
       when "method" then %w[GET POST PUT PATCH DELETE]
       when "status_class" then %w[2xx 3xx 4xx 5xx]
+      when "channel" then CHANNELS
+      when "consumer_group" then CONSUMER_GROUPS
+      when "kind" then DRIFT_KINDS
+      when "partition" then (0..31).map(&:to_s)
+      when "queue" then QUEUES
+      when "source" then PROJECTION_SOURCES
       end
       allowed.include?(text) ? text : "other"
     end

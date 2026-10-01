@@ -31,6 +31,10 @@ Rails.application.configure do
   # Print deprecation notices to the Rails logger.
   config.active_support.deprecation = :log
 
+  # Debug SQL inlines private maximums and priority values. Keep operational
+  # local logs at info; explicit structured telemetry covers the boundaries.
+  config.log_level = :info
+
   # Raise an error on page load if there are pending migrations.
   config.active_record.migration_error = :page_load
 

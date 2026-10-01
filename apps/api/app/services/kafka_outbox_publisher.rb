@@ -29,28 +29,49 @@ class KafkaOutboxPublisher
         event = OutboxEvent.kafka_due.order(:kafka_next_attempt_at, :id).lock("FOR UPDATE SKIP LOCKED").first
         if event
           found = true
+          started = Observability.monotonic
+          Observability.counter("hammerfall_outbox_publish_attempts", attributes: { channel: "kafka" })
+          Observability.counter("hammerfall_outbox_retry_attempts", attributes: { channel: "kafka" }) if event.kafka_attempts.positive?
           begin
-            receipt = producer.produce(topic: TOPIC, key: event.auction_id.to_s, payload: JSON.generate(event.kafka_envelope)).wait
+            receipt = Observability.with_carrier(event.trace_carrier) do
+              Observability.trace("hammerfall.kafka.publish", kind: :producer,
+                attributes: { "hammerfall.event_type" => event.domain_event_type }) do
+                producer.produce(topic: TOPIC, key: event.auction_id.to_s,
+                  payload: JSON.generate(event.kafka_envelope), headers: Observability.carrier).wait
+              end
+            end
             raise DeliveryFailed, "missing delivery report" unless receipt
           rescue StandardError => error
+            Observability.counter("hammerfall_outbox_publish_failures", attributes: { channel: "kafka" })
             attempts = event.kafka_attempts + 1
             delay = [ 2**[ attempts, 8 ].min, 300 ].min
             database_now = OutboxEvent.connection.select_value("SELECT clock_timestamp()")
             event.update!(kafka_attempts: attempts, kafka_last_error: error.class.name.to_s.first(255),
               kafka_next_attempt_at: database_now + delay)
             @logger.warn("kafka_outbox_publisher delivery_failed event_id=#{event.event_id} error=#{error.class}")
+            Observability.log(level: :warn, component: "kafka_outbox_publisher", operation: "publish",
+              result: "failed", error_class: error.class.name, event_type: event.domain_event_type,
+              event_id: event.event_id, retry_count: attempts, public_revision: event.public_revision)
             failed += 1
           else
             # A crash here leaves the row pending and can produce a duplicate.
             database_now = OutboxEvent.connection.select_value("SELECT clock_timestamp()")
             event.update!(kafka_published_at: database_now, kafka_attempts: event.kafka_attempts + 1, kafka_last_error: nil)
+            Observability.log(level: :info, component: "kafka_outbox_publisher", operation: "publish",
+              result: "succeeded", event_type: event.domain_event_type, event_id: event.event_id,
+              retry_count: event.kafka_attempts, public_revision: event.public_revision)
             published += 1
+          ensure
+            Observability.histogram("hammerfall_outbox_publish_duration", Observability.monotonic - started,
+              attributes: { channel: "kafka" })
           end
         end
       end
       break unless found
     end
     metrics = backlog_metrics
+    Observability.gauge("hammerfall_outbox_pending_events", metrics[:backlog], attributes: { channel: "kafka" })
+    Observability.gauge("hammerfall_outbox_oldest_event_age", metrics[:oldest_age_seconds], attributes: { channel: "kafka" })
     @logger.info("kafka_outbox_publisher published=#{published} failed=#{failed} backlog=#{metrics[:backlog]} due=#{metrics[:due]} retries=#{metrics[:retries]} oldest_age_seconds=#{metrics[:oldest_age_seconds]}")
     { published: published, failed: failed, **metrics }
   end

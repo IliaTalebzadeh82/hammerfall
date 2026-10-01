@@ -1,0 +1,1060 @@
+{
+  "uid": "hammerfall-operations",
+  "title": "Hammerfall operations",
+  "description": "Operational signals from passive telemetry; PostgreSQL alone decides auction outcomes.",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "timezone": "browser",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "tags": [
+    "hammerfall",
+    "observability"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Auction and command health",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Bid command rate",
+      "description": "Requests and terminal outcomes. Replays are historical responses.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(hammerfall_bid_requests_total[$__rate_interval]))",
+          "legendFormat": "requests"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Bid command rate (continued)",
+      "description": "Requests and terminal outcomes. Replays are historical responses.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(hammerfall_bid_accepted_total[$__rate_interval]))",
+          "legendFormat": "accepted"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Rejected bids by bounded reason",
+      "description": "Rejections are grouped by a fixed reason enum.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (reason) (rate(hammerfall_bid_rejected_total[$__rate_interval]))",
+          "legendFormat": "{{reason}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Bid processing p95 and auction lock wait p95",
+      "description": "Compare full processing with row lock acquisition; the difference is not an exact decomposition.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(hammerfall_bid_processing_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "processing"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Bid processing p95 and auction lock wait p95 (continued)",
+      "description": "Compare full processing with row lock acquisition; the difference is not an exact decomposition.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(hammerfall_auction_lock_wait_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "lock wait"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Deadline extensions per second",
+      "description": "Close lag is measured against the PostgreSQL deadline on successful closure.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(hammerfall_auction_extensions_total[$__rate_interval]))",
+          "legendFormat": "extensions"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Successful close lag p95",
+      "description": "Close lag is measured against the PostgreSQL deadline on successful closure.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(hammerfall_auction_close_lag_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "close lag"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Messaging and event delivery",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Pending outbox events",
+      "description": "Sidekiq acknowledgment means enqueue; Kafka acknowledgment means broker delivery. Neither proves browser receipt.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (channel) (hammerfall_outbox_pending_events)",
+          "legendFormat": "{{channel}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Oldest pending event age",
+      "description": "Age of oldest unpublished durable event, per channel.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (channel) (hammerfall_outbox_oldest_event_age_seconds)",
+          "legendFormat": "{{channel}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Publish failures, retries and attempts per second",
+      "description": "Publisher delivery runs while its outbox row is locked.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (channel) (rate(hammerfall_outbox_publish_failures_total[$__rate_interval]))",
+          "legendFormat": "failures {{channel}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (channel) (rate(hammerfall_outbox_retry_attempts_total[$__rate_interval]))",
+          "legendFormat": "retries {{channel}}"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (channel) (rate(hammerfall_outbox_publish_attempts_total[$__rate_interval]))",
+          "legendFormat": "attempts {{channel}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Publisher delivery duration p95",
+      "description": "Publisher delivery runs while its outbox row is locked.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (channel, le) (rate(hammerfall_outbox_publish_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95 {{channel}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 50,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Sidekiq notifications queue and Kafka broker lag",
+      "description": "Queue depth is pending jobs; lag is broker high watermark minus the next committed offset, sampled after commits.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(hammerfall_sidekiq_queue_depth)",
+          "legendFormat": "Sidekiq jobs"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 58,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Sidekiq notifications queue and Kafka broker lag (continued)",
+      "description": "Queue depth is pending jobs; lag is broker high watermark minus the next committed offset, sampled after commits.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (consumer_group, partition) (hammerfall_kafka_consumer_lag)",
+          "legendFormat": "Kafka {{consumer_group}} partition {{partition}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 58,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Kafka consumer outcomes",
+      "description": "First/next/gap/stale/duplicate or applied/stale/duplicate denote consumption results, not unique business events.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (consumer_group, result) (rate(hammerfall_kafka_consumed_total[$__rate_interval]))",
+          "legendFormat": "{{consumer_group}} {{result}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 66,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 17,
+      "type": "row",
+      "title": "Projection and consistency",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 74,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Projection drift and review",
+      "description": "Redis is a disposable public read model; PostgreSQL remains authoritative.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (rate(hammerfall_projection_drift_total[$__rate_interval]))",
+          "legendFormat": "drift {{kind}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 75,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Projection drift and review (continued)",
+      "description": "Redis is a disposable public read model; PostgreSQL remains authoritative.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (rate(hammerfall_projection_operator_review_total[$__rate_interval]))",
+          "legendFormat": "review {{kind}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 75,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Repair attempts, success and failure",
+      "description": "Cumulative event counters, not per batch log deltas.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(hammerfall_projection_repair_attempts_total[$__rate_interval]))",
+          "legendFormat": "attempts"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 83,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Repair attempts, success and failure (continued)",
+      "description": "Cumulative event counters, not per batch log deltas.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(hammerfall_projection_repairs_total[$__rate_interval]))",
+          "legendFormat": "success"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 83,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Repair failures and projection writes",
+      "description": "Write outcomes include duplicate, stale, conflict and Redis failure.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(hammerfall_projection_repair_failures_total[$__rate_interval]))",
+          "legendFormat": "repair failure"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 91,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Repair failures and projection writes (continued)",
+      "description": "Write outcomes include duplicate, stale, conflict and Redis failure.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (result) (rate(hammerfall_projection_writes_total[$__rate_interval]))",
+          "legendFormat": "writes {{result}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 91,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Reconciliation batch size p95",
+      "description": "Batch size and scan duration describe scheduled reconciliation work.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(hammerfall_projection_batch_size_bucket[$__rate_interval])))",
+          "legendFormat": "batch size"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 99,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "Reconciliation scan duration p95",
+      "description": "Batch size and scan duration describe scheduled reconciliation work.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(hammerfall_projection_scan_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "scan duration"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 99,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Observed projection age p95",
+      "description": "Age observed during reconciliation checks; this is no freshness guarantee.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (source, le) (rate(hammerfall_projection_stale_age_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{source}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 107,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 26,
+      "type": "row",
+      "title": "Runtime and delivery boundaries",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 115,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "HTTP requests per second",
+      "description": "Routes use templates; status_class is bounded.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status_class) (rate(hammerfall_http_requests_total[$__rate_interval]))",
+          "legendFormat": "{{status_class}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 116,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "HTTP duration p95",
+      "description": "Routes use templates; status_class is bounded.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(hammerfall_http_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 116,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "Sidekiq work and server broadcast results",
+      "description": "A server broadcast does not prove a browser received the hint.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (result) (rate(hammerfall_sidekiq_jobs_total[$__rate_interval]))",
+          "legendFormat": "jobs {{result}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 124,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Sidekiq work and server broadcast results (continued)",
+      "description": "A server broadcast does not prove a browser received the hint.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (result) (rate(hammerfall_websocket_broadcasts_total[$__rate_interval]))",
+          "legendFormat": "broadcast {{result}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 124,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Server broadcast lag p95",
+      "description": "Elapsed time from durable event occurrence to server broadcast; excludes browser delivery.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "hammerfall-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(hammerfall_websocket_server_broadcast_lag_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 132,
+        "w": 12,
+        "h": 8
+      }
+    }
+  ],
+  "templating": {
+    "list": []
+  }
+}

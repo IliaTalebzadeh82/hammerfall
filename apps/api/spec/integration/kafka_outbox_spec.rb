@@ -23,6 +23,49 @@ RSpec.describe "Kafka domain outbox", type: :model do
     OutboxEvent.where(auction_id: auction.id).update_all(kafka_published_at: Time.current)
   end
 
+  it "keeps transport trace context outside the versioned event and continues it in audit" do
+    skip "run with OTEL_ENABLED=true" unless Observability.enabled?
+
+    auction = active_auction
+    acknowledge_setup_events(auction)
+    root = { "traceparent" => "00-#{SecureRandom.hex(16)}-#{SecureRandom.hex(8)}-01" }
+    Observability.with_carrier(root) { auction.place_bid!(bidder: @bidder, amount: 10_000) }
+    event = event_for(auction)
+    expect(event.traceparent).to start_with("00-")
+    expect(event.kafka_envelope.keys).not_to include(:traceparent, :tracestate)
+    producer = fake_producer
+    options = nil
+    allow(producer).to receive(:produce) do |args|
+      options = args
+      double(wait: Object.new)
+    end
+    expect(KafkaOutboxPublisher.new(producer: producer, batch_size: 1).run_once[:published]).to eq(1)
+    expect(options.fetch(:headers).fetch("traceparent")[3, 32]).to eq(event.traceparent[3, 32])
+    expect(JSON.parse(options.fetch(:payload)).keys).not_to include("traceparent", "tracestate")
+    broker = double("consumer", store_offset: nil, commit: nil)
+    message = Struct.new(:payload, :key, :partition, :offset, :headers).new(
+      options.fetch(:payload), auction.id.to_s, 0, 1, options.fetch(:headers))
+    observed_trace = nil
+    allow(ConsumedKafkaEvent).to receive(:record!).and_wrap_original do |original, **args|
+      observed_trace = OpenTelemetry::Trace.current_span.context.hex_trace_id
+      original.call(**args)
+    end
+    expect(KafkaAuditConsumer.new(consumer: broker).process(message)).to be_in([ :first, :next, :gap ])
+    expect(observed_trace).to eq(event.traceparent[3, 32])
+    expect(broker).to have_received(:commit).once
+  end
+
+  it "ignores malformed Kafka trace headers while committing a valid event" do
+    auction = active_auction
+    event = event_for(auction)
+    broker = double("consumer", store_offset: nil, commit: nil)
+    message = Struct.new(:payload, :key, :partition, :offset, :headers).new(
+      JSON.generate(event.kafka_envelope), auction.id.to_s, 0, 1,
+      { "traceparent" => "invalid", "baggage" => "private=secret" })
+    expect(KafkaAuditConsumer.new(consumer: broker).process(message)).to eq(:first)
+    expect(broker).to have_received(:commit).once
+  end
+
   it "commits a versioned public event with the command and excludes private data" do
     auction = active_auction
     before = auction.public_revision

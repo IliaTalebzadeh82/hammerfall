@@ -125,8 +125,8 @@ RSpec.describe "Auction projection reconciliation" do
     2.times { AuctionProjectionReconciliationJob.new.perform(auction.id - 1, auction.id) }
     expect(auction.reload.attributes).to eq(before)
     metrics = messages.select { |entry| entry["event"] == "auction_projection_reconciliation_metrics" }
-    expect(metrics.map { |entry| entry["auction_projection_drift_total"] }).to eq([ 1, 0 ])
-    expect(metrics.map { |entry| entry["auction_projection_repair_total"] }).to eq([ 1, 0 ])
+    expect(metrics.map { |entry| entry["auction_projection_drift_batch"] }).to eq([ 1, 0 ])
+    expect(metrics.map { |entry| entry["auction_projection_repair_batch"] }).to eq([ 1, 0 ])
     expect(metrics.map { |entry| entry["healthy"] }).to eq([ 0, 1 ])
     expect(metrics.all? { |entry| entry.keys.grep(/auction_id/).empty? }).to be(true)
   end
@@ -143,8 +143,8 @@ RSpec.describe "Auction projection reconciliation" do
     allow(Rails.logger).to receive(:info) { |message| messages << JSON.parse(message) }
     AuctionProjectionReconciliationJob.new.perform(auction.id - 1, auction.id)
     metrics = messages.find { |entry| entry["event"] == "auction_projection_reconciliation_metrics" }
-    expect(metrics).to include("auction_projection_drift_total" => 1,
-      "auction_projection_repair_attempt_total" => 1, "auction_projection_repair_failure_total" => 1,
+    expect(metrics).to include("auction_projection_drift_batch" => 1,
+      "auction_projection_repair_attempt_batch" => 1, "auction_projection_repair_failure_batch" => 1,
       "operator_review" => 1)
   end
 end

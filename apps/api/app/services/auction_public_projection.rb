@@ -72,11 +72,20 @@ class AuctionPublicProjection
     state = { schema_version: 1, auction_id: auction_id, public_revision: revision,
       event_id: event_id, occurred_at: occurred_at, source: source, data: data,
       data_digest: digest(data) }
-    case @redis.call("EVAL", SCRIPT, 1, key(auction_id), JSON.generate(state))
+    result = case @redis.call("EVAL", SCRIPT, 1, key(auction_id), JSON.generate(state))
     when 1 then :applied
     when 2 then :duplicate
     else :stale
     end
+    Observability.counter("hammerfall_projection_writes", attributes: { result: result })
+    result
+  rescue RedisClient::CommandError => error
+    result = error.message.include?("projection revision conflict") ? "conflict" : "redis_failure"
+    Observability.counter("hammerfall_projection_writes", attributes: { result: result })
+    raise
+  rescue RedisClient::Error
+    Observability.counter("hammerfall_projection_writes", attributes: { result: "redis_failure" })
+    raise
   end
 
   def digest(data)

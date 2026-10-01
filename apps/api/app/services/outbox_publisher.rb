@@ -25,29 +25,49 @@ class OutboxPublisher
         event = OutboxEvent.due.order(:next_attempt_at, :id).lock("FOR UPDATE SKIP LOCKED").first
         if event
           found = true
+          started = Observability.monotonic
+          Observability.counter("hammerfall_outbox_publish_attempts", attributes: { channel: "sidekiq" })
+          Observability.counter("hammerfall_outbox_retry_attempts", attributes: { channel: "sidekiq" }) if event.attempts.positive?
           begin
-            jid = AuctionChangedJob.perform_async(event.auction_id, event.public_revision)
+            jid = Observability.with_carrier(event.trace_carrier) do
+              Observability.trace("hammerfall.outbox.publish", kind: :producer) do
+                AuctionChangedJob.perform_async(event.auction_id, event.public_revision)
+              end
+            end
             raise EnqueueFailed, "Sidekiq returned no job ID" if jid.nil?
           rescue StandardError => error
+            Observability.counter("hammerfall_outbox_publish_failures", attributes: { channel: "sidekiq" })
             # Persist a retry; a failed/unknown enqueue may already have reached Redis.
             attempts = event.attempts + 1
             delay = [ 2**[ attempts, 8 ].min, 300 ].min
             database_now = OutboxEvent.connection.select_value("SELECT clock_timestamp()")
             event.update!(attempts: attempts, last_error: error.class.name.to_s.first(255), next_attempt_at: database_now + delay)
             @logger.warn("outbox_publisher enqueue_failed event_id=#{event.event_id} error=#{error.class}")
+            Observability.log(level: :warn, component: "outbox_publisher", operation: "enqueue",
+              result: "failed", error_class: error.class.name, event_id: event.event_id,
+              retry_count: attempts, public_revision: event.public_revision)
             failed += 1
           else
             # An acknowledgment failure rolls this transaction back. A later
             # poll may enqueue the same event again, as intended.
             database_now = OutboxEvent.connection.select_value("SELECT clock_timestamp()")
             event.update!(published_at: database_now, attempts: event.attempts + 1, last_error: nil)
+            Observability.log(level: :info, component: "outbox_publisher", operation: "enqueue",
+              result: "succeeded", event_id: event.event_id, retry_count: event.attempts,
+              public_revision: event.public_revision)
             published += 1
+          ensure
+            Observability.histogram("hammerfall_outbox_publish_duration", Observability.monotonic - started,
+              attributes: { channel: "sidekiq" })
           end
         end
       end
       break unless found
     end
     metrics = backlog_metrics
+    Observability.gauge("hammerfall_outbox_pending_events", metrics[:backlog], attributes: { channel: "sidekiq" })
+    Observability.gauge("hammerfall_outbox_oldest_event_age", metrics[:oldest_age_seconds], attributes: { channel: "sidekiq" })
+    Observability.sidekiq_queue_depth
     @logger.info("outbox_publisher published=#{published} failed=#{failed} backlog=#{metrics[:backlog]} due=#{metrics[:due]} retries=#{metrics[:retries]} oldest_age_seconds=#{metrics[:oldest_age_seconds]}")
     { published: published, failed: failed, **metrics }
   end

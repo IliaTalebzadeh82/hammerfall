@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_01_012000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_01_013000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -141,6 +141,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_012000) do
     t.bigint "public_revision", null: false
     t.datetime "published_at"
     t.integer "schema_version", null: false
+    t.string "traceparent", limit: 55
+    t.string "tracestate", limit: 512
     t.index ["auction_id", "public_revision"], name: "index_outbox_events_on_auction_id_and_public_revision", unique: true
     t.index ["event_id"], name: "index_outbox_events_on_event_id", unique: true
     t.index ["kafka_next_attempt_at", "id"], name: "index_outbox_events_kafka_due", where: "(kafka_published_at IS NULL)"
