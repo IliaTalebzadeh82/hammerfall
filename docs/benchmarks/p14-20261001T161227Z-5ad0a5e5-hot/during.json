@@ -1,0 +1,2161 @@
+{
+  "stage": "during",
+  "captured_at_utc": "2026-10-01T16:12:49.232331+00:00",
+  "run_id": "p14-20261001T161227Z-5ad0a5e5",
+  "git_sha": "2b2f94d332bade5b660833cfd6f7c439f3a0c26d",
+  "pg_state": {
+    "sessions": 11,
+    "active": 3,
+    "lock_waiters": 2,
+    "wait_events": {
+      "Client:ClientRead": 8,
+      "Lock:transactionid": 1,
+      "Lock:tuple": 1,
+      "none": 1
+    },
+    "blocked_sessions": 2,
+    "fixture_sidekiq_pending": 0,
+    "fixture_kafka_pending": 1
+  },
+  "docker_stats": [
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "11.32%",
+      "Container": "d00508ebe54bab0781279f7666da2f15288655d3a2eeddfdb6f972e4ddfa1f9a",
+      "ID": "d00508ebe54b",
+      "MemPerc": "0.15%",
+      "MemUsage": "46.46MiB / 30.32GiB",
+      "Name": "admiring_satoshi",
+      "NetIO": "0B / 0B",
+      "PIDs": "27"
+    },
+    {
+      "BlockIO": "0B / 12.3kB",
+      "CPUPerc": "107.04%",
+      "Container": "827aa47102ca0b50d12affdb829f770735e8703007e4059093e20aa43e1ec6a9",
+      "ID": "827aa47102ca",
+      "MemPerc": "0.39%",
+      "MemUsage": "122.5MiB / 30.32GiB",
+      "Name": "hammerfall-api-1",
+      "NetIO": "9.86MB / 9.66MB",
+      "PIDs": "19"
+    },
+    {
+      "BlockIO": "307kB / 0B",
+      "CPUPerc": "1.85%",
+      "Container": "ae121d51fc6b2e3e0e164de6e857eedff8f5f6e2a42f5751e4275435d84fa2ac",
+      "ID": "ae121d51fc6b",
+      "MemPerc": "0.29%",
+      "MemUsage": "89.57MiB / 30.32GiB",
+      "Name": "hammerfall-outbox-publisher-1",
+      "NetIO": "23.9MB / 25.5MB",
+      "PIDs": "6"
+    },
+    {
+      "BlockIO": "0B / 7.29MB",
+      "CPUPerc": "0.68%",
+      "Container": "c0c85fb47b69868f71e555560b255f24d3cf23a862bfd5639b8bb2feb55f387e",
+      "ID": "c0c85fb47b69",
+      "MemPerc": "0.31%",
+      "MemUsage": "95.64MiB / 30.32GiB",
+      "Name": "hammerfall-sidekiq-1",
+      "NetIO": "93MB / 25MB",
+      "PIDs": "10"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.50%",
+      "Container": "bd618a3c839bdff8a3de66459833dbaad72b911ddc667319c2593b2e724ecfed",
+      "ID": "bd618a3c839b",
+      "MemPerc": "0.28%",
+      "MemUsage": "87.27MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-projection-consumer-1",
+      "NetIO": "12.5MB / 17.7MB",
+      "PIDs": "12"
+    },
+    {
+      "BlockIO": "5.47MB / 0B",
+      "CPUPerc": "1.09%",
+      "Container": "2119f47aa43b4a2ae3191fb1484cc60d16ed00aa146f797da41f1e7135812fe9",
+      "ID": "2119f47aa43b",
+      "MemPerc": "0.29%",
+      "MemUsage": "90.46MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-outbox-publisher-1",
+      "NetIO": "23.5MB / 26.3MB",
+      "PIDs": "10"
+    },
+    {
+      "BlockIO": "160kB / 0B",
+      "CPUPerc": "0.17%",
+      "Container": "4b009cf9ba8e3bab62d206663c98209a08c09f91c6838f554efc7a855fa8863f",
+      "ID": "4b009cf9ba8e",
+      "MemPerc": "0.25%",
+      "MemUsage": "78.8MiB / 30.32GiB",
+      "Name": "hammerfall-auction-closer-1",
+      "NetIO": "3.48MB / 6.64MB",
+      "PIDs": "6"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "1.50%",
+      "Container": "9ab302df6e31cad3c60e61165365386532352de2d4a7d471f1e65ab5c819a23d",
+      "ID": "9ab302df6e31",
+      "MemPerc": "0.28%",
+      "MemUsage": "86.17MiB / 30.32GiB",
+      "Name": "hammerfall-kafka-audit-consumer-1",
+      "NetIO": "16.9MB / 19MB",
+      "PIDs": "12"
+    },
+    {
+      "BlockIO": "17.4MB / 0B",
+      "CPUPerc": "0.07%",
+      "Container": "0af2cb302acf4d9a11e0fad28b4c0d44bfd4bdb0b17b9fa30367bc17fa9cee48",
+      "ID": "0af2cb302acf",
+      "MemPerc": "0.27%",
+      "MemUsage": "83.79MiB / 30.32GiB",
+      "Name": "hammerfall-reconciliation-scheduler-1",
+      "NetIO": "391kB / 735kB",
+      "PIDs": "6"
+    },
+    {
+      "BlockIO": "48.2MB / 34.6MB",
+      "CPUPerc": "0.22%",
+      "Container": "681cabaa77ed96f860cf8547dbbed452fb913461b6649795256c3da79cd0984d",
+      "ID": "681cabaa77ed",
+      "MemPerc": "0.28%",
+      "MemUsage": "87.83MiB / 30.32GiB",
+      "Name": "hammerfall-grafana-1",
+      "NetIO": "1.45MB / 3.75MB",
+      "PIDs": "29"
+    },
+    {
+      "BlockIO": "1.09MB / 566MB",
+      "CPUPerc": "0.71%",
+      "Container": "720f0755c9c2db3a8ab431d87af9b5b4ee132f36dfbbb1282952df9b636bf85c",
+      "ID": "720f0755c9c2",
+      "MemPerc": "1.17%",
+      "MemUsage": "362.1MiB / 30.32GiB",
+      "Name": "hammerfall-tempo-1",
+      "NetIO": "11.6MB / 2.54MB",
+      "PIDs": "28"
+    },
+    {
+      "BlockIO": "332kB / 28.3MB",
+      "CPUPerc": "0.00%",
+      "Container": "8d777dd3cc060ac3ee621699e588f4da47571f1f73a801f809444f9fc1cc8597",
+      "ID": "8d777dd3cc06",
+      "MemPerc": "0.11%",
+      "MemUsage": "35.4MiB / 30.32GiB",
+      "Name": "hammerfall-prometheus-1",
+      "NetIO": "6.95MB / 2.98MB",
+      "PIDs": "26"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.87%",
+      "Container": "206406c8fa349b2b53a7290bff8ccded8eb01690596bf01682498ebc669815f1",
+      "ID": "206406c8fa34",
+      "MemPerc": "0.20%",
+      "MemUsage": "61.86MiB / 30.32GiB",
+      "Name": "hammerfall-otel-collector-1",
+      "NetIO": "48.8MB / 20.3MB",
+      "PIDs": "26"
+    },
+    {
+      "BlockIO": "897kB / 607MB",
+      "CPUPerc": "1.65%",
+      "Container": "ee4ffecd23c674330a4c31431a4c0fd4a868d852c21d2524f33b70c7c89f1872",
+      "ID": "ee4ffecd23c6",
+      "MemPerc": "3.39%",
+      "MemUsage": "1.028GiB / 30.32GiB",
+      "Name": "hammerfall-kafka-1",
+      "NetIO": "27.3MB / 32.3MB",
+      "PIDs": "128"
+    },
+    {
+      "BlockIO": "60.9MB / 110MB",
+      "CPUPerc": "0.88%",
+      "Container": "275c9fb461f3e56ae6a77a31c124f24f83db650039cf7ba150878d6e54821cb2",
+      "ID": "275c9fb461f3",
+      "MemPerc": "0.02%",
+      "MemUsage": "5.121MiB / 30.32GiB",
+      "Name": "hammerfall-redis-1",
+      "NetIO": "34.5MB / 83.9MB",
+      "PIDs": "6"
+    },
+    {
+      "BlockIO": "35.3MB / 67MB",
+      "CPUPerc": "0.00%",
+      "Container": "a2d7c0931c24009b271a844cee288eb89ba5a74ab5b50f7bd4ea6803e4025116",
+      "ID": "a2d7c0931c24",
+      "MemPerc": "5.32%",
+      "MemUsage": "1.613GiB / 30.32GiB",
+      "Name": "hammerfall-web-1",
+      "NetIO": "11.8MB / 120MB",
+      "PIDs": "91"
+    },
+    {
+      "BlockIO": "16.1MB / 3.29GB",
+      "CPUPerc": "21.90%",
+      "Container": "7c6a9d3e6032e249674245fbbf50520464ee96348011cdadb4459f6775e9e345",
+      "ID": "7c6a9d3e6032",
+      "MemPerc": "0.37%",
+      "MemUsage": "116MiB / 30.32GiB",
+      "Name": "hammerfall-db-1",
+      "NetIO": "316MB / 453MB",
+      "PIDs": "19"
+    }
+  ],
+  "running_containers": [
+    {
+      "Command": "\"k6 run --summary-ex\u2026\"",
+      "CreatedAt": "2026-10-01 19:42:39 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "d00508ebe54b",
+      "Image": "grafana/k6:1.8.1",
+      "Labels": "",
+      "LocalVolumes": "0",
+      "Mounts": "/home/uncleili\u2026",
+      "Names": "admiring_satoshi",
+      "Networks": "host",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "",
+      "RunningFor": "12 seconds ago",
+      "Size": "8.19kB (virtual 79.5MB)",
+      "State": "running",
+      "Status": "Up 12 seconds"
+    },
+    {
+      "Command": "\"sh -c '(bundle chec\u2026\"",
+      "CreatedAt": "2026-10-01 19:42:11 +0330 +0330",
+      "HealthStatus": "healthy",
+      "ID": "827aa47102ca",
+      "Image": "hammerfall-api",
+      "Labels": "com.docker.compose.config-hash=fb46ee8680bf3dd17986e4ba8b5ba21cf78f59c38614ec80bbe0387b8a78f103,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:3e9de38dd3558965029b1b031d803eb6560967bd113b69352a699a703cd6a85a,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.replace=api-1,com.docker.compose.service=api,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "2",
+      "Mounts": "/home/uncleili\u2026,hammerfall_api\u2026,hammerfall_api\u2026",
+      "Names": "hammerfall-api-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "127.0.0.1:3001->3000/tcp",
+      "RunningFor": "40 seconds ago",
+      "Size": "16.4kB (virtual 1.07GB)",
+      "State": "running",
+      "Status": "Up 40 seconds (healthy)"
+    },
+    {
+      "Command": "\"bin/outbox_publisher\"",
+      "CreatedAt": "2026-10-01 16:52:00 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "ae121d51fc6b",
+      "Image": "hammerfall-api",
+      "Labels": "com.docker.compose.config-hash=03821463e87420ca3571a8af2ba2e24de36cec8ce97a9684fcef9655c026581f,com.docker.compose.container-number=1,com.docker.compose.depends_on=api:service_healthy:false,com.docker.compose.image=sha256:3e9de38dd3558965029b1b031d803eb6560967bd113b69352a699a703cd6a85a,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.replace=outbox-publisher-1,com.docker.compose.service=outbox-publisher,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "1",
+      "Mounts": "/home/uncleili\u2026,hammerfall_api\u2026",
+      "Names": "hammerfall-outbox-publisher-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "3000/tcp",
+      "RunningFor": "3 hours ago",
+      "Size": "4.1kB (virtual 1.07GB)",
+      "State": "running",
+      "Status": "Up 3 hours"
+    },
+    {
+      "Command": "\"bundle exec sidekiq\u2026\"",
+      "CreatedAt": "2026-10-01 16:52:00 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "c0c85fb47b69",
+      "Image": "hammerfall-api",
+      "Labels": "com.docker.compose.config-hash=a0935231dc8072f2af85152915304672c0189967aff6f471a1a05ca4facd93fc,com.docker.compose.container-number=1,com.docker.compose.depends_on=api:service_healthy:false,redis:service_healthy:false,com.docker.compose.image=sha256:3e9de38dd3558965029b1b031d803eb6560967bd113b69352a699a703cd6a85a,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.replace=sidekiq-1,com.docker.compose.service=sidekiq,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "1",
+      "Mounts": "/home/uncleili\u2026,hammerfall_api\u2026",
+      "Names": "hammerfall-sidekiq-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "3000/tcp",
+      "RunningFor": "3 hours ago",
+      "Size": "4.1kB (virtual 1.07GB)",
+      "State": "running",
+      "Status": "Up 3 hours"
+    },
+    {
+      "Command": "\"bin/kafka_projectio\u2026\"",
+      "CreatedAt": "2026-10-01 16:52:00 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "bd618a3c839b",
+      "Image": "hammerfall-api",
+      "Labels": "com.docker.compose.config-hash=ea4fb53651d10025ccde641fe4decd021ccebf3c1593ecf16075d40a7749c7d5,com.docker.compose.container-number=1,com.docker.compose.depends_on=kafka-init:service_completed_successfully:false,api:service_healthy:false,redis:service_healthy:false,com.docker.compose.image=sha256:3e9de38dd3558965029b1b031d803eb6560967bd113b69352a699a703cd6a85a,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.replace=kafka-projection-consumer-1,com.docker.compose.service=kafka-projection-consumer,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "1",
+      "Mounts": "/home/uncleili\u2026,hammerfall_api\u2026",
+      "Names": "hammerfall-kafka-projection-consumer-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "3000/tcp",
+      "RunningFor": "3 hours ago",
+      "Size": "4.1kB (virtual 1.07GB)",
+      "State": "running",
+      "Status": "Up 3 hours"
+    },
+    {
+      "Command": "\"bin/kafka_outbox_pu\u2026\"",
+      "CreatedAt": "2026-10-01 16:52:00 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "2119f47aa43b",
+      "Image": "hammerfall-api",
+      "Labels": "com.docker.compose.config-hash=ec97f03224cb35e7c2c6e97570ba7ae7b9296587b1b07a074827688c2e8399e8,com.docker.compose.container-number=1,com.docker.compose.depends_on=api:service_healthy:false,kafka-init:service_completed_successfully:false,com.docker.compose.image=sha256:3e9de38dd3558965029b1b031d803eb6560967bd113b69352a699a703cd6a85a,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.replace=kafka-outbox-publisher-1,com.docker.compose.service=kafka-outbox-publisher,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "1",
+      "Mounts": "/home/uncleili\u2026,hammerfall_api\u2026",
+      "Names": "hammerfall-kafka-outbox-publisher-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "3000/tcp",
+      "RunningFor": "3 hours ago",
+      "Size": "4.1kB (virtual 1.07GB)",
+      "State": "running",
+      "Status": "Up 3 hours"
+    },
+    {
+      "Command": "\"bin/auction_closer\"",
+      "CreatedAt": "2026-10-01 16:52:00 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "4b009cf9ba8e",
+      "Image": "hammerfall-api",
+      "Labels": "com.docker.compose.config-hash=ae05616c06d7bfde8fae76dd5384c3c5c73f60dc77b72946c5c8caefd2894610,com.docker.compose.container-number=1,com.docker.compose.depends_on=api:service_healthy:false,com.docker.compose.image=sha256:3e9de38dd3558965029b1b031d803eb6560967bd113b69352a699a703cd6a85a,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.replace=auction-closer-1,com.docker.compose.service=auction-closer,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "1",
+      "Mounts": "/home/uncleili\u2026,hammerfall_api\u2026",
+      "Names": "hammerfall-auction-closer-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "3000/tcp",
+      "RunningFor": "3 hours ago",
+      "Size": "4.1kB (virtual 1.07GB)",
+      "State": "running",
+      "Status": "Up 3 hours"
+    },
+    {
+      "Command": "\"bin/kafka_audit_con\u2026\"",
+      "CreatedAt": "2026-10-01 16:52:00 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "9ab302df6e31",
+      "Image": "hammerfall-api",
+      "Labels": "com.docker.compose.config-hash=ac36decf4105d1a7e9abefa08ab58934fb880ef4f737e4cd7bf727a4eb3621c0,com.docker.compose.container-number=1,com.docker.compose.depends_on=api:service_healthy:false,kafka-init:service_completed_successfully:false,com.docker.compose.image=sha256:3e9de38dd3558965029b1b031d803eb6560967bd113b69352a699a703cd6a85a,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.replace=kafka-audit-consumer-1,com.docker.compose.service=kafka-audit-consumer,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "1",
+      "Mounts": "/home/uncleili\u2026,hammerfall_api\u2026",
+      "Names": "hammerfall-kafka-audit-consumer-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "3000/tcp",
+      "RunningFor": "3 hours ago",
+      "Size": "4.1kB (virtual 1.07GB)",
+      "State": "running",
+      "Status": "Up 3 hours"
+    },
+    {
+      "Command": "\"bin/reconciliation_\u2026\"",
+      "CreatedAt": "2026-10-01 16:52:00 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "0af2cb302acf",
+      "Image": "hammerfall-api",
+      "Labels": "com.docker.compose.config-hash=7a7dda9982eaa4973d58a7a1ec8ea6acd0ad563e5b51f6b6440693bbe4688e82,com.docker.compose.container-number=1,com.docker.compose.depends_on=api:service_healthy:false,redis:service_healthy:false,com.docker.compose.image=sha256:3e9de38dd3558965029b1b031d803eb6560967bd113b69352a699a703cd6a85a,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.replace=reconciliation-scheduler-1,com.docker.compose.service=reconciliation-scheduler,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "1",
+      "Mounts": "/home/uncleili\u2026,hammerfall_api\u2026",
+      "Names": "hammerfall-reconciliation-scheduler-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "3000/tcp",
+      "RunningFor": "3 hours ago",
+      "Size": "4.1kB (virtual 1.07GB)",
+      "State": "running",
+      "Status": "Up 3 hours"
+    },
+    {
+      "Command": "\"/run.sh\"",
+      "CreatedAt": "2026-10-01 13:48:07 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "681cabaa77ed",
+      "Image": "grafana/grafana:12.1.0",
+      "Labels": "com.docker.compose.config-hash=b21d05bf13d9b088385f3a0d6e078289a23493eeb06c4af294e335164b7894a1,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:11c2e6c7993917ea89292b942e3428f73907b2809d554154bfb8b4ceb2301cc8,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.replace=grafana-1,com.docker.compose.service=grafana,com.docker.compose.version=5.5.1,maintainer=Grafana Labs <hello@grafana.com>,org.opencontainers.image.source=https://github.com/grafana/grafana",
+      "LocalVolumes": "1",
+      "Mounts": "/home/uncleili\u2026,hammerfall_gra\u2026,/home/uncleili\u2026",
+      "Names": "hammerfall-grafana-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "127.0.0.1:3002->3000/tcp",
+      "RunningFor": "6 hours ago",
+      "Size": "4.1kB (virtual 759MB)",
+      "State": "running",
+      "Status": "Up 4 hours"
+    },
+    {
+      "Command": "\"/tempo -config.file\u2026\"",
+      "CreatedAt": "2026-10-01 13:44:06 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "720f0755c9c2",
+      "Image": "grafana/tempo:2.8.2",
+      "Labels": "com.docker.compose.config-hash=afb64c838f2ae523d4c354478b4226e6e1af084397dafad65681eb39eb2b83c6,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:8cfd15734001588eb9c4de7326614be2b668e84d71f8479b149906f0dd65983d,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.service=tempo,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "1",
+      "Mounts": "hammerfall_tem\u2026,/home/uncleili\u2026",
+      "Names": "hammerfall-tempo-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "3200/tcp, 4318/tcp",
+      "RunningFor": "6 hours ago",
+      "Size": "12.3kB (virtual 121MB)",
+      "State": "running",
+      "Status": "Up 4 hours"
+    },
+    {
+      "Command": "\"/bin/prometheus --c\u2026\"",
+      "CreatedAt": "2026-10-01 13:44:06 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "8d777dd3cc06",
+      "Image": "prom/prometheus:v3.5.0",
+      "Labels": "com.docker.compose.config-hash=1c9da25fc1cbe34b3a0f236163bef94cdd44ef34cf2c1918a86b6bc6bb9eaa6e,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:8672a850efe2f9874702406c8318704edb363587f8c2ca88586b4c8fdb5cea24,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.service=prometheus,com.docker.compose.version=5.5.1,maintainer=The Prometheus Authors <prometheus-developers@googlegroups.com>,org.opencontainers.image.source=https://github.com/prometheus/prometheus",
+      "LocalVolumes": "1",
+      "Mounts": "hammerfall_pro\u2026,/home/uncleili\u2026",
+      "Names": "hammerfall-prometheus-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "9090/tcp",
+      "RunningFor": "6 hours ago",
+      "Size": "4.1kB (virtual 316MB)",
+      "State": "running",
+      "Status": "Up 4 hours"
+    },
+    {
+      "Command": "\"/otelcol-contrib --\u2026\"",
+      "CreatedAt": "2026-10-01 13:44:06 +0330 +0330",
+      "HealthStatus": "none",
+      "ID": "206406c8fa34",
+      "Image": "otel/opentelemetry-collector-contrib:0.136.0",
+      "Labels": "com.docker.compose.config-hash=11cd292da37a7a711952eb3ce5eb673378c02e79e2e45dac5e9196e7831b78d4,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:b503672022a65e079f56f18a759fb25a5050d70182bbac385dc83e2009d74de6,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.service=otel-collector,com.docker.compose.version=5.5.1,org.opencontainers.image.created=2025-09-23T14:46:51Z,org.opencontainers.image.licenses=Apache-2.0,org.opencontainers.image.name=opentelemetry-collector-releases,org.opencontainers.image.revision=ff8d64f8bbdb45270cde7289bf39218514bbfd2d,org.opencontainers.image.source=https://github.com/open-telemetry/opentelemetry-collector-releases,org.opencontainers.image.version=0.136.0",
+      "LocalVolumes": "0",
+      "Mounts": "/home/uncleili\u2026",
+      "Names": "hammerfall-otel-collector-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "4317-4318/tcp, 9464/tcp, 55679/tcp",
+      "RunningFor": "6 hours ago",
+      "Size": "4.1kB (virtual 343MB)",
+      "State": "running",
+      "Status": "Up 4 hours"
+    },
+    {
+      "Command": "\"/__cacert_entrypoin\u2026\"",
+      "CreatedAt": "2026-09-30 20:37:43 +0330 +0330",
+      "HealthStatus": "healthy",
+      "ID": "ee4ffecd23c6",
+      "Image": "apache/kafka:4.1.2",
+      "Labels": "com.docker.compose.config-hash=86dac7d19a40807b33f62a0e85fa26987b340adea966ededafe3fcb5a73101d9,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:d50ab7b5df612b3c303f9d8afe8fee59626a5de798addfd626fe1924e3205965,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.service=kafka,com.docker.compose.version=5.5.1,maintainer=Apache Kafka,org.label-schema.build-date=2026-02-25,org.label-schema.description=Apache Kafka,org.label-schema.name=kafka,org.label-schema.vcs-url=https://github.com/apache/kafka",
+      "LocalVolumes": "3",
+      "Mounts": "6160e57c7896c9\u2026,72f9621ba0c4e6\u2026,hammerfall_kaf\u2026",
+      "Names": "hammerfall-kafka-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "9092/tcp, 127.0.0.1:29092->29092/tcp",
+      "RunningFor": "23 hours ago",
+      "Size": "14.8MB (virtual 454MB)",
+      "State": "running",
+      "Status": "Up 4 hours (healthy)"
+    },
+    {
+      "Command": "\"docker-entrypoint.s\u2026\"",
+      "CreatedAt": "2026-09-30 12:24:51 +0330 +0330",
+      "HealthStatus": "healthy",
+      "ID": "275c9fb461f3",
+      "Image": "redis:7.4-alpine",
+      "Labels": "com.docker.compose.config-hash=6d15ebbd40a2d48495e1f70d9548ade88a9e4aa624554c3066a9670658026ed9,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:ca0acbb137c1dc3339c8b147a58fd6f42775d4599327b50e7b116c23de501af2,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.service=redis,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "1",
+      "Mounts": "hammerfall_red\u2026",
+      "Names": "hammerfall-redis-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "127.0.0.1:6379->6379/tcp",
+      "RunningFor": "31 hours ago",
+      "Size": "4.1kB (virtual 41.1MB)",
+      "State": "running",
+      "Status": "Up 4 hours (healthy)"
+    },
+    {
+      "Command": "\"docker-entrypoint.s\u2026\"",
+      "CreatedAt": "2026-09-29 15:35:55 +0330 +0330",
+      "HealthStatus": "healthy",
+      "ID": "a2d7c0931c24",
+      "Image": "5c6e4f779f60",
+      "Labels": "com.docker.compose.config-hash=7bf85a8ae1e2a5f947606745f4a5f0b2cb0df58c3812d6763ff0abbceacbd690,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:7c4caa45130b4cb5cfc72663b3c8f9ecebbec015cc413e0a901b214913c54677,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.replace=web-1,com.docker.compose.service=web,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "2",
+      "Mounts": "/home/uncleili\u2026,hammerfall_web\u2026,hammerfall_web\u2026",
+      "Names": "hammerfall-web-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "127.0.0.1:3000->3000/tcp",
+      "RunningFor": "2 days ago",
+      "Size": "28.7kB (virtual 1.94GB)",
+      "State": "running",
+      "Status": "Up 2 days (healthy)"
+    },
+    {
+      "Command": "\"docker-entrypoint.s\u2026\"",
+      "CreatedAt": "2026-09-23 22:09:06 +0330 +0330",
+      "HealthStatus": "healthy",
+      "ID": "7c6a9d3e6032",
+      "Image": "postgres:18.6-bookworm",
+      "Labels": "com.docker.compose.config-hash=15850051456a0a662f1a09f19a706eee9b5b07fa7ce56bc445c9050f7ee90f2c,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:9e73daeb439141c2b11eea2463f5f1a3b269fd90d897b41cddb7cb440f21aa5d,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/uncleili/dev/ruby/hammerfall/docker-compose.yml,com.docker.compose.project.working_dir=/home/uncleili/dev/ruby/hammerfall,com.docker.compose.project=hammerfall,com.docker.compose.service=db,com.docker.compose.version=5.5.1",
+      "LocalVolumes": "1",
+      "Mounts": "hammerfall_pos\u2026",
+      "Names": "hammerfall-db-1",
+      "Networks": "hammerfall_default",
+      "Platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "Ports": "127.0.0.1:5432->5432/tcp",
+      "RunningFor": "7 days ago",
+      "Size": "20.5kB (virtual 466MB)",
+      "State": "running",
+      "Status": "Up 17 hours (healthy)"
+    }
+  ],
+  "host_loadavg": "2.40 1.69 1.45 4/3561 2648488",
+  "host_mem_available_kib": 17969264,
+  "api_open_fds": "84",
+  "prometheus": {
+    "lock_wait_bucket": [
+      {
+        "metric": {
+          "le": "0.001",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "11"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf",
+          "operation": "close"
+        },
+        "value": [
+          1790871172.309,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.001",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "2649"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "7995"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8670"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8911"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8939"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8939"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8939"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8939"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8939"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8939"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8939"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8939"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8939"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf",
+          "operation": "place_bid"
+        },
+        "value": [
+          1790871172.309,
+          "8939"
+        ]
+      }
+    ],
+    "bid_processing_bucket": [
+      {
+        "metric": {
+          "le": "0.001",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "189"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "274"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "282"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "282"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "282"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "282"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "282"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "282"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "282"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "282"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf",
+          "operation": "place_bid",
+          "result": "accepted"
+        },
+        "value": [
+          1790871172.517,
+          "282"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.001",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "1152"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "7234"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "8611"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "8656"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "8656"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "8656"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "8656"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "8656"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "8656"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "8656"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "8656"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf",
+          "operation": "place_bid",
+          "result": "rejected"
+        },
+        "value": [
+          1790871172.517,
+          "8656"
+        ]
+      }
+    ],
+    "db_checkout_bucket": [
+      {
+        "metric": {
+          "le": "0.001"
+        },
+        "value": [
+          1790871172.733,
+          "29446"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf"
+        },
+        "value": [
+          1790871172.733,
+          "29447"
+        ]
+      }
+    ],
+    "db_pool_wait_bucket": [],
+    "db_pool_busy": [
+      {
+        "metric": {
+          "__name__": "hammerfall_db_pool_busy",
+          "exported_instance": "5d1440c89067:1",
+          "exported_job": "hammerfall-api",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871173.15,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_db_pool_busy",
+          "exported_instance": "71ad393ab797:1",
+          "exported_job": "hammerfall-api",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871173.15,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_db_pool_busy",
+          "exported_instance": "827aa47102ca:1",
+          "exported_job": "hammerfall-api",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871173.15,
+          "2"
+        ]
+      }
+    ],
+    "db_pool_idle": [
+      {
+        "metric": {
+          "__name__": "hammerfall_db_pool_idle",
+          "exported_instance": "5d1440c89067:1",
+          "exported_job": "hammerfall-api",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871173.37,
+          "3"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_db_pool_idle",
+          "exported_instance": "71ad393ab797:1",
+          "exported_job": "hammerfall-api",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871173.37,
+          "2"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_db_pool_idle",
+          "exported_instance": "827aa47102ca:1",
+          "exported_job": "hammerfall-api",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871173.37,
+          "1"
+        ]
+      }
+    ],
+    "db_pool_waiting": [
+      {
+        "metric": {
+          "__name__": "hammerfall_db_pool_waiting",
+          "exported_instance": "5d1440c89067:1",
+          "exported_job": "hammerfall-api",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871173.596,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_db_pool_waiting",
+          "exported_instance": "71ad393ab797:1",
+          "exported_job": "hammerfall-api",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871173.596,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_db_pool_waiting",
+          "exported_instance": "827aa47102ca:1",
+          "exported_job": "hammerfall-api",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871173.596,
+          "0"
+        ]
+      }
+    ],
+    "publisher_duration_bucket": [
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.001"
+        },
+        "value": [
+          1790871173.82,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.005"
+        },
+        "value": [
+          1790871173.82,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.01"
+        },
+        "value": [
+          1790871173.82,
+          "2367"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.025"
+        },
+        "value": [
+          1790871173.82,
+          "4603"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.05"
+        },
+        "value": [
+          1790871173.82,
+          "4604"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.1"
+        },
+        "value": [
+          1790871173.82,
+          "4606"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.25"
+        },
+        "value": [
+          1790871173.82,
+          "4606"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "0.5"
+        },
+        "value": [
+          1790871173.82,
+          "4606"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "1.0"
+        },
+        "value": [
+          1790871173.82,
+          "4607"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "2.5"
+        },
+        "value": [
+          1790871173.82,
+          "4607"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "5.0"
+        },
+        "value": [
+          1790871173.82,
+          "4607"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "10.0"
+        },
+        "value": [
+          1790871173.82,
+          "4607"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "30.0"
+        },
+        "value": [
+          1790871173.82,
+          "4607"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "kafka",
+          "le": "+Inf"
+        },
+        "value": [
+          1790871173.82,
+          "4607"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.001"
+        },
+        "value": [
+          1790871173.82,
+          "6"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.005"
+        },
+        "value": [
+          1790871173.82,
+          "4344"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.01"
+        },
+        "value": [
+          1790871173.82,
+          "4587"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.025"
+        },
+        "value": [
+          1790871173.82,
+          "4608"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.05"
+        },
+        "value": [
+          1790871173.82,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.1"
+        },
+        "value": [
+          1790871173.82,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.25"
+        },
+        "value": [
+          1790871173.82,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "0.5"
+        },
+        "value": [
+          1790871173.82,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "1.0"
+        },
+        "value": [
+          1790871173.82,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "2.5"
+        },
+        "value": [
+          1790871173.82,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "5.0"
+        },
+        "value": [
+          1790871173.82,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "10.0"
+        },
+        "value": [
+          1790871173.82,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "30.0"
+        },
+        "value": [
+          1790871173.82,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "channel": "sidekiq",
+          "le": "+Inf"
+        },
+        "value": [
+          1790871173.82,
+          "4609"
+        ]
+      }
+    ],
+    "outbox_pending": [
+      {
+        "metric": {
+          "__name__": "hammerfall_outbox_pending_events",
+          "channel": "kafka",
+          "exported_instance": "2119f47aa43b:1",
+          "exported_job": "hammerfall-kafka-outbox-publisher",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871174.043,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_outbox_pending_events",
+          "channel": "sidekiq",
+          "exported_instance": "ae121d51fc6b:1",
+          "exported_job": "hammerfall-outbox-publisher",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871174.043,
+          "0"
+        ]
+      }
+    ],
+    "outbox_oldest_age": [
+      {
+        "metric": {
+          "__name__": "hammerfall_outbox_oldest_event_age_seconds",
+          "channel": "kafka",
+          "exported_instance": "2119f47aa43b:1",
+          "exported_job": "hammerfall-kafka-outbox-publisher",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871174.273,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_outbox_oldest_event_age_seconds",
+          "channel": "sidekiq",
+          "exported_instance": "ae121d51fc6b:1",
+          "exported_job": "hammerfall-outbox-publisher",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871174.273,
+          "0"
+        ]
+      }
+    ],
+    "kafka_lag": [
+      {
+        "metric": {
+          "__name__": "hammerfall_kafka_consumer_lag",
+          "consumer_group": "hammerfall.audit.v1",
+          "exported_instance": "9ab302df6e31:1",
+          "exported_job": "hammerfall-kafka-audit-consumer",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "partition": "0"
+        },
+        "value": [
+          1790871174.499,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_kafka_consumer_lag",
+          "consumer_group": "hammerfall.projection.v1",
+          "exported_instance": "bd618a3c839b:1",
+          "exported_job": "hammerfall-kafka-projection-consumer",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "partition": "0"
+        },
+        "value": [
+          1790871174.499,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_kafka_consumer_lag",
+          "consumer_group": "hammerfall.projection.v1",
+          "exported_instance": "bd618a3c839b:1",
+          "exported_job": "hammerfall-kafka-projection-consumer",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "partition": "2"
+        },
+        "value": [
+          1790871174.499,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_kafka_consumer_lag",
+          "consumer_group": "hammerfall.audit.v1",
+          "exported_instance": "9ab302df6e31:1",
+          "exported_job": "hammerfall-kafka-audit-consumer",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "partition": "2"
+        },
+        "value": [
+          1790871174.499,
+          "1"
+        ]
+      }
+    ],
+    "sidekiq_queue": [
+      {
+        "metric": {
+          "__name__": "hammerfall_sidekiq_queue_depth",
+          "exported_instance": "ae121d51fc6b:1",
+          "exported_job": "hammerfall-outbox-publisher",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "queue": "notifications"
+        },
+        "value": [
+          1790871174.724,
+          "0"
+        ]
+      }
+    ],
+    "websocket_broadcasts": [
+      {
+        "metric": {
+          "__name__": "hammerfall_websocket_broadcasts_total",
+          "exported_instance": "c0c85fb47b69:1",
+          "exported_job": "hammerfall-sidekiq",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "otel_scope_name": "hammerfall",
+          "result": "succeeded"
+        },
+        "value": [
+          1790871174.942,
+          "4609"
+        ]
+      }
+    ],
+    "websocket_lag_bucket": [
+      {
+        "metric": {
+          "le": "0.001"
+        },
+        "value": [
+          1790871175.172,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005"
+        },
+        "value": [
+          1790871175.172,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01"
+        },
+        "value": [
+          1790871175.172,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025"
+        },
+        "value": [
+          1790871175.172,
+          "38"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05"
+        },
+        "value": [
+          1790871175.172,
+          "133"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1"
+        },
+        "value": [
+          1790871175.172,
+          "321"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25"
+        },
+        "value": [
+          1790871175.172,
+          "985"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5"
+        },
+        "value": [
+          1790871175.172,
+          "2190"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0"
+        },
+        "value": [
+          1790871175.172,
+          "4476"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5"
+        },
+        "value": [
+          1790871175.172,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0"
+        },
+        "value": [
+          1790871175.172,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0"
+        },
+        "value": [
+          1790871175.172,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0"
+        },
+        "value": [
+          1790871175.172,
+          "4609"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf"
+        },
+        "value": [
+          1790871175.172,
+          "4609"
+        ]
+      }
+    ],
+    "extensions": [],
+    "close_lag_bucket": [
+      {
+        "metric": {
+          "le": "0.001"
+        },
+        "value": [
+          1790871175.631,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.005"
+        },
+        "value": [
+          1790871175.631,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.01"
+        },
+        "value": [
+          1790871175.631,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.025"
+        },
+        "value": [
+          1790871175.631,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.05"
+        },
+        "value": [
+          1790871175.631,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.1"
+        },
+        "value": [
+          1790871175.631,
+          "8"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.25"
+        },
+        "value": [
+          1790871175.631,
+          "30"
+        ]
+      },
+      {
+        "metric": {
+          "le": "0.5"
+        },
+        "value": [
+          1790871175.631,
+          "57"
+        ]
+      },
+      {
+        "metric": {
+          "le": "1.0"
+        },
+        "value": [
+          1790871175.631,
+          "102"
+        ]
+      },
+      {
+        "metric": {
+          "le": "2.5"
+        },
+        "value": [
+          1790871175.631,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "5.0"
+        },
+        "value": [
+          1790871175.631,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "10.0"
+        },
+        "value": [
+          1790871175.631,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "30.0"
+        },
+        "value": [
+          1790871175.631,
+          "103"
+        ]
+      },
+      {
+        "metric": {
+          "le": "+Inf"
+        },
+        "value": [
+          1790871175.631,
+          "103"
+        ]
+      }
+    ],
+    "reconciliation": [
+      {
+        "metric": {
+          "__name__": "hammerfall_projection_drift_total",
+          "exported_instance": "c0c85fb47b69:1",
+          "exported_job": "hammerfall-sidekiq",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "kind": "behind",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871175.858,
+          "8"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "hammerfall_projection_drift_total",
+          "exported_instance": "c0c85fb47b69:1",
+          "exported_job": "hammerfall-sidekiq",
+          "instance": "otel-collector:9464",
+          "job": "hammerfall-otel-collector",
+          "kind": "missing",
+          "otel_scope_name": "hammerfall"
+        },
+        "value": [
+          1790871175.858,
+          "122"
+        ]
+      }
+    ]
+  }
+}

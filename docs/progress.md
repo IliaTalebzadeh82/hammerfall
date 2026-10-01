@@ -1969,3 +1969,26 @@ before/after; its checker passed. Focused 51 RSpec examples and targeted
 RuboCop passed. No performance optimization or runtime resource setting was
 adopted. Diagnostic overhead, longer memory behavior, controlled tuning,
 broad final gates and hosted CI remain for the next Phase 15 session.
+
+### Phase 15 controlled-experiment milestone — 2026-10-01
+
+The [Session 2 report](benchmarks/phase-15-session-2.md) records 26 new
+64-VU hot runs, all with zero unexpected HTTP outcomes and passing
+PostgreSQL checkers. Diagnostic hooks had no stable material overhead beyond
+local noise. Isolating development request reloading produced 166–179
+HTTP/s and 2.67–2.80 accepted mutations/s with reloading disabled versus
+146–158 HTTP/s and 2.28–2.49 accepted/s enabled. The cleaner CPU profile
+reduced FileUpdateChecker inclusive samples from 13.3% to 2.9%; backlog and
+tail latency did not reliably improve. API telemetry off was faster in the
+cleaner window, but OTel stayed enabled for operational visibility.
+
+Five Puma threads with pool three created about 2,300 blocking pool waits
+per run. Pool five removed the waits but did not improve useful work or tail
+latency. Both tuning experiments were rejected and their overrides removed.
+The later restored three-thread baseline was slower than earlier runs,
+confirming shared-host/service drift. Normal development reloading and API
+runtime settings were restored. The benchmark report renderer was repaired
+for above-finite histogram buckets; capture no longer retains an unnecessary
+duplicate-key digest, and retained Phase 15 snapshots were sanitized.
+Focused observability RSpec passed 15 examples; broad gates and hosted CI
+remain for the final Phase 15 session. Phase 16 has not begun.

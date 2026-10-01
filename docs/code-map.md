@@ -465,3 +465,9 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
 - `load-tests/benchmark.sh` triggers optional diagnostic captures without
   changing the Phase 14 workloads. [Session 1 evidence](benchmarks/phase-15-session-1.md)
   routes from concise conclusions to raw runs and profiler output.
+- `config/environments/development.rb` accepts opt-in
+  `PERFORMANCE_DISABLE_RELOADING=true` for isolated local comparison; normal
+  development reloading remains the default. `load-tests/capture.py` excludes
+  fixture command keys and digests, while `report.py` tolerates observations
+  above finite histogram buckets. The [Session 2 report](benchmarks/phase-15-session-2.md)
+  records the rejected Puma/pool experiments and runtime limits.

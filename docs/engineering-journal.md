@@ -608,3 +608,22 @@ from 20 to 23 descriptors afterward. This supports ordinary connection
 pressure behind the 1,024-FD failure and gives no short-run leak signal.
 The Phase 14 1,000-contender errors remain real; raising the FD limit is a
 separate diagnostic experiment, not a correctness fix or capacity claim.
+
+## 2026-10-01 — More request threads can move a queue into the DB
+
+After measuring development reloading and diagnostic overhead, five Puma
+request threads with a fixed three-connection pool produced roughly 2,300
+blocking pool waits per 20-second hot run. Raising the pool to five removed
+those waits but increased PostgreSQL sessions and auction-lock waiting in
+the valid sample, without improving accepted useful work. The correct
+decision was to retain three threads/pool three. A later restored baseline
+ran much slower than an earlier identical configuration, so even repeated
+local runs need a bracketed control and explicit host-drift limits. The
+[Session 2 report](benchmarks/phase-15-session-2.md) retains the full matrix.
+
+Development request reloading accounted for a measurable local service-rate
+cost, but removing it did not reliably lower p95/p99 or backlog. API OTel
+off increased throughput in repeated runs; keeping it on preserves the
+lock/pool/outbox/error visibility needed to operate this system. These are
+distinct decisions: a measurable overhead does not by itself justify a
+production visibility loss.

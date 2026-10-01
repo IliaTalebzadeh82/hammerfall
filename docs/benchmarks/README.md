@@ -4,13 +4,17 @@ Phase 15's [first profiling milestone](phase-15-session-1.md) adds Puma,
 DB checkout, CPU/GC, query and FD measurements to the retained Phase 14
 baseline. Its runs retain the harness's `p14-*` run ID format; the report
 labels their Phase 15 diagnostic provenance and limitations.
+The [Phase 15 Session 2 report](phase-15-session-2.md) records repeated
+diagnostic, development-runtime, telemetry, Puma thread and DB-pool
+comparisons, including rejected tuning and shared-host drift.
 
 These are local Compose runs on a shared Intel Core Ultra 7 155H host with
 30.3 GiB RAM, Docker 29.8.1 and k6 1.8.1. They are measurements of this
 environment, not production capacity or SLOs. Each retained `p14-*` directory
 contains `report.md`, exact commands, k6 summary/log, environment and telemetry
-snapshots, and PostgreSQL verification. The active [ExecPlan](../plans/phase-14-execplan.md)
-has the current Evidence Index and unresolved work.
+snapshots, and PostgreSQL verification. The active [Phase 15 ExecPlan](../plans/phase-15-execplan.md)
+has the current Evidence Index and unresolved work; the
+[Phase 14 ExecPlan](../plans/phase-14-execplan.md) is historical.
 
 ## Session 2 experiments and interpretation
 

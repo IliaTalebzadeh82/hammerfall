@@ -1,32 +1,45 @@
 # Current handoff — Phase 15 Performance Engineering in progress
 
-Updated: 2026-10-01. Phase 14 is complete. Phase 15 Session 1 profiled the
-missing latency boundaries and is at a hard checkpoint. Resume with the
+Updated: 2026-10-01. Phase 14 is complete; Phase 15 Sessions 1 and 2 have
+reached the second hard checkpoint. Phase 16 has not begun. Resume with the
 [Phase 15 ExecPlan](../plans/phase-15-execplan.md), [phase specification](../phases/phase-15.md)
-and [profiling report](../benchmarks/phase-15-session-1.md); use the
-[context map](../context-map.md) for targeted source. Phase 16 has not begun.
+and [Session 2 report](../benchmarks/phase-15-session-2.md). The
+[Session 1 profile](../benchmarks/phase-15-session-1.md) remains available for
+specific baseline evidence.
 
-Opt-in instrumentation now exposes Puma 8.0.2 backlog/thread stats through
-a private local socket, Active Record checkout and blocking pool wait, and
-bounded CPU/GC, query and FD profiles. No Puma, DB-pool, FD, auction rule or
-publisher tuning was adopted. In a 64-VU hot run, Puma backlog median was 58
-with three request threads at capacity; all 5,133 observed DB checkouts were
-in the ≤1 ms bucket and no blocking pool wait was recorded. Auction-lock
-p95 was ≤10 ms against HTTP p95 782 ms. Exact per-request pre-Rack time is
-still unavailable, so the admission contribution is supported by queue
-evidence rather than a direct latency percentile.
+Session 1 established Puma admission backlog at 64 hot VUs (median 58 with
+three request threads), DB checkout ≤1 ms with no pool wait, auction-lock p95
+≤10 ms, and development file checking at 13.3% inclusive CPU samples. Exact
+per-request pre-Rack delay is unavailable. No query/proxy, FD leak or
+publisher bottleneck was demonstrated.
 
-StackProf found development file checking at 13.3% inclusive CPU samples;
-short real-PostgreSQL query probes found no large warm SQL hotspot. At 200
-Cable subscribers, 202 of 226 peak API FDs were HTTP sockets, returning
-from 20 before to 23 after load. This supports ordinary socket pressure at
-the prior 1,024-FD failure without proving no slow leak. All three retained
-mutation-run PostgreSQL checkers passed; focused 51 RSpec examples and
-targeted RuboCop passed. The report links raw profiles and exact commands.
+Session 2 ran 26 additional 64-VU hot loads. Diagnostic hooks showed no
+repeatable material overhead beyond shared-host noise. An isolated
+development reloading comparison produced 166–179 HTTP/s and 2.67–2.80
+accepted mutations/s with reloading disabled versus 146–158 HTTP/s and
+2.28–2.49 accepted/s with it enabled. The cleaner CPU profile reduced
+`FileUpdateChecker#updated?` to 2.9% inclusive, with remaining development
+migration checks. Tail latency and Puma backlog did not reliably improve.
+This is a local development-runtime effect, not a production capacity claim.
 
-Next: repeat same-build diagnostic-on/off hot baselines, then test one Puma
-concurrency variable with DB pool fixed if the controlled evidence supports
-it. Continue memory/FD investigation and resource economics, repeat meaningful
-improvements with authoritative correctness checks, then complete broad
-regression, Compose/browser, hosted CI, final review and documentation.
-Current local runs are shared-host comparative evidence, not capacity claims.
+API telemetry off produced 184–211 HTTP/s versus 159–179/s with telemetry
+on in the cleaner window, but OTel remains enabled for operational visibility.
+Five Puma threads with pool three produced ~2,300 blocking pool waits per
+run and lower useful work. Pool five removed waits, added two PostgreSQL
+sessions and did not improve useful work or tail latency. Both tuning
+experiments were rejected; their temporary configuration overrides were
+removed. A later restored three-thread baseline was slower than the earlier
+window, confirming substantial host/service drift. No auction, publisher,
+FD-limit or permanent performance tuning was adopted.
+
+All 26 new hot runs had zero unexpected HTTP outcomes and passed the
+authoritative PostgreSQL checker. The default API was restored healthy with
+ordinary development reloading, three threads/pool three, OTel on and
+diagnostics off. An opt-in development reloading switch and a report-format
+fix remain. Capture no longer writes an unnecessary duplicate-key digest;
+retained Phase 15 snapshots were sanitized. Focused observability RSpec:
+15 examples, zero failures; Python/Ruby syntax and diff checks passed.
+
+Next session: final performance synthesis, broad backend/frontend/security,
+Compose/browser and hosted CI gates, final docs and adversarial review. Repeat
+load only for a concrete unresolved decision. Do not start Phase 16.

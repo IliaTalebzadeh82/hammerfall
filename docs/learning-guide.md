@@ -905,3 +905,12 @@ file checks consuming 13.3% inclusive CPU samples; that is a local Compose
 runtime cost, not a reason to alter auction serialization. Read the
 [Phase 15 profiling report](benchmarks/phase-15-session-1.md) and its raw
 links before changing Puma, pool, SQL or FD settings.
+
+The [Phase 15 controlled comparisons](benchmarks/phase-15-session-2.md)
+show why a larger request pool was not adopted: five threads with three DB
+connections introduced blocking pool waits, while five DB connections
+removed those waits without improving accepted work. Disabling development
+request reloading raised local service rate but did not reliably reduce the
+HTTP tail or Puma backlog. Telemetry-off runs were faster, but operational
+visibility was retained. A later identical baseline shifted enough to rule
+out precise capacity or tuning claims from a single window.

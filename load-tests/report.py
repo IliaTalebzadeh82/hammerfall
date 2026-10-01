@@ -79,7 +79,7 @@ def main():
              "## Environment and method", "",
              f"- Host: {env['host_os']}; {env['cpu_model']}; {env['logical_cpus']} logical CPUs; {env['mem_total_kib'] / 1048576:.1f} GiB RAM.",
              f"- Docker {env['docker_version']}; {env['k6_version']}; Compose containers have the recorded resource limits in `before.json` (zero means unset).",
-             f"- PostgreSQL max connections/shared buffers/work mem/lock timeout/statement timeout: {', '.join(env['postgres_settings'])}; API Puma threads and DB pool: {env['api_rails_max_threads']}; Sidekiq concurrency: {env['sidekiq_concurrency']}.",
+             f"- PostgreSQL max connections/shared buffers/work mem/lock timeout/statement timeout: {', '.join(env['postgres_settings'])}; API Puma threads: {env['api_rails_max_threads']}, DB pool: {env.get('api_db_pool', env['api_rails_max_threads'])}; Sidekiq concurrency: {env['sidekiq_concurrency']}.",
              f"- Kafka topic: {env['kafka_topic_partitions']} partitions; Redis settings: {env['redis_config']}; API OTEL_ENABLED={env['api_otel_enabled']}.",
              f"- Fixture: {len(fixture['auctions'])} auction(s), {len(fixture['users'])} bidder(s), starting price {fixture['starting_price']} cents, increment {fixture['minimum_increment']} cents, ends at {fixture['ends_at']}.",
              "- Separate read-only warm-up: 1 VU for 5 seconds. Exact commands and load configuration are in `commands.txt`; raw summary, log and snapshots are adjacent.",
@@ -156,7 +156,9 @@ def main():
             if count < 20:
                 lines.append(f"- {label}: {int(count)} observed histogram samples; too few for useful percentile reporting.")
             else:
-                lines.append(f"- {label}: {int(count)} observed histogram samples; p50/p95/p99 **bucket upper bounds** {', '.join(fmt(x * 1000) + ' ms' for x in bounds)}.")
+                formatted = [fmt(x * 1000) + " ms" if x is not None else "above finite buckets"
+                             for x in bounds]
+                lines.append(f"- {label}: {int(count)} observed histogram samples; p50/p95/p99 **bucket upper bounds** {', '.join(formatted)}.")
     lines += ["", "## Interpretation and limits", "",
               "This is one short local run on a shared host. It establishes no production capacity or SLO. A single during-run PostgreSQL sample can miss a peak; Prometheus counters can lag k6 at snapshot time. Histogram figures are bucket bounds, not exact percentiles. Kafka lag gauges can remain stale while idle. Compare only like configurations and repeat before concluding a bottleneck.", ""]
     (path / "report.md").write_text("\n".join(lines))

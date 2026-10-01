@@ -5,8 +5,9 @@ Rails.application.configure do
   config.hosts << "api"
   # Settings specified here will take precedence over those in config/application.rb.
 
-  # Make code changes take effect immediately without server restart.
-  config.enable_reloading = true
+  # Keep normal development reloading; isolate its cost in local performance
+  # experiments without changing the other development environment settings.
+  config.enable_reloading = ENV["PERFORMANCE_DISABLE_RELOADING"] != "true"
 
   # Do not eager load code on boot.
   config.eager_load = false

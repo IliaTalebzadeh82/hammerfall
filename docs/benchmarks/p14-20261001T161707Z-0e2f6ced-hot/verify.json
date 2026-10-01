@@ -1,0 +1,1 @@
+{"run_id":"p14-20261001T161707Z-0e2f6ced","checked_at":"2026-10-01T16:18:05.970072Z","auctions":[{"auction_id":504,"status":"active","bids":56,"manual_bids":56,"maximum_bids":0,"current_price":15600,"leader_id":3492,"winner_id":null,"public_revision":58,"ends_at":"2026-10-01T16:37:07.711943Z","outbox_pending":0,"kafka_pending":0,"closing":null}],"failures":[]}

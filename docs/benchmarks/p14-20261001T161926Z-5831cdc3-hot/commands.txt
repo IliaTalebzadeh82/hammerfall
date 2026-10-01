@@ -1,0 +1,8 @@
+git SHA: 2b2f94d332bade5b660833cfd6f7c439f3a0c26d
+fixture: python3 load-tests/prepare.py --scenario hot --auctions 1 --users 32 --minutes 20  --output <ignored manifest>
+warm-up: load-tests/run.sh warmup <ignored manifest> 1 5s docs/benchmarks/p14-20261001T161926Z-5831cdc3-hot/warmup
+measurement: load-tests/run.sh hot-auction <ignored manifest> 64 20s docs/benchmarks/p14-20261001T161926Z-5831cdc3-hot
+checker: docker compose exec -T -e BENCHMARK_MANIFEST=<ignored manifest JSON> api bin/rails runner script/benchmark_verify.rb
+telemetry wait: 20 seconds after k6 for exporter/scrape settlement
+runtime sampling: docker compose exec -T api ruby script/performance_sample.rb 22 0.2 > docs/benchmarks/p14-20261001T161926Z-5831cdc3-hot/runtime.jsonl
+CPU profiling: trigger StackProf CPU samples for 20 seconds; copy dump and GC counters after load

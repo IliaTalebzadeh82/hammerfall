@@ -2,7 +2,6 @@
 """Record a bounded environment/telemetry snapshot adjacent to one k6 result."""
 import argparse
 import datetime as dt
-import hashlib
 import json
 import os
 import pathlib
@@ -90,14 +89,14 @@ def main():
             "api_otel_enabled": run("docker", "compose", "exec", "-T", "api", "printenv", "OTEL_ENABLED"),
             "api_open_file_limit": run("docker", "compose", "exec", "-T", "api", "sh", "-c", "ulimit -n"),
             "api_rails_max_threads": run("docker", "compose", "exec", "-T", "api", "sh", "-c", "printf '%s' \"${RAILS_MAX_THREADS:-3}\""),
+            "api_db_pool": run("docker", "compose", "exec", "-T", "api", "sh", "-c", "printf '%s' \"${DATABASE_POOL:-${RAILS_MAX_THREADS:-3}}\""),
             "sidekiq_concurrency": 2,
             "redis_config": run("docker", "compose", "exec", "-T", "redis", "redis-cli", "CONFIG", "GET", "maxmemory", "appendonly").splitlines(),
             "kafka_topic_partitions": 3,
             "container_limits": [{"name": entry["Name"], "memory_bytes": entry["HostConfig"]["Memory"],
                                   "nano_cpus": entry["HostConfig"]["NanoCpus"],
                                   "cpu_quota": entry["HostConfig"]["CpuQuota"]} for entry in inspect],
-            "manifest": {**{key: value for key, value in fixture.items() if key != "duplicate_key"},
-                         "duplicate_key_sha256": hashlib.sha256(fixture["duplicate_key"].encode()).hexdigest()},
+            "manifest": {key: value for key, value in fixture.items() if key != "duplicate_key"},
         }
     args.result_dir.mkdir(parents=True, exist_ok=True)
     target = args.result_dir / f"{args.stage}.json"
