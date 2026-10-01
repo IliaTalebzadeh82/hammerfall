@@ -468,3 +468,18 @@ impossible original term. Phase 12.5 finalization added the missing
 Auction validation and PostgreSQL CHECK, with Kafka, Redis, model and SQL
 regressions. Local development/test databases had no violating rows before
 the migration.
+
+## 2026-10-01 — Hosted CI exposed setup drift
+
+Local gates did not predict GitHub's service-container creation failure: two
+hosted API jobs stopped before checkout with Docker exit 125. Starting the same
+PostgreSQL and Redis images through the repository's Compose path let hosted
+RSpec run. Brakeman's generated `bin/brakeman` injects `--ensure-latest`; a new
+8.1.0 release made the pinned 8.0.6 exit 5 although its earlier local scan
+was clean. Updating the lockfile restored the security gate. The Compose job's
+host `npm ci` exited 243 when run after stack startup, but passed when moved
+before the build; the public annotation did not expose npm stderr, so the
+precise environment cause remains unknown. Installed runner Chrome then ran
+the real browser suite. The final API, web and Compose jobs all passed on
+`1135838`, demonstrating why hosted execution belongs in phase completion
+evidence even after equivalent local checks pass.

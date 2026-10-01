@@ -1,6 +1,6 @@
 # Phase 12.5 — Correctness and production hardening
 
-Status: Active. Explicitly requested after Phase 12 and before Phase 13.
+Status: Complete on 2026-10-01. Explicitly requested after Phase 12 and before Phase 13.
 This is a cross-phase adversarial repair pass over committed Phase 0–12 behavior,
 not a new product feature phase. The active [ExecPlan](../plans/phase-12-5-hardening-execplan.md)
 contains findings, decisions, exact evidence, remaining work and session state.

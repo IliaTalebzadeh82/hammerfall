@@ -1,42 +1,47 @@
-# Current handoff — Phase 12.5 finalization, hosted CI pending
+# Current handoff — Phase 12.5 complete
 
-Updated: 2026-10-01. Phase 12.5 remains active until hosted CI and the final
-repository review are recorded. Phase 13 has not begun. Read `AGENTS.md`, the
-[Phase 12.5 specification](../phases/phase-12-5.md) and the active
-[ExecPlan](../plans/phase-12-5-hardening-execplan.md). The plan holds all finding
-dispositions, decisions, exact local results and the Evidence Index. Use the
-[context map](../context-map.md) for targeted remaining work; do not reconstruct
-prior sessions.
+Updated: 2026-10-01. Phase 12.5 correctness and production hardening is complete;
+Phase 13 has not begun. Start any future phase only on explicit request. Read
+`AGENTS.md`, the requested [phase specification](../phases/) and the
+[context map](../context-map.md). The closed
+[Phase 12.5 ExecPlan](../plans/phase-12-5-hardening-execplan.md) holds the
+finding ledger, decisions and verification evidence; use it when a later task
+touches these contracts.
 
 Session 1 (`59e1229`) repaired public snapshot semantics, outbox occurrence
 time and model readonly fields, lease reclaim expiry, outbox SQL structure and
 production host defaults. Session 2 (`bd6f648`) retained transaction-held
 Sidekiq/Kafka delivery after real PostgreSQL contention and live Kafka
-failure/crash evidence. Same-row cross-path publication can delay; different
-rows progress. No capacity or whole-cycle deadline claim exists. HMAC conversion
-for unkeyed idempotency digests and a streaming pre-parse body limit remain
-future Security/public-ingress work before any public deployment. The demo API
-is unauthenticated and not public-ready.
+failure/crash evidence. Finalization (`390b92f`) added the missing
+`starts_at < original_ends_at <= ends_at` relation to Auction validation,
+Kafka/Redis public validation and SQL, with regression tests and canonical
+contract updates. No known serious correctness defect remains within the demo
+scope.
 
-Finalization found and repaired one additional pure deadline invariant:
-`starts_at < original_ends_at <= ends_at` now holds in Auction validation,
-shared Kafka/Redis public validation and a PostgreSQL CHECK. Local development
-and test databases had no violating rows before migration. Focused repair tests
-passed 127 examples; the post-repair full backend suite passed 424 examples
-with 0 failures and 3 intentionally gated live Kafka examples. All three were
-run separately and passed. RuboCop (112 files), Brakeman (0 warnings),
-Zeitwerk and bundler-audit passed. Frontend lint/format/types, 73 tests and
-production build passed.
+Post-repair local backend regression passed 424 examples with 0 failures and 3
+intentionally gated Kafka examples; all three separately passed against real
+Kafka. RuboCop passed 112 files, Brakeman found 0 warnings, Zeitwerk and
+bundler-audit passed. Frontend lint/format/types, 73 Vitest tests and production
+build passed. Full Compose startup and API/Kafka/publisher/scheduler/closer
+smokes passed. Two Rails processes passed idempotency and cross-process Cable
+checks. Real Chrome Playwright passed 7/7 after the deadline repair.
 
-Compose rebuilt and all relevant services were healthy. Existing health,
-Kafka, publisher, scheduler, closer, sequential/concurrent/proxy and pruning
-smokes passed. Two Rails processes passed idempotency recovery and cross-process
-Cable checks. Real Chrome Playwright passed 7/7 after the repair, including
-lost-response retry, realtime recovery and autonomous closer. Exact commands,
-seeds and logs are in the ExecPlan.
+Hosted CI was repaired and passed: API, web and Compose jobs all succeeded on
+`11358387bf197e776e4698a70bf9373190bc672f` in
+[run 36844131696](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36844131696),
+including API RSpec and real browser scenarios. API PostgreSQL/Redis now start
+through Compose because the GitHub service-container creation failed before
+checkout in two runs. Brakeman was updated to 8.1.0 to satisfy its latest
+version gate. The Compose job installs browser dependencies before stack startup
+and uses the runner's installed Chrome. See the ExecPlan Evidence Index for
+commands, seeds and intermediate failures.
 
-Next action: commit and push the final candidate via the working SSH remote;
-inspect actual hosted GitHub Actions API, web and Compose jobs. Fix any genuine
-CI failure, then record the run URL/SHA/jobs, complete final documentation and
-adversarial review, leave a clean tree and close Phase 12.5 only if its gates
-are met. Do not begin Phase 13.
+Retained limits: both publishers hold an outbox row lock and DB connection
+across external I/O; no whole-cycle network deadline or measured production
+capacity exists. Older event rows retain transaction-start `occurred_at`.
+A stalled scan row can outlive its lease. Unkeyed idempotency digests expose
+weak keys to offline guessing after a DB compromise, and no pre-parse JSON
+byte cap exists. The API is unauthenticated demo software and must not be
+exposed publicly. HMAC rollout, public ingress limits and operational scaling
+need separate reviewed work. Do not claim production readiness or begin
+Phase 13 from this handoff alone.

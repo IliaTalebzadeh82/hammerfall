@@ -5,7 +5,7 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Current scope: Phase 12.5 — Correctness and production hardening.** Browse real auctions, inspect public bid
+**Completed scope: Phase 12.5 — Correctness and production hardening.** Browse real auctions, inspect public bid
 history, select an explicit demo bidder, and submit manual or private maximum bids.
 The responsive Next.js interface preserves stable client intentions for safe retry
 after lost responses, including tab reload. Rails/PostgreSQL still owns price,

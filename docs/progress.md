@@ -1745,7 +1745,7 @@ is made. The demo API remains unauthenticated. The separate Phase 0–11
 hardening findings remain outside Phase 12; Phase 13 requires an explicit
 request.
 
-## Phase 12.5 — Correctness and production hardening (active)
+## Phase 12.5 — Correctness and production hardening (complete 2026-10-01)
 
 The user explicitly opened a cross-phase repair pass after Phase 12. Session 1
 reviewed the auction, proxy, deadline, idempotency, outbox, publishers,
@@ -1809,5 +1809,31 @@ smoke confirmed all three events acknowledged and consumed. Two independent
 Rails processes passed the idempotency smoke, and cross-process Cable delivery
 matched the REST revision. Real Playwright with installed Chrome passed 7/7
 before and after the final deadline fix, including response-loss replay,
-realtime recovery and autonomous closer. Hosted GitHub Actions is still pending
-publication of the final candidate; this paragraph does not claim hosted CI.
+realtime recovery and autonomous closer. Hosted GitHub Actions was pending at
+that checkpoint; subsequent verification follows.
+
+The finalization candidate `390b92f` was pushed. Its hosted
+[run 36840930691](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36840930691)
+passed web, but GitHub's API service-container creation failed before checkout
+with Docker exit 125 and the Compose job's combined browser setup exited 243.
+The API workflow switched to the same Compose PostgreSQL/Redis services that
+worked locally; Compose browser setup was split and changed to installed
+runner Chrome. The next
+[run 36841587172](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36841587172)
+passed web and advanced the API to Brakeman. Its `--ensure-latest` gate exited
+5 because the pinned 8.0.6 had been superseded by 8.1.0. Compose passed the
+smokes, but host `npm ci` after stack startup still exited 243. The lockfile
+was updated to Brakeman 8.1.0, and host browser dependencies were installed
+before the Compose build. An isolated local Compose DB/Redis startup and Rails
+`db:prepare zeitwerk:check` passed; Brakeman 8.1.0 found zero warnings and
+bundler-audit found no vulnerabilities. Public GitHub annotations did not
+expose the exact npm error beyond exit 243.
+
+Commit `11358387bf197e776e4698a70bf9373190bc672f` passed all hosted
+[CI jobs in run 36844131696](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36844131696):
+API, web and Compose completed successfully, including backend RSpec, frontend
+production build, full stack smoke and real browser scenarios. Phase 12.5 is
+complete; no Phase 13 work began. Publisher lock/connection occupancy, absent
+whole-cycle network bound, unkeyed idempotency digest privacy, and pre-parse
+body limit remain explicitly documented future work. The demo is not
+public-production-ready.
