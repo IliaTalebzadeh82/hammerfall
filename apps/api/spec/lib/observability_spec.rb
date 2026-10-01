@@ -21,6 +21,26 @@ RSpec.describe Observability do
   end
 
   describe "passive telemetry" do
+    it "records a real checkout separately from a blocking pool queue wait" do
+      allow(described_class).to receive(:performance_diagnostics?).and_return(true)
+      pool = ActiveRecord::Base.connection_pool
+      expect(described_class).to receive(:sample_db_pool).with(pool)
+      expect(described_class).to receive(:histogram).with("hammerfall_db_checkout_duration", be >= 0)
+      connection = pool.checkout
+      pool.checkin(connection)
+
+      queue = ActiveRecord::ConnectionAdapters::ConnectionPool::Queue.new
+      expect(described_class).to receive(:histogram).with("hammerfall_db_pool_wait_duration", be >= 0)
+      expect { queue.poll(0.001) }.to raise_error(ActiveRecord::ConnectionTimeoutError)
+    end
+
+    it "does not record pool diagnostics when profiling is disabled" do
+      allow(described_class).to receive(:performance_diagnostics?).and_return(false)
+      expect(described_class).not_to receive(:histogram).with("hammerfall_db_pool_wait_duration", anything)
+      queue = ActiveRecord::ConnectionAdapters::ConnectionPool::Queue.new
+      expect(queue.poll).to be_nil
+    end
+
     it "extracts only bounded W3C trace fields and ignores malformed metadata" do
       allow(described_class).to receive(:enabled?).and_return(true)
       propagator = OpenTelemetry::Trace::Propagation::TraceContext::TextMapPropagator.new

@@ -26,6 +26,11 @@ module Observability
     "hammerfall_auction_close_lag" => [ :histogram, [] ],
     "hammerfall_http_requests" => [ :counter, %w[route method status_class] ],
     "hammerfall_http_duration" => [ :histogram, %w[route method status_class] ],
+    "hammerfall_db_checkout_duration" => [ :histogram, [] ],
+    "hammerfall_db_pool_wait_duration" => [ :histogram, [] ],
+    "hammerfall_db_pool_busy" => [ :gauge, [] ],
+    "hammerfall_db_pool_idle" => [ :gauge, [] ],
+    "hammerfall_db_pool_waiting" => [ :gauge, [] ],
     "hammerfall_outbox_publish_attempts" => [ :counter, %w[channel] ],
     "hammerfall_outbox_retry_attempts" => [ :counter, %w[channel] ],
     "hammerfall_outbox_publish_failures" => [ :counter, %w[channel] ],
@@ -77,6 +82,21 @@ module Observability
 
     def enabled?
       @enabled == true
+    end
+
+    def performance_diagnostics?
+      enabled? && ENV["PERFORMANCE_DIAGNOSTICS"] == "true"
+    end
+
+    def sample_db_pool(pool)
+      return unless performance_diagnostics?
+
+      state = pool.stat
+      gauge("hammerfall_db_pool_busy", state[:busy])
+      gauge("hammerfall_db_pool_idle", state[:idle])
+      gauge("hammerfall_db_pool_waiting", state[:waiting])
+    rescue StandardError
+      nil
     end
 
     def configure!

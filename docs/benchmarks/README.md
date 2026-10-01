@@ -1,5 +1,10 @@
 # Phase 14 benchmark evidence
 
+Phase 15's [first profiling milestone](phase-15-session-1.md) adds Puma,
+DB checkout, CPU/GC, query and FD measurements to the retained Phase 14
+baseline. Its runs retain the harness's `p14-*` run ID format; the report
+labels their Phase 15 diagnostic provenance and limitations.
+
 These are local Compose runs on a shared Intel Core Ultra 7 155H host with
 30.3 GiB RAM, Docker 29.8.1 and k6 1.8.1. They are measurements of this
 environment, not production capacity or SLOs. Each retained `p14-*` directory

@@ -57,6 +57,11 @@ def main():
             "prometheus": {name: prometheus(query) for name, query in {
                 "lock_wait_bucket": "sum by (le, operation) (hammerfall_auction_lock_wait_duration_seconds_bucket)",
                 "bid_processing_bucket": "sum by (le, operation, result) (hammerfall_bid_processing_duration_seconds_bucket)",
+                "db_checkout_bucket": "sum by (le) (hammerfall_db_checkout_duration_seconds_bucket)",
+                "db_pool_wait_bucket": "sum by (le) (hammerfall_db_pool_wait_duration_seconds_bucket)",
+                "db_pool_busy": "hammerfall_db_pool_busy",
+                "db_pool_idle": "hammerfall_db_pool_idle",
+                "db_pool_waiting": "hammerfall_db_pool_waiting",
                 "publisher_duration_bucket": "sum by (le, channel) (hammerfall_outbox_publish_duration_seconds_bucket)",
                 "outbox_pending": "hammerfall_outbox_pending_events",
                 "outbox_oldest_age": "hammerfall_outbox_oldest_event_age_seconds",

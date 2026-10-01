@@ -451,3 +451,17 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   transitions, final close/winner and challenge command records. [Results](benchmarks/README.md)
   retain machine output separately from fixture data; [Session 2 analysis](benchmarks/phase-14-session-2.md)
   classifies the observed limits without changing auction business logic.
+
+## Phase 15 profiling map
+
+- `config/puma.rb` enables an opt-in private local Puma control socket for
+  real backlog/thread stats. `lib/observability/db_pool_diagnostics.rb`
+  separates Active Record checkout from blocking pool queue wait;
+  `config/initializers/performance_diagnostics.rb` installs the hooks.
+- `lib/observability/cpu_profile.rb` runs an opt-in bounded StackProf capture.
+  `script/performance_sample.rb` samples Puma, process CPU/RSS and FD types;
+  `script/query_profile.rb` profiles representative Rack paths with actual
+  PostgreSQL and sanitized SQL categories.
+- `load-tests/benchmark.sh` triggers optional diagnostic captures without
+  changing the Phase 14 workloads. [Session 1 evidence](benchmarks/phase-15-session-1.md)
+  routes from concise conclusions to raw runs and profiler output.

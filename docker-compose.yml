@@ -78,6 +78,8 @@ services:
         LOCAL_GID: ${LOCAL_GID:-1000}
     environment:
       <<: *telemetry-env
+      PERFORMANCE_DIAGNOSTICS: ${PERFORMANCE_DIAGNOSTICS:-false}
+      PERFORMANCE_CPU_PROFILE: ${PERFORMANCE_CPU_PROFILE:-false}
       RAILS_ENV: development
       CABLE_WORKER_THREADS: ${CABLE_WORKER_THREADS:-2}
       CABLE_ALLOWED_ORIGINS: ${CABLE_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}

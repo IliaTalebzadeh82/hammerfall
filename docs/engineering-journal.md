@@ -589,3 +589,22 @@ focused rerun against Redis DB 15 passed, and the full gate passed after
 environment collision, not evidence of an auction-state failure. The useful
 lesson is to isolate derived-state namespaces as well as SQL databases when
 running live integration stacks beside native tests.
+
+## 2026-10-01 — Puma admission was the missing local hot-tail boundary
+
+At 64 hot VUs the Puma 8.0.2 backlog sampled around 58 while its three
+request threads were saturated. Direct Active Record queue instrumentation
+saw no blocking wait; all 5,133 checkout samples were ≤1 ms. The lock p95
+bucket was ≤10 ms, far below HTTP p95 ~782 ms. Puma did not supply a
+per-request acceptance-to-Rack timestamp, so backlog plus service rate is a
+causal indication, not an exact admission percentile. A StackProf capture
+showed Rails development file checks at 13.3% inclusive CPU samples; avoid
+mistaking that local file-watcher cost for an auction rule bottleneck. The
+[profiling report](benchmarks/phase-15-session-1.md) preserves all commands,
+measurements and caveats. No tuning was adopted at this milestone.
+
+The 200-subscriber fanout used 202 HTTP sockets at peak and the API returned
+from 20 to 23 descriptors afterward. This supports ordinary connection
+pressure behind the 1,024-FD failure and gives no short-run leak signal.
+The Phase 14 1,000-contender errors remain real; raising the FD limit is a
+separate diagnostic experiment, not a correctness fix or capacity claim.

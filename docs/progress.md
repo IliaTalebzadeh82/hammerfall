@@ -1946,3 +1946,26 @@ limitations and evidence-classified Phase 15 questions. Phase 14 meets its
 implementation, verification, documentation and local setup gate. No known
 new Critical or High auction correctness defect remains. No production
 capacity claim is made, and Phase 15 has not begun.
+
+### Phase 15 first profiling milestone — 2026-10-01
+
+The [Phase 15 ExecPlan](plans/phase-15-execplan.md) and [causal evidence report](benchmarks/phase-15-session-1.md)
+record opt-in Puma 8.0.2 backlog/control sampling, Active Record checkout and
+blocking queue-wait instrumentation, StackProf CPU/GC sampling, sanitized
+real-PostgreSQL query probes, and FD composition/cleanup. The 64-VU hot
+diagnostic run completed 2,500 HTTP requests with p95 781.90 ms, 39 accepted
+mutations, 1,211 expected rejections and zero unexpected HTTP errors or
+checker failures. Puma backlog median was 58 under three saturated request
+threads; 5,133 DB checkout samples fell in ≤1 ms and there were no blocking
+pool-wait samples. Lock p95 was ≤10 ms. Exact per-request pre-Rack delay is
+not exposed by the current stack, so its magnitude remains estimated.
+
+The CPU profile found development file checks at 13.3% inclusive samples and
+GC at 5.24%; the profiled run also passed its checker. Isolated warm SQL
+probes found no query or proxy hotspot explaining the HTTP tail. A
+200-subscriber fanout confirmed all subscriptions and 5,800 k6 invalidation
+receipts, with peak 226 API FDs including 202 HTTP sockets and 20→23 FDs
+before/after; its checker passed. Focused 51 RSpec examples and targeted
+RuboCop passed. No performance optimization or runtime resource setting was
+adopted. Diagnostic overhead, longer memory behavior, controlled tuning,
+broad final gates and hosted CI remain for the next Phase 15 session.

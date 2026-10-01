@@ -46,6 +46,12 @@ fi
 if [[ $kind == closing || $kind == challenge ]]; then
   printf 'closer observation: python3 load-tests/wait_closed.py <ignored manifest> %s/closer-observations.json --timeout 240\n' "$result_dir" >> "$result_dir/commands.txt"
 fi
+if [[ ${PROFILE_RUNTIME:-false} == true ]]; then
+  printf 'runtime sampling: docker compose exec -T api ruby script/performance_sample.rb %s 0.2 > %s/runtime.jsonl\n' "$((${duration%s} + 2))" "$result_dir" >> "$result_dir/commands.txt"
+fi
+if [[ ${PROFILE_CPU:-false} == true ]]; then
+  printf 'CPU profiling: trigger StackProf CPU samples for %s seconds; copy dump and GC counters after load\n' "${duration%s}" >> "$result_dir/commands.txt"
+fi
 load-tests/run.sh warmup "$fixture" 1 5s "$result_dir/warmup" > /dev/null
 python3 load-tests/capture.py --manifest "$fixture" --stage before --result-dir "$result_dir"
 set +e
@@ -65,10 +71,25 @@ PY
   python3 load-tests/capture.py --manifest "$fixture" --stage during --result-dir "$result_dir"
 ) > "$result_dir/during-capture.log" 2>&1 &
 capture_pid=$!
+profile_pid=
+if [[ ${PROFILE_CPU:-false} == true ]]; then
+  docker compose exec -T api ruby -e 'File.write("/tmp/hammerfall-puma-control/profile.start", "#{ARGV[0]} #{ARGV[1]}")' "$run_id" "${duration%s}"
+fi
+if [[ ${PROFILE_RUNTIME:-false} == true ]]; then
+  docker compose exec -T api ruby script/performance_sample.rb "$((${duration%s} + 2))" 0.2 > "$result_dir/runtime.jsonl" &
+  profile_pid=$!
+fi
 load-tests/run.sh "$script" "$fixture" "$vus" "$duration" "$result_dir"
 k6_exit=$?
 set -e
 wait "$capture_pid"
+profile_exit=0
+if [[ -n $profile_pid ]]; then wait "$profile_pid" || profile_exit=$?; fi
+cpu_profile_exit=0
+if [[ ${PROFILE_CPU:-false} == true ]]; then
+  docker compose cp "api:/app/tmp/$run_id.stackprof.dump" "$result_dir/cpu.stackprof.dump" > /dev/null || cpu_profile_exit=$?
+  docker compose cp "api:/app/tmp/$run_id.gc.json" "$result_dir/gc.json" > /dev/null || cpu_profile_exit=$?
+fi
 closer_exit=0
 if [[ $kind == closing || $kind == challenge ]]; then
   python3 load-tests/wait_closed.py "$fixture" "$result_dir/closer-observations.json" --timeout 240 || closer_exit=$?
@@ -96,5 +117,5 @@ if sys.argv[2] == 'fanout':
             sockets['confirmed'] != sockets['attempted'] or not sockets['invalidations']):
         raise SystemExit(f'fanout incomplete: {sockets}')
 PY
-printf 'k6_exit=%s closer_exit=%s verify_exit=%s\nresult_dir=%s\n' "$k6_exit" "$closer_exit" "$verify_exit" "$result_dir"
-if (( k6_exit || closer_exit || verify_exit )); then exit 1; fi
+printf 'k6_exit=%s closer_exit=%s verify_exit=%s profile_exit=%s cpu_profile_exit=%s\nresult_dir=%s\n' "$k6_exit" "$closer_exit" "$verify_exit" "$profile_exit" "$cpu_profile_exit" "$result_dir"
+if (( k6_exit || closer_exit || verify_exit || profile_exit || cpu_profile_exit )); then exit 1; fi

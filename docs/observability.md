@@ -71,6 +71,8 @@ seconds. Prometheus may normalize OTel names and append
 | `hammerfall_projection_batch_size` / `hammerfall_projection_scan_duration` | count / seconds histograms | none | How much reconciliation work was checked in each page and how long did it take? |
 | `hammerfall_websocket_broadcasts` / `hammerfall_websocket_server_broadcast_lag` | counter / seconds histogram | bounded `result` | Did the server issue a Cable broadcast and how long after event occurrence? This cannot prove browser receipt. |
 | `hammerfall_http_requests` / `hammerfall_http_duration` | count counter / seconds histogram | route template, method, status class | Is the API healthy? Never label a raw URL. |
+| `hammerfall_db_checkout_duration` / `hammerfall_db_pool_wait_duration` | seconds, histograms | none | Opt-in Phase 15 diagnostics: full Active Record checkout including acquisition/verification, and actual blocking wait in its connection queue. Cached leases do not call checkout. Neither measures Puma admission. |
+| `hammerfall_db_pool_busy` / `hammerfall_db_pool_idle` / `hammerfall_db_pool_waiting` | count gauges | none | Opt-in pool-state samples at checkout start; short waits can fall between samples. |
 
 Default duration histogram boundaries should span milliseconds through tens of
 seconds (`0.001`, `0.005`, `0.01`, `0.025`, `0.05`, `0.1`, `0.25`, `0.5`,
@@ -147,3 +149,15 @@ commit, at most once per partition every 30 seconds when messages arrive. An
 idle or stopped consumer does not refresh it; inspect broker group offsets
 before concluding a group has caught up. Projection and broadcast metrics
 describe derived delivery only.
+
+For local Phase 15 profiling, set `PERFORMANCE_DIAGNOSTICS=true` on the API
+alongside `OTEL_ENABLED=true` and recreate it. This enables the DB signals and
+a Puma 8.0.2 control socket under the API container's private
+`/tmp/hammerfall-puma-control` directory. `pumactl --control-url
+unix:///tmp/hammerfall-puma-control/puma.sock --control-token none stats`
+reports actual backlog, busy threads and capacity. Its backlog is a point
+sample, not a per-request admission timer. `PERFORMANCE_CPU_PROFILE=true`
+additionally enables the bounded StackProf trigger used by the Phase 15
+benchmark harness; leave it off for ordinary runs. The diagnostic DB metrics
+add work at checkout and must be compared against the same build with the
+diagnostic switch off before claiming a performance improvement.

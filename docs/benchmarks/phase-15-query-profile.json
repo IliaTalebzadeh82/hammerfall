@@ -1,0 +1,701 @@
+{
+  "fixture": {
+    "label": "phase15-query-20261001T154158Z-247ffb",
+    "auction_id": 489
+  },
+  "results": [
+    {
+      "scenario": "accepted_manual",
+      "status": 201,
+      "replayed": false,
+      "rack_ms": 113.648,
+      "query_count": 36,
+      "sql_ms": 31.59,
+      "groups": [
+        {
+          "kind": "SELECT",
+          "table": "other",
+          "count": 13,
+          "total_ms": 14.207,
+          "max_ms": 3.808
+        },
+        {
+          "kind": "transaction",
+          "table": "other",
+          "count": 2,
+          "total_ms": 5.224,
+          "max_ms": 4.605
+        },
+        {
+          "kind": "SELECT",
+          "table": "bids",
+          "count": 2,
+          "total_ms": 1.571,
+          "max_ms": 0.829
+        },
+        {
+          "kind": "SELECT",
+          "table": "idempotency_records",
+          "count": 2,
+          "total_ms": 1.285,
+          "max_ms": 0.761
+        },
+        {
+          "kind": "row_lock",
+          "table": "auctions",
+          "count": 1,
+          "total_ms": 1.121,
+          "max_ms": 1.121
+        },
+        {
+          "kind": "INSERT",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 1.08,
+          "max_ms": 1.08
+        },
+        {
+          "kind": "SELECT",
+          "table": "users",
+          "count": 2,
+          "total_ms": 1.055,
+          "max_ms": 0.706
+        },
+        {
+          "kind": "SELECT",
+          "table": "auctions",
+          "count": 2,
+          "total_ms": 1.043,
+          "max_ms": 0.596
+        },
+        {
+          "kind": "UPDATE",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.95,
+          "max_ms": 0.95
+        },
+        {
+          "kind": "INSERT",
+          "table": "bids",
+          "count": 1,
+          "total_ms": 0.831,
+          "max_ms": 0.831
+        },
+        {
+          "kind": "UPDATE",
+          "table": "auctions",
+          "count": 1,
+          "total_ms": 0.797,
+          "max_ms": 0.797
+        },
+        {
+          "kind": "SET",
+          "table": "other",
+          "count": 4,
+          "total_ms": 0.663,
+          "max_ms": 0.493
+        },
+        {
+          "kind": "INSERT",
+          "table": "outbox_events",
+          "count": 1,
+          "total_ms": 0.656,
+          "max_ms": 0.656
+        },
+        {
+          "kind": "SHOW",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.417,
+          "max_ms": 0.417
+        },
+        {
+          "kind": "RELEASE",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.401,
+          "max_ms": 0.401
+        },
+        {
+          "kind": "SAVEPOINT",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.289,
+          "max_ms": 0.289
+        }
+      ]
+    },
+    {
+      "scenario": "accepted_manual_warm",
+      "status": 201,
+      "replayed": false,
+      "rack_ms": 31.798,
+      "query_count": 22,
+      "sql_ms": 13.418,
+      "groups": [
+        {
+          "kind": "SELECT",
+          "table": "other",
+          "count": 3,
+          "total_ms": 2.981,
+          "max_ms": 1.73
+        },
+        {
+          "kind": "transaction",
+          "table": "other",
+          "count": 2,
+          "total_ms": 2.342,
+          "max_ms": 2.237
+        },
+        {
+          "kind": "SELECT",
+          "table": "bids",
+          "count": 2,
+          "total_ms": 1.282,
+          "max_ms": 1.02
+        },
+        {
+          "kind": "SELECT",
+          "table": "auctions",
+          "count": 2,
+          "total_ms": 1.174,
+          "max_ms": 0.986
+        },
+        {
+          "kind": "SELECT",
+          "table": "users",
+          "count": 2,
+          "total_ms": 1.038,
+          "max_ms": 0.647
+        },
+        {
+          "kind": "SELECT",
+          "table": "maximum_bids",
+          "count": 1,
+          "total_ms": 0.919,
+          "max_ms": 0.919
+        },
+        {
+          "kind": "INSERT",
+          "table": "bids",
+          "count": 1,
+          "total_ms": 0.822,
+          "max_ms": 0.822
+        },
+        {
+          "kind": "INSERT",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.698,
+          "max_ms": 0.698
+        },
+        {
+          "kind": "UPDATE",
+          "table": "auctions",
+          "count": 1,
+          "total_ms": 0.471,
+          "max_ms": 0.471
+        },
+        {
+          "kind": "INSERT",
+          "table": "outbox_events",
+          "count": 1,
+          "total_ms": 0.463,
+          "max_ms": 0.463
+        },
+        {
+          "kind": "SELECT",
+          "table": "idempotency_records",
+          "count": 2,
+          "total_ms": 0.391,
+          "max_ms": 0.247
+        },
+        {
+          "kind": "UPDATE",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.384,
+          "max_ms": 0.384
+        },
+        {
+          "kind": "row_lock",
+          "table": "auctions",
+          "count": 1,
+          "total_ms": 0.297,
+          "max_ms": 0.297
+        },
+        {
+          "kind": "SAVEPOINT",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.084,
+          "max_ms": 0.084
+        },
+        {
+          "kind": "RELEASE",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.073,
+          "max_ms": 0.073
+        }
+      ]
+    },
+    {
+      "scenario": "rejected_stale",
+      "status": 422,
+      "replayed": false,
+      "rack_ms": 10.277,
+      "query_count": 15,
+      "sql_ms": 3.293,
+      "groups": [
+        {
+          "kind": "transaction",
+          "table": "other",
+          "count": 3,
+          "total_ms": 1.098,
+          "max_ms": 0.978
+        },
+        {
+          "kind": "INSERT",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.443,
+          "max_ms": 0.443
+        },
+        {
+          "kind": "UPDATE",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.35,
+          "max_ms": 0.35
+        },
+        {
+          "kind": "SELECT",
+          "table": "bids",
+          "count": 2,
+          "total_ms": 0.327,
+          "max_ms": 0.199
+        },
+        {
+          "kind": "SELECT",
+          "table": "idempotency_records",
+          "count": 2,
+          "total_ms": 0.257,
+          "max_ms": 0.133
+        },
+        {
+          "kind": "SELECT",
+          "table": "auctions",
+          "count": 2,
+          "total_ms": 0.24,
+          "max_ms": 0.148
+        },
+        {
+          "kind": "SELECT",
+          "table": "users",
+          "count": 1,
+          "total_ms": 0.237,
+          "max_ms": 0.237
+        },
+        {
+          "kind": "row_lock",
+          "table": "auctions",
+          "count": 1,
+          "total_ms": 0.204,
+          "max_ms": 0.204
+        },
+        {
+          "kind": "SELECT",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.082,
+          "max_ms": 0.082
+        },
+        {
+          "kind": "SAVEPOINT",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.055,
+          "max_ms": 0.055
+        }
+      ]
+    },
+    {
+      "scenario": "maximum_bid",
+      "status": 200,
+      "replayed": false,
+      "rack_ms": 15.426,
+      "query_count": 17,
+      "sql_ms": 4.356,
+      "groups": [
+        {
+          "kind": "transaction",
+          "table": "other",
+          "count": 2,
+          "total_ms": 1.323,
+          "max_ms": 1.273
+        },
+        {
+          "kind": "INSERT",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.419,
+          "max_ms": 0.419
+        },
+        {
+          "kind": "UPDATE",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.368,
+          "max_ms": 0.368
+        },
+        {
+          "kind": "INSERT",
+          "table": "maximum_bids",
+          "count": 1,
+          "total_ms": 0.364,
+          "max_ms": 0.364
+        },
+        {
+          "kind": "SELECT",
+          "table": "maximum_bids",
+          "count": 2,
+          "total_ms": 0.349,
+          "max_ms": 0.22
+        },
+        {
+          "kind": "SELECT",
+          "table": "auctions",
+          "count": 2,
+          "total_ms": 0.323,
+          "max_ms": 0.236
+        },
+        {
+          "kind": "SELECT",
+          "table": "idempotency_records",
+          "count": 2,
+          "total_ms": 0.288,
+          "max_ms": 0.168
+        },
+        {
+          "kind": "row_lock",
+          "table": "auctions",
+          "count": 1,
+          "total_ms": 0.245,
+          "max_ms": 0.245
+        },
+        {
+          "kind": "SELECT",
+          "table": "users",
+          "count": 1,
+          "total_ms": 0.237,
+          "max_ms": 0.237
+        },
+        {
+          "kind": "SELECT",
+          "table": "bids",
+          "count": 1,
+          "total_ms": 0.221,
+          "max_ms": 0.221
+        },
+        {
+          "kind": "RELEASE",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.101,
+          "max_ms": 0.101
+        },
+        {
+          "kind": "SAVEPOINT",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.06,
+          "max_ms": 0.06
+        },
+        {
+          "kind": "SELECT",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.06,
+          "max_ms": 0.06
+        }
+      ]
+    },
+    {
+      "scenario": "competing_maximum",
+      "status": 200,
+      "replayed": false,
+      "rack_ms": 16.958,
+      "query_count": 24,
+      "sql_ms": 7.259,
+      "groups": [
+        {
+          "kind": "transaction",
+          "table": "other",
+          "count": 2,
+          "total_ms": 2.546,
+          "max_ms": 2.487
+        },
+        {
+          "kind": "INSERT",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.727,
+          "max_ms": 0.727
+        },
+        {
+          "kind": "SELECT",
+          "table": "maximum_bids",
+          "count": 3,
+          "total_ms": 0.553,
+          "max_ms": 0.316
+        },
+        {
+          "kind": "SELECT",
+          "table": "users",
+          "count": 3,
+          "total_ms": 0.543,
+          "max_ms": 0.263
+        },
+        {
+          "kind": "INSERT",
+          "table": "bids",
+          "count": 2,
+          "total_ms": 0.401,
+          "max_ms": 0.204
+        },
+        {
+          "kind": "UPDATE",
+          "table": "auctions",
+          "count": 1,
+          "total_ms": 0.399,
+          "max_ms": 0.399
+        },
+        {
+          "kind": "SELECT",
+          "table": "idempotency_records",
+          "count": 2,
+          "total_ms": 0.396,
+          "max_ms": 0.303
+        },
+        {
+          "kind": "INSERT",
+          "table": "maximum_bids",
+          "count": 1,
+          "total_ms": 0.341,
+          "max_ms": 0.341
+        },
+        {
+          "kind": "row_lock",
+          "table": "auctions",
+          "count": 1,
+          "total_ms": 0.324,
+          "max_ms": 0.324
+        },
+        {
+          "kind": "INSERT",
+          "table": "outbox_events",
+          "count": 1,
+          "total_ms": 0.319,
+          "max_ms": 0.319
+        },
+        {
+          "kind": "SELECT",
+          "table": "auctions",
+          "count": 2,
+          "total_ms": 0.211,
+          "max_ms": 0.119
+        },
+        {
+          "kind": "UPDATE",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.18,
+          "max_ms": 0.18
+        },
+        {
+          "kind": "SELECT",
+          "table": "bids",
+          "count": 1,
+          "total_ms": 0.142,
+          "max_ms": 0.142
+        },
+        {
+          "kind": "SAVEPOINT",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.07,
+          "max_ms": 0.07
+        },
+        {
+          "kind": "SELECT",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.056,
+          "max_ms": 0.056
+        },
+        {
+          "kind": "RELEASE",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.052,
+          "max_ms": 0.052
+        }
+      ]
+    },
+    {
+      "scenario": "proxy_contested_manual",
+      "status": 201,
+      "replayed": false,
+      "rack_ms": 17.393,
+      "query_count": 22,
+      "sql_ms": 7.026,
+      "groups": [
+        {
+          "kind": "transaction",
+          "table": "other",
+          "count": 2,
+          "total_ms": 2.955,
+          "max_ms": 2.866
+        },
+        {
+          "kind": "INSERT",
+          "table": "bids",
+          "count": 2,
+          "total_ms": 0.521,
+          "max_ms": 0.362
+        },
+        {
+          "kind": "INSERT",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.52,
+          "max_ms": 0.52
+        },
+        {
+          "kind": "SELECT",
+          "table": "users",
+          "count": 3,
+          "total_ms": 0.516,
+          "max_ms": 0.283
+        },
+        {
+          "kind": "SELECT",
+          "table": "auctions",
+          "count": 2,
+          "total_ms": 0.436,
+          "max_ms": 0.352
+        },
+        {
+          "kind": "UPDATE",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.348,
+          "max_ms": 0.348
+        },
+        {
+          "kind": "SELECT",
+          "table": "bids",
+          "count": 2,
+          "total_ms": 0.313,
+          "max_ms": 0.165
+        },
+        {
+          "kind": "INSERT",
+          "table": "outbox_events",
+          "count": 1,
+          "total_ms": 0.311,
+          "max_ms": 0.311
+        },
+        {
+          "kind": "SELECT",
+          "table": "idempotency_records",
+          "count": 2,
+          "total_ms": 0.306,
+          "max_ms": 0.202
+        },
+        {
+          "kind": "UPDATE",
+          "table": "auctions",
+          "count": 1,
+          "total_ms": 0.297,
+          "max_ms": 0.297
+        },
+        {
+          "kind": "row_lock",
+          "table": "auctions",
+          "count": 1,
+          "total_ms": 0.257,
+          "max_ms": 0.257
+        },
+        {
+          "kind": "SELECT",
+          "table": "maximum_bids",
+          "count": 1,
+          "total_ms": 0.1,
+          "max_ms": 0.1
+        },
+        {
+          "kind": "SELECT",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.053,
+          "max_ms": 0.053
+        },
+        {
+          "kind": "SAVEPOINT",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.049,
+          "max_ms": 0.049
+        },
+        {
+          "kind": "RELEASE",
+          "table": "other",
+          "count": 1,
+          "total_ms": 0.045,
+          "max_ms": 0.045
+        }
+      ]
+    },
+    {
+      "scenario": "completed_replay",
+      "status": 201,
+      "replayed": true,
+      "rack_ms": 4.34,
+      "query_count": 5,
+      "sql_ms": 0.964,
+      "groups": [
+        {
+          "kind": "INSERT",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.414,
+          "max_ms": 0.414
+        },
+        {
+          "kind": "SELECT",
+          "table": "users",
+          "count": 1,
+          "total_ms": 0.286,
+          "max_ms": 0.286
+        },
+        {
+          "kind": "transaction",
+          "table": "other",
+          "count": 2,
+          "total_ms": 0.15,
+          "max_ms": 0.098
+        },
+        {
+          "kind": "SELECT",
+          "table": "idempotency_records",
+          "count": 1,
+          "total_ms": 0.115,
+          "max_ms": 0.115
+        }
+      ]
+    }
+  ]
+}

@@ -34,6 +34,20 @@ port ENV.fetch("PORT", 3000)
 # Allow puma to be restarted by `bin/rails restart` command.
 plugin :tmp_restart
 
+# Explicitly opt in for local profiling. The control socket stays inside the
+# container and exposes Puma's real backlog/thread counters, not request time.
+if ENV["PERFORMANCE_DIAGNOSTICS"] == "true"
+  control_dir = "/tmp/hammerfall-puma-control"
+  Dir.mkdir(control_dir, 0700) unless Dir.exist?(control_dir)
+  control_dir_stat = File.lstat(control_dir)
+  raise "unsafe Puma control directory" unless control_dir_stat.directory? && control_dir_stat.uid == Process.uid
+
+  File.chmod(0700, control_dir)
+  control_socket = "#{control_dir}/puma.sock"
+  activate_control_app "unix://#{control_socket}", no_token: true, data_only: true
+  after_booted { File.chmod(0600, control_socket) }
+end
+
 # Specify the PID file. Defaults to tmp/pids/server.pid in development.
 # In other environments, only set the PID file if requested.
 pidfile ENV["PIDFILE"] if ENV["PIDFILE"]

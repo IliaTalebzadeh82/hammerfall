@@ -892,3 +892,16 @@ showing why timeout reconciliation must use command identity. A clean
 600-bidder local burst and 500-socket fanout step are observations of this
 Compose host, not capacity promises. Read the [Session 2 evidence](benchmarks/phase-14-session-2.md)
 before drawing performance conclusions.
+
+## Phase 15 — Locate queueing before tuning
+
+Puma's `backlog` is a server-side queue sample, while a Rack timer begins
+only after admission. On the 64-VU hot diagnostic run, backlog stayed near
+58 requests, Active Record's actual blocking queue wait had no samples,
+checkout p95 was ≤1 ms and auction-lock p95 was ≤10 ms. This supports
+admission delay as the major local HTTP-tail contributor without pretending
+to have a per-request pre-Rack timer. The CPU profile showed development
+file checks consuming 13.3% inclusive CPU samples; that is a local Compose
+runtime cost, not a reason to alter auction serialization. Read the
+[Phase 15 profiling report](benchmarks/phase-15-session-1.md) and its raw
+links before changing Puma, pool, SQL or FD settings.
