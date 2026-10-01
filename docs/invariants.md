@@ -110,6 +110,16 @@ committed event identity, payload and occurrence time as readonly while allowing
 publisher acknowledgments. SQL restricts new domain snapshots to known types
 and JSON objects; historical invalidation-only rows remain allowed.
 
+Both publishers acknowledge only after their external dependency accepts the
+delivery. Each holds the outbox row transaction across that wait; a failed or
+ambiguous delivery stays retryable, and a crash after acceptance can duplicate
+the same immutable event. Kafka and Sidekiq retry/ack fields are independent,
+although `SKIP LOCKED` temporarily defers the other path on a shared row.
+Other due rows remain eligible. This publication protocol cannot change
+authoritative auction state; its connection/lock occupancy is an operational
+cost, not a production throughput guarantee. See [ADR-010](adr/010-transactional-public-outbox.md)
+and [ADR-011](adr/011-kafka-domain-events.md).
+
 
 ## Phase 3 proxy invariants
 
@@ -137,7 +147,7 @@ maximum by the required algorithm; no API labels it as that user's maximum.
 | --- | --- | --- |
 | Decision time is current DB wall time after serialization, never transaction start or cached SELECT | AuctionClock.now after reload(lock: true) | integration/concurrent_closing_spec.rb real pre-deadline transactions blocked past expiry; models/soft_close_spec.rb query-cache regression |
 | Active is necessary but not sufficient; equality with ends_at is expired | AuctionDeadline.due? and locked eligibility | models/auction_deadline_spec.rb exact arithmetic; requests/bids_spec.rb stale active rejection |
-| ends_at >= original_ends_at, original end is non-null | SQL CHECK/NOT NULL and frozen terms | integration/deadline_constraints_spec.rb; models/soft_close_spec.rb |
+| starts_at < original_ends_at <= ends_at, original end is non-null | SQL CHECK/NOT NULL, model/public-snapshot validation and frozen terms | integration/domain_constraints_spec.rb and deadline_constraints_spec.rb; models/soft_close_spec.rb; integration/kafka_outbox_spec.rb |
 | One qualifying external commitment adds exactly 90 once; no extension for rejected/no-op actions | persist_bidding_action! only after accepted resolution | models/soft_close_spec.rb; exact 60.000/60.001 arithmetic tests |
 | Proxy row count does not multiply extension; protection-only increases can extend | Both Auction entry points own extension | models/soft_close_spec.rb |
 | Price, leader, visible bids, max/priority and deadline commit or roll back together | One savepoint and final auction UPDATE | integration/concurrent_closing_spec.rb SQL rejection of calculated extension for manual and maximum |

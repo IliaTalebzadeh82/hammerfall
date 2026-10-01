@@ -97,6 +97,17 @@ RSpec.describe "Auction projection reconciliation" do
     expect(redis.call("GET", key)).to eq(raw)
   end
 
+  it "escalates a projection whose original deadline precedes its start despite a matching digest" do
+    projection.seed(auction)
+    value = JSON.parse(redis.call("GET", key))
+    value.fetch("data")["original_ends_at"] = value.dig("data", "starts_at")
+    value["data_digest"] = Digest::SHA256.hexdigest(JSON.generate(value.fetch("data").sort.to_h))
+    raw = JSON.generate(value)
+    redis.call("SET", key, raw)
+    expect(reconciler.check(auction)).to eq(:operator_review)
+    expect(redis.call("GET", key)).to eq(raw)
+  end
+
   it "reports Redis outage without changing PostgreSQL" do
     broken = AuctionPublicProjection.new(redis: RedisClient.config(url: "redis://127.0.0.1:1/0", timeout: 0.1,
       reconnect_attempts: 0).new_client)

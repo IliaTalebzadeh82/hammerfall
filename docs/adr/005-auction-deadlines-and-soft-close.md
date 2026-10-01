@@ -86,6 +86,7 @@ Maintenance migration locks auctions, backfills original_ends_at=old ends_at and
 legacy closed_at=GREATEST(updated_at,ends_at). The latter is an **estimate** because
 Phase 3 did not record a DB closure decision. It does not retroactively prove clock
 accuracy. SQL enforces original deadline non-null, ends_at>=original_ends_at,
+and, after the Phase 12.5 hardening migration, original_ends_at>starts_at;
 closed_at present iff closed, closed_at>=ends_at and null-safe winner/leader equality
 when closed. Foreign keys remain. Stop old writers and closer during rollout.
 Rollback/reapply preserves pre-Phase-4 records; downgrade refuses detectable live

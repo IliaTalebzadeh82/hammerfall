@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_01_011000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_01_012000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -40,6 +40,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_011000) do
     t.check_constraint "ends_at > starts_at", name: "auctions_time_window"
     t.check_constraint "ends_at >= original_ends_at", name: "auctions_original_deadline"
     t.check_constraint "minimum_increment >= 1 AND minimum_increment <= '1000000000000'::bigint", name: "auctions_minimum_increment_range"
+    t.check_constraint "original_ends_at > starts_at", name: "auctions_original_window"
     t.check_constraint "public_revision >= 0", name: "auctions_public_revision_nonnegative"
     t.check_constraint "starting_price >= 1 AND starting_price <= '1000000000000'::bigint", name: "auctions_starting_price_range"
     t.check_constraint "status::text <> 'closed'::text OR NOT winner_id IS DISTINCT FROM current_leader_id", name: "auctions_final_winner"

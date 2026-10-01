@@ -57,7 +57,8 @@ consumer migration. Consumers reject unknown versions, types, keys or fields
 instead of silently advancing offsets.
 
 `PublicAuctionSnapshot` validates the same public field set for Kafka decoding
-and Redis projection reads, including amount bounds, deadline order, closure
+and Redis projection reads, including amount bounds,
+`starts_at < original_ends_at <= ends_at`, closure
 metadata and winner/leader consistency. A semantically impossible snapshot is
 poison or a corrupt projection and requires review; it is not repaired by
 inventing another event envelope.

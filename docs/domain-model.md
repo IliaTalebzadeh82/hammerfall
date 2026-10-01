@@ -59,7 +59,7 @@ leader, and emits no bid. Duplicate closers preserve winner/closed_at.
 ### Timing and soft close
 
 starts_at is the earliest eligible time. original_ends_at follows draft edits and
-freezes on scheduling. ends_at is the effective deadline. closed_at is actual DB
+freezes on scheduling; `starts_at < original_ends_at <= ends_at`. ends_at is the effective deadline. closed_at is actual DB
 finalization decision time, possibly later than ends_at, not exact commit time.
 All four are public UTC timestamps (closed_at null until closed).
 

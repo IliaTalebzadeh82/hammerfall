@@ -456,3 +456,15 @@ does not protect weak keys from offline guessing after a table leak. A safe HMAC
 rollout must account for existing unversioned rows and synchronized secret
 rotation across instances. That migration was deferred to the security phase
 without changing replay behavior during this repair pass.
+
+## 2026-10-01 — Final review found a missing deadline relation
+
+The public validator checked `starts_at < ends_at` and
+`original_ends_at <= ends_at` but these do not imply the original deadline is
+after the start. Ordinary create/edit commands already set a valid original
+deadline, yet a malformed stored row or derived snapshot could state an
+impossible original term. Phase 12.5 finalization added the missing
+`starts_at < original_ends_at` condition to the shared public validator,
+Auction validation and PostgreSQL CHECK, with Kafka, Redis, model and SQL
+regressions. Local development/test databases had no violating rows before
+the migration.

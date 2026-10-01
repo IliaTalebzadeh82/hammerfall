@@ -814,3 +814,9 @@ Kafka consumers use receipts/revision guards. This simple protocol has an
 operational connection cost. A short claim protocol would need durable expiry
 and ownership fencing; the Phase 12.5 review retained the current design until
 later load measurements justify that complexity.
+
+The final review also tested deadline ordering as a logical chain rather
+than two independent comparisons. `starts_at < ends_at` plus
+`original_ends_at <= ends_at` still allows an original deadline before the
+start. Normal commands set it correctly, but model, SQL and shared Kafka/Redis
+validation now reject that impossible stored state explicitly.

@@ -1786,3 +1786,28 @@ Ruby lint. An ack-on-Kafka-failure sabotage failed its safety test and was
 restored. Full regression, browser/runtime, security/build, hosted CI and final
 documentation review remain for the next Phase 12.5 session. This is a second
 checkpoint, not phase completion.
+
+Finalization ran the complete backend suite after a new deadline invariant fix:
+424 examples, 0 failures and 3 intentionally gated live Kafka examples (seed
+19056). The three gated tests were run separately against local Kafka and
+passed (seed 43552). RuboCop passed on 112 files, Brakeman reported zero
+warnings/errors, Zeitwerk passed, and bundler-audit found no vulnerabilities.
+Frontend lint, format, types, 73 Vitest tests and production build passed.
+
+The final adversarial review found a missing pure deadline relation:
+`starts_at < original_ends_at` was implied by ordinary create/edit commands
+but not by shared public validation or SQL. A malformed Kafka/Redis snapshot
+with original end at start could pass. Model, shared public validator and a new
+PostgreSQL CHECK now enforce `starts_at < original_ends_at <= ends_at`.
+Focused auction/SQL/Kafka/Redis tests passed 127 examples before the final
+full regression; both local development and test databases had no violating
+rows before migration.
+
+Compose built and reported all relevant services healthy. Existing API/Redis/
+Kafka/publisher/scheduler/closer/concurrent/proxy/pruning smokes passed; Kafka
+smoke confirmed all three events acknowledged and consumed. Two independent
+Rails processes passed the idempotency smoke, and cross-process Cable delivery
+matched the REST revision. Real Playwright with installed Chrome passed 7/7
+before and after the final deadline fix, including response-loss replay,
+realtime recovery and autonomous closer. Hosted GitHub Actions is still pending
+publication of the final candidate; this paragraph does not claim hosted CI.

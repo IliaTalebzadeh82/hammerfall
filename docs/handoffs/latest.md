@@ -1,45 +1,42 @@
-# Current handoff — Phase 12.5 in progress
+# Current handoff — Phase 12.5 finalization, hosted CI pending
 
-Updated: 2026-10-01. Phase 12.5 is the explicitly requested correctness and
-production-hardening pass over completed Phase 0–12. Phase 13 has not begun.
-Read `AGENTS.md`, the [Phase 12.5 specification](../phases/phase-12-5.md) and the
-active [ExecPlan](../plans/phase-12-5-hardening-execplan.md); it holds the finding
-ledger, decisions and Evidence Index. Use the [context map](../context-map.md)
-only to route targeted remaining work. Do not reconstruct prior sessions.
+Updated: 2026-10-01. Phase 12.5 remains active until hosted CI and the final
+repository review are recorded. Phase 13 has not begun. Read `AGENTS.md`, the
+[Phase 12.5 specification](../phases/phase-12-5.md) and the active
+[ExecPlan](../plans/phase-12-5-hardening-execplan.md). The plan holds all finding
+dispositions, decisions, exact local results and the Evidence Index. Use the
+[context map](../context-map.md) for targeted remaining work; do not reconstruct
+prior sessions.
 
-Session 1 (`59e1229`) repaired public snapshot semantic validation, outbox
-occurrence time and model readonly event fields, delayed reconciliation lease
-expiry, structural outbox SQL checks, and the production host default. It passed
-44 focused and 78 adjacent integration examples, changed Ruby lint, Zeitwerk
-and a production host boot check. New occurrence semantics apply only to new
-outbox rows. PostgreSQL remains auction authority.
+Session 1 (`59e1229`) repaired public snapshot semantics, outbox occurrence
+time and model readonly fields, lease reclaim expiry, outbox SQL structure and
+production host defaults. Session 2 (`bd6f648`) retained transaction-held
+Sidekiq/Kafka delivery after real PostgreSQL contention and live Kafka
+failure/crash evidence. Same-row cross-path publication can delay; different
+rows progress. No capacity or whole-cycle deadline claim exists. HMAC conversion
+for unkeyed idempotency digests and a streaming pre-parse body limit remain
+future Security/public-ingress work before any public deployment. The demo API
+is unauthenticated and not public-ready.
 
-Session 2 retained the existing transaction-held Sidekiq and Kafka publishers
-after controlled real PostgreSQL contention showed same-row cross-path delay
-but progress on different rows. Each publisher process holds at most one outbox
-row and connection at a time; there is no strict whole-cycle external-I/O
-deadline or measured production capacity. Live Kafka failure persisted retry
-state and real broker recovery acknowledged the same event. Tests also covered
-publisher exit before enqueue, database acknowledgment rejection after Redis
-acceptance, and safe duplicate retry. An ack-before-delivery sabotage failed
-its test and was restored. The two publishers' delivery states remain
-independent; no lease/claim redesign or auction protocol change was made. See
-[ADR-010](../adr/010-transactional-public-outbox.md) and
-[ADR-011](../adr/011-kafka-domain-events.md).
+Finalization found and repaired one additional pure deadline invariant:
+`starts_at < original_ends_at <= ends_at` now holds in Auction validation,
+shared Kafka/Redis public validation and a PostgreSQL CHECK. Local development
+and test databases had no violating rows before migration. Focused repair tests
+passed 127 examples; the post-repair full backend suite passed 424 examples
+with 0 failures and 3 intentionally gated live Kafka examples. All three were
+run separately and passed. RuboCop (112 files), Brakeman (0 warnings),
+Zeitwerk and bundler-audit passed. Frontend lint/format/types, 73 tests and
+production build passed.
 
-Session 2 explicitly deferred HMAC conversion: unkeyed SHA-256 exposes weak
-client keys to offline guessing after database theft, but retained unversioned
-rows need a replay-preserving migration and shared secret rotation design.
-The missing pre-parse request-size limit is a public-ingress blocker; a safe
-streaming limit belongs with the later security/deployment work. The demo API
-remains unauthenticated and must not be exposed publicly. Publisher defaults
-now appear in `.env.example`; the runbooks/readiness guidance describes
-connection and lock occupancy. Focused checks passed: 18 Kafka outbox examples
-with live broker, 13 transactional outbox examples, 51 idempotency examples and
-changed Ruby lint. Full details and sabotage restoration are in the ExecPlan.
+Compose rebuilt and all relevant services were healthy. Existing health,
+Kafka, publisher, scheduler, closer, sequential/concurrent/proxy and pruning
+smokes passed. Two Rails processes passed idempotency recovery and cross-process
+Cable checks. Real Chrome Playwright passed 7/7 after the repair, including
+lost-response retry, realtime recovery and autonomous closer. Exact commands,
+seeds and logs are in the ExecPlan.
 
-Next fresh session: run the final Phase 12.5 gates—complete backend/frontend
-regression, browser E2E, Compose full-stack, Brakeman, dependency audit,
-production build, hosted GitHub Actions, documentation reconciliation and
-final adversarial review. Fix discovered failures, record actual evidence,
-then close Phase 12.5 if its definition of done is met. Do not begin Phase 13.
+Next action: commit and push the final candidate via the working SSH remote;
+inspect actual hosted GitHub Actions API, web and Compose jobs. Fix any genuine
+CI failure, then record the run URL/SHA/jobs, complete final documentation and
+adversarial review, leave a clean tree and close Phase 12.5 only if its gates
+are met. Do not begin Phase 13.

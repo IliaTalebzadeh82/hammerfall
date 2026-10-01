@@ -320,6 +320,9 @@ All paths in this section begin under `apps/web` unless otherwise noted.
   encloses the domain command and stored outcome; replay never re-enters the write.
 - The migration and `OutboxEvent` model define the public-only version 1 envelope,
   unique auction/revision identity, due index, retry and enqueue acknowledgment.
+  `PublicAuctionSnapshot` checks shared Kafka/Redis public semantics; migration
+  `20261001012000_constrain_original_auction_window.rb` also enforces the
+  original deadline after start on authoritative auction rows.
 - `OutboxPublisher` and `bin/outbox_publisher` form the independent poller. Each
   due row is claimed with `FOR UPDATE SKIP LOCKED`; `docker-compose.yml` starts
   the publisher role. The Sidekiq client initializer bounds Redis network waits.

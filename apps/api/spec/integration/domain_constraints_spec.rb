@@ -33,6 +33,11 @@ RSpec.describe "Core domain database constraints", :domain do
     expect_database_rejection(PG::CheckViolation) { Auction.where(id: id).update_all(ends_at: auction.starts_at) }
   end
 
+  it "enforces original end after start even when the effective end is later" do
+    id = auction.id
+    expect_database_rejection(PG::CheckViolation) { Auction.where(id: id).update_all(original_ends_at: auction.starts_at) }
+  end
+
   it "enforces winner only on closed auctions and requires an existing winner" do
     id = auction.id
     user_id = bidder.id

@@ -33,6 +33,13 @@ RSpec.describe Auction, :domain, type: :model do
     end
   end
 
+  it "requires the original end strictly after start" do
+    auction = create_auction
+    auction.original_ends_at = auction.starts_at
+    expect(auction).not_to be_valid
+    expect(auction.errors[:original_ends_at]).to include("must be after starts_at")
+  end
+
   it "stores equivalent offset times in UTC" do
     auction = create_auction(starts_at: "2026-09-24T15:30:00+03:30", ends_at: "2026-09-24T16:30:00+03:30")
     expect(auction.reload.starts_at).to eq(Time.utc(2026, 9, 24, 12))

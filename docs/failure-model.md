@@ -70,6 +70,18 @@ Repeated publisher errors remain visible as pending rows and aggregate backlog,
 retry and age logs; operators must investigate poison rows. No finite recovery
 deadline or exactly-once delivery is promised. See [ADR-010](adr/010-transactional-public-outbox.md).
 
+Phase 12.5 retained the transaction-held publisher protocol. Redis enqueue or
+Kafka broker confirmation takes place while the relevant outbox row lock and a
+PostgreSQL connection are held. If the other publisher encounters that same row,
+`SKIP LOCKED` defers it until a later cycle; independent rows still progress.
+Failure before delivery leaves the transaction unacknowledged, and failure
+after external acceptance but before database acknowledgment permits a safe
+duplicate with stable event identity. A database acknowledgment error likewise
+rolls back the mark. A dependency call that never returns can retain the lock
+until process restart; network settings are not strict whole-cycle deadlines.
+Publisher process count and backlog therefore affect connection occupancy.
+Revisit this design with Phase 14/15 measurements, not an assumed capacity.
+
 ## Phase 10 Kafka failure
 
 Kafka is downstream of the same committed public outbox row. Broker outage

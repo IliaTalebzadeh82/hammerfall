@@ -14,7 +14,9 @@ The API has no pre-parse request-body byte cap; its JSON parser can consume
 resources before controller validation. A future public ingress must enforce a
 streaming body-size limit and test chunked requests before accepting untrusted
 traffic. Phase 12.5 leaves this at the deployment/security boundary because
-there is no production ingress or authenticated public deployment yet.
+there is no production ingress or authenticated public deployment yet. The
+repository's Puma and Next rewrite configuration set no explicit request-body
+limit; no effective framework or proxy limit has been verified.
 Reads spanning multiple queries are not snapshot-consistent.
 Local Compose credentials are disposable; services bind to loopback. Named volumes
 provide local persistence, not backups. The sequence migration requires stopping

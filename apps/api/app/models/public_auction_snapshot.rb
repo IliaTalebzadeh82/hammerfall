@@ -20,7 +20,7 @@ class PublicAuctionSnapshot
 
     starts_at, original_ends_at, ends_at = %w[starts_at original_ends_at ends_at].map { |field| parse_time(data[field]) }
     closed_at = parse_time(data["closed_at"]) unless data["closed_at"].nil?
-    raise InvalidSnapshot, "invalid deadline" unless starts_at < ends_at && original_ends_at <= ends_at
+    raise InvalidSnapshot, "invalid deadline" unless starts_at < original_ends_at && original_ends_at <= ends_at
     raise InvalidSnapshot, "invalid price" if data["current_price"] < data["starting_price"]
     closed = data["status"] == "closed"
     raise InvalidSnapshot, "invalid closure" unless closed == !closed_at.nil? && (!closed || closed_at >= ends_at)

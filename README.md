@@ -5,7 +5,7 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Current scope: Phase 12 — Reconciliation.** Browse real auctions, inspect public bid
+**Current scope: Phase 12.5 — Correctness and production hardening.** Browse real auctions, inspect public bid
 history, select an explicit demo bidder, and submit manual or private maximum bids.
 The responsive Next.js interface preserves stable client intentions for safe retry
 after lost responses, including tab reload. Rails/PostgreSQL still owns price,
@@ -19,8 +19,14 @@ consumer. The explicit eventual public-state endpoint can use Redis or fall
 back to PostgreSQL. A scheduled checker compares Redis with authoritative
 PostgreSQL public state and safely repairs missing or older projections;
 ambiguous state needs operator review. Bounded PostgreSQL leases prevent
-scheduled scan overlap. Kafka, Redis and scheduler state do not decide auction outcomes;
-[realtime](docs/realtime.md) documents the remaining delivery limits. Start future work with
+scheduled scan overlap. Kafka, Redis and scheduler state do not decide auction outcomes.
+[ADR-010](docs/adr/010-transactional-public-outbox.md) and
+[ADR-011](docs/adr/011-kafka-domain-events.md) document the retained publisher
+row locks across external delivery and their unmeasured scaling cost. The
+demo API remains unauthenticated and has no configured pre-parse body-size
+limit; [security](docs/security.md) describes the risk of weak client keys
+stored as unkeyed digests. It is not a public production service.
+[Realtime](docs/realtime.md) documents the remaining delivery limits. Start future work with
 [AGENTS.md](AGENTS.md), the [latest handoff](docs/handoffs/latest.md), the relevant
 [phase specification](docs/phases/), and the [context map](docs/context-map.md).
 [Progress](docs/progress.md) records actual verification; the original master prompt

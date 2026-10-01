@@ -46,6 +46,7 @@ RSpec.describe "Kafka domain outbox", type: :model do
     invalid = [
       { "current_price" => data.fetch("starting_price") - 1 },
       { "starts_at" => data.fetch("ends_at") },
+      { "original_ends_at" => data.fetch("starts_at") },
       { "ends_at" => (Time.iso8601(data.fetch("original_ends_at")) - 1).iso8601(6) },
       { "closed_at" => data.fetch("ends_at") },
       { "winner_id" => @bidder.id },

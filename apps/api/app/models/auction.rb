@@ -216,6 +216,7 @@ class Auction < ApplicationRecord
 
   def valid_time_window
     errors.add(:ends_at, "must be after starts_at") if starts_at && ends_at && ends_at <= starts_at
+    errors.add(:original_ends_at, "must be after starts_at") if starts_at && original_ends_at && original_ends_at <= starts_at
   end
 
   def valid_price_and_winner
