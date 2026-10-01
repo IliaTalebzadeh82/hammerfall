@@ -55,14 +55,16 @@ probes PostgreSQL. RSpec checks actual database connectivity, and the API smoke
 scripts verify the lifecycle and simultaneous HTTP bids against running containers.
 Real PostgreSQL concurrency specs use committed rows and independent sessions.
 
-## Later phases — not implemented
+## Current async and observability boundaries
 
-Redis/Sidekiq handle public hint jobs and read-only scheduled consistency
-sweeps. The Phase 9 outbox retains committed publication intent; Phase 10
-adds Kafka domain events and an audit consumer below that boundary. Redis
-projections and projection reconciliation,
-observability, load testing, and deployment follow the [phase specifications](phases/phase-11.md).
-No component listed here is present merely because it appears in the future plan.
+Redis/Sidekiq handle public hint jobs and scheduled consistency sweeps. The
+PostgreSQL outbox retains committed publication intent; Kafka carries public
+events to audit and derived Redis projection consumers. Reconciliation compares
+that disposable projection with PostgreSQL and repairs only safe drift.
+OpenTelemetry, Collector, Prometheus, Tempo and Grafana observe these paths
+without deciding auction state. See the [observability contract](observability.md)
+for exact signal semantics. Load testing and deployment follow later
+[phase specifications](phases/phase-14.md).
 
 
 ## Proxy bidding

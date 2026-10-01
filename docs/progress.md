@@ -1838,7 +1838,7 @@ whole-cycle network bound, unkeyed idempotency digest privacy, and pre-parse
 body limit remain explicitly documented future work. The demo is not
 public-production-ready.
 
-## Phase 13 — Observability (in progress, 2026-10-01)
+## Phase 13 — Observability (complete, 2026-10-01)
 
 Session 1 committed the passive OTLP/Collector/Prometheus/Tempo/Grafana
 foundation at `76df52c`. Session 2 added durable W3C context metadata,
@@ -1858,4 +1858,10 @@ Compose stack, CI-equivalent smokes and all seven system-Chrome browser cases
 passed. A fresh 19-span trace crossed six services; all 30 dashboard queries
 were valid and 28 had data. Final traces/logs/metric labels were inspected for
 privacy and cardinality, and a controlled Redis projection repair succeeded.
-Hosted CI remains; Phase 13 is not complete and Phase 14 has not begun.
+Hosted [GitHub Actions run 36864158904](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36864158904)
+on `701aad6d882c34e4eb912244cdde92c83080025a` passed API, web and Compose
+jobs; Compose included all seven real Chrome scenarios. The final closure
+commit changes documentation only and receives its own hosted run. Phase 13
+is complete; Phase 14 has not begun. No new Critical or High Phase 13 defect
+remains after the adversarial review. Retained limits are in the ExecPlan and
+[production readiness](production-readiness.md).

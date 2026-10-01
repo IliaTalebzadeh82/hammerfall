@@ -1,6 +1,6 @@
 # Context routing and migration map
 
-`AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the compact current-state entry point. The [context lifecycle and ExecPlan convention](context-lifecycle.md) governs checkpoints and resumption; the active [Phase 13 ExecPlan](plans/phase-13-execplan.md) holds current decisions and evidence. The closed [Phase 12.5 ExecPlan](plans/phase-12-5-hardening-execplan.md) holds its findings, while `docs/plans/phase-12-execplan.md` records completed Phase 12 evidence. [Phase specifications](phases/) hold each phase's scope. [Progress](progress.md) is historical evidence, not startup context; the [archived original](archive/masterprompt-original.md) is for a specific missing historical fact only.
+`AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the compact current-state entry point. The [context lifecycle and ExecPlan convention](context-lifecycle.md) governs checkpoints and resumption; the completed [Phase 13 ExecPlan](plans/phase-13-execplan.md) holds observability decisions and evidence. The closed [Phase 12.5 ExecPlan](plans/phase-12-5-hardening-execplan.md) holds its findings, while `docs/plans/phase-12-execplan.md` records completed Phase 12 evidence. [Phase specifications](phases/) hold each phase's scope. [Progress](progress.md) is historical evidence, not startup context; the [archived original](archive/masterprompt-original.md) is for a specific missing historical fact only.
 
 | Working on | Required context | Optional targeted context |
 |---|---|---|
@@ -46,18 +46,18 @@ The rows below cover every top-level numbered section and each named roadmap pha
 | 11. SOFT-CLOSE / ANTI-SNIPING | Architecture/phase | `docs/architecture/deadlines.md; docs/phases/phase-04.md` | Adopted final-60/+90 policy; realtime notification now generic revision hint. |
 | 12. IDEMPOTENCY | Architecture/phase | `docs/architecture/idempotency.md; docs/phases/phase-05.md; docs/adr/006-client-command-idempotency.md` | Preserved same-key retry, conflict, concurrency and retention. |
 | 13. TRANSACTIONAL OUTBOX | Architecture/phase | `docs/architecture/async-events.md; docs/phases/phase-09.md; docs/adr/010-transactional-public-outbox.md` | Implemented in Phase 9; crash/duplicate/order evidence in its ExecPlan. |
-| 14. DOMAIN EVENTS | Architecture/phase | `docs/architecture/async-events.md; docs/phases/phase-10.md; docs/adr/011-kafka-domain-events.md` | Implemented public versioned snapshots and schema/privacy; trace context awaits observability phase. |
+| 14. DOMAIN EVENTS | Architecture/phase | `docs/architecture/async-events.md; docs/phases/phase-10.md; docs/adr/011-kafka-domain-events.md` | Implemented public versioned snapshots and schema/privacy; Phase 13 trace context travels in Kafka headers outside the payload. |
 | 15. REAL-TIME UX | Architecture/phase | `docs/architecture/realtime-and-frontend.md; docs/phases/phase-07.md; docs/api.md` | Adopted REST recovery/invalidation; stale bid error contract remains in API. |
 | 16. FRONTEND EXPERIENCE | Product/phase | `docs/architecture/realtime-and-frontend.md; docs/phases/phase-06.md; docs/frontend.md` | Preserved focused responsive auction UI, controls and shadcn basis. |
-| 17. READ MODELS | Architecture/phase | `docs/architecture/projections-and-reconciliation.md; docs/phases/phase-11.md` | Projection remains planned; PostgreSQL authority preserved. |
-| 18. RECONCILIATION | Architecture/phase | `docs/architecture/projections-and-reconciliation.md; docs/phases/phase-12.md` | Planned drift detection, repair, metrics, logging and operator boundary. |
+| 17. READ MODELS | Architecture/phase | `docs/architecture/projections-and-reconciliation.md; docs/phases/phase-11.md` | Derived Redis public projection implemented; PostgreSQL authority preserved. |
+| 18. RECONCILIATION | Architecture/phase | `docs/architecture/projections-and-reconciliation.md; docs/phases/phase-12.md` | Bounded drift detection, safe repair, metrics, logging and operator boundary implemented. |
 | 19. SIDEKIQ | Architecture/phase | `docs/architecture/async-events.md; docs/phases/phase-08.md` | Implemented bounded-retry notification and read-only sweep jobs in Phase 8. |
-| 20. KAFKA CONSUMERS | Architecture/phase | `docs/architecture/async-events.md; docs/phases/phase-10.md` | Audit consumer implemented with duplicate/restart/replay/poison handling; projection remains Phase 11. |
+| 20. KAFKA CONSUMERS | Architecture/phase | `docs/architecture/async-events.md; docs/phases/phase-10.md` | Audit and projection consumers implemented with duplicate/restart/replay/poison handling. |
 | 21. FAILURE MODEL | Operations | `docs/architecture/operations-and-security.md; docs/failure-model.md` | All named failures and four recovery questions retained. |
-| 22. OBSERVABILITY | Operations/phase | `docs/architecture/operations-and-security.md; docs/phases/phase-13.md` | Planned tracing of bidding/DB/outbox/async flows. |
-| 23. METRICS | Operations/phase | `docs/architecture/operations-and-security.md; docs/phases/phase-13.md` | Planned metric families and cardinality/privacy constraint. |
-| 24. LOGGING | Operations/phase | `docs/architecture/operations-and-security.md; docs/phases/phase-13.md` | Planned JSON fields and secret/private-data exclusions. |
-| 25. DASHBOARDS | Operations/phase | `docs/architecture/operations-and-security.md; docs/phases/phase-13.md` | All auction-health, messaging, consistency and runtime dashboard groups retained. |
+| 22. OBSERVABILITY | Operations/phase | `docs/architecture/operations-and-security.md; docs/observability.md; docs/phases/phase-13.md` | Selected HTTP/domain/outbox/async tracing and optional local Collector/Tempo implemented. |
+| 23. METRICS | Operations/phase | `docs/observability.md; docs/phases/phase-13.md` | Bounded metric families, actual Prometheus names and privacy/cardinality contract implemented. |
+| 24. LOGGING | Operations/phase | `docs/observability.md; docs/phases/phase-13.md` | Correlated structured boundary logs with private-data exclusions implemented. |
+| 25. DASHBOARDS | Operations/phase | `docs/observability.md; docs/phases/phase-13.md` | Provisioned auction, messaging, consistency and runtime dashboard implemented. |
 | 26. LOAD TESTING | Verification/phase | `docs/architecture/operations-and-security.md; docs/phases/phase-14.md` | k6 scenarios, 1,000-bidder challenge and real benchmark record retained. |
 | 27. CONCURRENCY EXPERIMENT | Verification/phase | `docs/architecture/operations-and-security.md; docs/phases/phase-15.md` | Planned low/high-contention strategy experiment; no speed-only decision. |
 | 28. CHAOS / FAILURE INJECTION | Verification/phase | `docs/architecture/operations-and-security.md; docs/phases/phase-16.md` | All Kafka/Redis/consumer/post-commit crash outcomes retained. |

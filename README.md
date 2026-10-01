@@ -5,7 +5,7 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Completed scope: Phase 12.5 — Correctness and production hardening.** Browse real auctions, inspect public bid
+**Completed scope: Phase 13 — Observability.** Browse real auctions, inspect public bid
 history, select an explicit demo bidder, and submit manual or private maximum bids.
 The responsive Next.js interface preserves stable client intentions for safe retry
 after lost responses, including tab reload. Rails/PostgreSQL still owns price,
@@ -20,6 +20,12 @@ back to PostgreSQL. A scheduled checker compares Redis with authoritative
 PostgreSQL public state and safely repairs missing or older projections;
 ambiguous state needs operator review. Bounded PostgreSQL leases prevent
 scheduled scan overlap. Kafka, Redis and scheduler state do not decide auction outcomes.
+OpenTelemetry carries bounded trace context across HTTP, Sidekiq and Kafka.
+An optional local Collector, Prometheus, Tempo and Grafana stack exposes
+metrics, distributed traces and an operations dashboard; Rails emits structured
+boundary logs. Telemetry loss does not decide auction outcomes. See the
+[observability contract](docs/observability.md) and
+[runbook](docs/runbooks/observability.md) for signal limits and local inspection.
 [ADR-010](docs/adr/010-transactional-public-outbox.md) and
 [ADR-011](docs/adr/011-kafka-domain-events.md) document the retained publisher
 row locks across external delivery and their unmeasured scaling cost. The
@@ -55,7 +61,8 @@ port overrides, dependency updates, and shutdown.
   reconciliation scheduler and auction closer.
 - `scripts`: shared local verification.
 - `docs`: architecture, decisions, learning notes, and progress.
-- `load-tests`, `observability`: documented future locations; no tooling installed.
+- `infrastructure/observability`: optional local Collector, Prometheus, Tempo
+  and provisioned Grafana dashboard. `load-tests` remains future scope.
 
 ## Correctness and architecture
 
@@ -87,6 +94,6 @@ and [learning guide](docs/learning-guide.md) explain the foundation.
 
 [Failure scenarios](docs/failure-model.md), [job/Redis runbook](docs/runbooks/sidekiq-redis.md), [Kafka runbook](docs/runbooks/kafka.md), [projection recovery](docs/runbooks/redis-projection.md), [reconciliation operations](docs/runbooks/projection-reconciliation.md), [consistency](docs/consistency-model.md),
 [event contracts](docs/event-model.md), [benchmarks](docs/load-testing.md), and
-[observability](docs/observability.md) describe current limits and future work. No
-benchmark results or dashboards exist yet. See [security](docs/security.md) and
+[observability](docs/observability.md) describe current limits and future work. A
+local operations dashboard exists; no benchmark results exist yet. See [security](docs/security.md) and
 [production readiness](docs/production-readiness.md) for current limits.

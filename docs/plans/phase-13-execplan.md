@@ -1,12 +1,11 @@
 # Phase 13 — Observability ExecPlan
 
-Status: active; finalization in progress after session 2 hard checkpoint. Phase 12.5 remains complete at
+Status: complete; final local and hosted gates passed. Phase 12.5 remains complete at
 `41bff7c`. Session 1 foundation was committed at `76df52c`.
 
-Current milestone: hosted CI gate after final local verification. Distributed/
-asynchronous telemetry, dashboard and live failure campaign were completed in
-session 2; broad local verification is complete.
-Do not begin Phase 14.
+Current milestone: Phase 13 closure. Distributed/asynchronous telemetry,
+dashboard and live failure campaign were completed in session 2; broad local
+and hosted verification is complete. Phase 14 has not begun.
 
 Completed: Session 1 established the [telemetry contract](../observability.md),
 bounded OTLP SDK, HTTP/domain tracing and optional Collector/Prometheus/Tempo/
@@ -25,12 +24,11 @@ projection effect/commit. Focused async tests passed with Collector unreachable;
 the live Collector/Prometheus/Tempo/Grafana outages, Kafka and Redis failures,
 actual metrics/labels, privacy scan and four sabotage checks were exercised.
 
-Remaining: hosted CI and final completion-status documentation. Broad backend
-and frontend regressions, static/security
-gates, gated live Kafka, full Compose startup, smokes, browser and live telemetry
-inspection passed in this session. Run backend integration tests
-with `REDIS_URL=redis://redis:6379/1` while development uses DB 0. Phase 13
-is not complete.
+Remaining: no Phase 13 implementation or verification work. Broad backend and
+frontend regressions, static/security gates, gated live Kafka, full Compose
+startup, smokes, browser, live telemetry inspection and hosted CI passed.
+Backend integration tests use `REDIS_URL=redis://redis:6379/1` while
+development uses DB 0.
 
 Known limits: The API remains an unauthenticated demo. Publishers still hold a
 PostgreSQL row lock/connection across external I/O; Phase 14/15 own any
@@ -39,7 +37,8 @@ commit, so idle/dead consumers leave stale gauges; inspect broker group offsets
 for authoritative lag. Ruby metrics SDK remains alpha. Collector v0.136.0
 logs a misleading optional-namespace error despite working export. The
 30-second Collector outage was not a capacity or full queue-saturation test.
-Hosted CI remains unverified in finalization.
+The final documentation-only commit receives a separate hosted run; the
+implementation run and jobs are indexed below.
 
 Relevant files: `apps/api/lib/observability.rb`, `lib/observability/sidekiq_middleware.rb`,
 the outbox model/publishers, Kafka consumers, Redis projection/reconciler/job,
@@ -50,11 +49,10 @@ Relevant ADRs: ADR-003/005/010/011/012/013 retain their correctness contracts.
 Transport trace metadata did not change the versioned business event or
 transaction protocol, so no new ADR was needed.
 
-Next-session starting point if interrupted: inspect the finalization evidence
-below, obtain hosted CI on the final commit, and finish completion
-documentation. Local broad, browser, runtime and telemetry gates have passed;
-do not rerun them without a concrete code change or failed gate. Do not begin
-Phase 14 or repeat the outage campaign without a new risk.
+Next-session starting point: Phase 13 is complete. Start Phase 14 only on an
+explicit user request, using this plan for Phase 13 evidence and the compact
+handoff for current boundaries. Do not repeat the outage campaign without a
+new risk.
 
 ## Decisions
 
@@ -126,6 +124,7 @@ Phase 14 or repeat the outage campaign without a new risk.
 | Final distributed trace | Tempo `/api/traces/44b497010f2815d076eedea54ddff707` from rebuilt proxy smoke | 19 spans, six services, one root, no missing parents; HTTP maximum command 46.8 ms, later Kafka/Sidekiq spans each bounded; payload v1 remains separate from headers | Tempo API inspection; correlated API/worker logs |
 | Final metrics/dashboard | Prometheus `series` and instant `query` APIs, all provisioned dashboard PromQL | Current bid/lag/backlog/repair counters and seconds histograms; no forbidden ID label keys; normalized route templates; 30/30 valid dashboard queries, 28 with data after smokes, two empty failure/drift queries; both Collector scrape targets `up=1` | Prometheus and Grafana APIs; dashboard UID `hammerfall-operations` |
 | Final privacy and repair | Tempo manual/maximum/rejected/replay traces; recent Compose service logs; controlled missing Redis key for auction 389, `AuctionProjectionReconciler#check`, projection restored | Trace attributes limited to operation/event type/HTTP method/route; 3,501 log lines and 335 structured boundary lines had zero banned private-key strings; repair returned `:repaired` at revision 4, live cumulative repair/drift counters appeared | `/tmp/hammerfall-phase13-final-telemetry-logs.log`, `/tmp/hammerfall-phase13-final-repair.log`; Tempo API inspection |
+| Hosted CI implementation run | Push `701aad6d882c34e4eb912244cdde92c83080025a`, [run 36864158904](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36864158904) | API, web and Compose jobs all succeeded; Compose included Redis/Kafka/auction smokes and 7/7 real Chrome scenarios in 2.0 minutes. No observability-profile CI step exists; the optional stack was verified locally. | GitHub Actions run/jobs and Compose job log |
 
 ## Final adversarial review (local build)
 
@@ -158,5 +157,5 @@ if evidence warrants it. These are not Phase 13 correctness failures.
 | Collector/storage outage behavior and bounded backpressure | COMPLETE | Session 2 campaign and final unchanged exporter config; not a capacity claim |
 | Kafka lag freshness and browser receipt measurement | INTENTIONALLY LIMITED | Sampled broker position and server broadcast only; contract/runbook state limits |
 | Load/capacity, SLO/alerts and publisher delivery redesign | DEFERRED WITH OWNER | Phase 14 capacity, Phase 15 publisher design; future operations policy |
-| Hosted GitHub Actions on final code | PENDING | Push and hosted run still required |
+| Hosted GitHub Actions on implementation code | COMPLETE | Run 36864158904, all three jobs green; final documentation-only commit is separately checked |
 | Phase 14 implementation | NOT APPLICABLE | Explicitly excluded from Phase 13 |

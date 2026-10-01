@@ -1,7 +1,7 @@
 # Observability contract (Phase 13)
 
-Status: Phase 13 final local regression, runtime, browser and telemetry review
-passed; hosted CI remains. Implementation and live evidence are tracked in the
+Status: Phase 13 complete after final local regression, runtime, browser,
+telemetry review and hosted CI. Implementation and live evidence are tracked in the
 [Phase 13 ExecPlan](plans/phase-13-execplan.md). These signals describe work;
 PostgreSQL remains the sole auction authority. A missing signal never changes a
 bid, closing, outbox, consumer or reconciliation decision.

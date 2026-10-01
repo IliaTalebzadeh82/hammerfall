@@ -10,13 +10,22 @@ Future public use needs authentication and authorization, request validation, ap
 
 ## Observability and failure response
 
-Phase 13 plans OpenTelemetry spans for HTTP, auction lock wait, validation, proxy resolution, outbox publication, Kafka/Sidekiq, WebSocket delivery, closing and reconciliation, with practical trace propagation across HTTP/jobs/Kafka. Expose bounded Prometheus metrics for bid acceptance/rejection/latency, lock wait, extensions, close lag, outbox backlog/age/failures, consumer lag, drift/repair and socket delivery lag. Use structured JSON logs with trace/span, operation, auction state, result and error class without secrets. Grafana dashboards should answer auction-health, messaging, consistency and runtime questions. See [observability](../observability.md).
+Phase 13 implements selected OpenTelemetry spans for HTTP, auction lock wait,
+decision/proxy work, outbox publication, Kafka/Sidekiq, server broadcast,
+closing and reconciliation. W3C trace context crosses HTTP, jobs and Kafka
+transport metadata. Bounded Prometheus metrics cover bid outcomes/latency,
+lock wait, extensions, close lag, backlog/age/failures, broker lag, projection
+drift/repair and server broadcast lag. Structured boundary JSON logs exclude
+secrets and private commands. The provisioned Grafana dashboard addresses
+auction, messaging, consistency and runtime questions. See the
+[observability contract](../observability.md) and
+[runbook](../runbooks/observability.md) for what each signal cannot prove.
 
 The [Kafka runbook](../runbooks/kafka.md) covers backlog, poison, replay and
 operator offset recovery. The [Redis projection runbook](../runbooks/redis-projection.md)
 covers loss and manual PostgreSQL rebuild. The [reconciliation runbook](../runbooks/projection-reconciliation.md)
-covers drift, safe repair, leases and operator review. Future runbooks still need close
-lag and PostgreSQL lock contention. The [failure model](../failure-model.md)
+covers drift, safe repair, leases and operator review. The observability runbook
+covers close lag and PostgreSQL lock contention signals. The [failure model](../failure-model.md)
 covers current PostgreSQL/Redis/Kafka outage, worker/consumer/Rails crash,
 dropped sockets, delayed publication and duplicate delivery; later phases
 extend measured latency and projection recovery.
