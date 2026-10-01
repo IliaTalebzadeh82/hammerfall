@@ -19,6 +19,10 @@ default and fails on unexpected client/server/transport errors or timeouts.
 load-tests/benchmark.sh normal 4 30s
 load-tests/benchmark.sh hot 8 30s
 load-tests/benchmark.sh duplicate 8 15s
+load-tests/benchmark.sh closing 16 25s
+load-tests/benchmark.sh distributed 16 20s 8 64
+load-tests/benchmark.sh fanout 50 20s
+load-tests/benchmark.sh challenge 400 75s
 ```
 
 Use distinct fixtures for each step and repetition. Set `REQUIRE_OTEL=false`
@@ -59,6 +63,20 @@ amount; one conflicts intentionally. A brief sleep on every fifth iteration
 adds delayed retries. The generator counts accepted, rejected, replay, conflict,
 client/server error and timeout separately. `http_req_failed` uses expected
 200/201/409/422 statuses; inspect the custom outcome counts for semantics.
+
+`closing` creates one auction ending 20 seconds after fixture creation, runs
+through the real final minute, waits for the independent closer, then checks
+the 90-second event-snapshot deadline transitions and final winner in
+PostgreSQL. `distributed` uses the same read/bid loop as `hot` across eight
+auction rows for a controlled partitioning comparison. `fanout` holds one
+Action Cable connection per requested VU while one mutation VU sends bids;
+receipts are invalidation hints at k6 clients only. `challenge` creates one
+distinct bidder per VU, paces one bid per VU for eight seconds before the
+original deadline, and waits for closure. The client clock only paces the
+challenge: PostgreSQL still decides eligibility. The `75s` argument is a
+maximum execution window; inspect actual duration, attempted requests,
+launch offset and dropped/unfinished iterations in the k6 summary. At high
+load, reconcile timed-out commands with PostgreSQL idempotency records.
 
 Use a distinct fixture for each step and repeat. Store `summary.json`, the full
 `k6.log.gz` (lossless compressed terminal output), environment/configuration, database verification, telemetry snapshots

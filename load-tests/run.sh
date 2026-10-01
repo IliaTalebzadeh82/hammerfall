@@ -7,7 +7,7 @@ manifest=${2:?manifest path required}
 vus=${3:?VU count required}
 duration=${4:?duration required}
 result_dir=${5:?result directory required}
-case "$scenario" in warmup|normal-auction|hot-auction|duplicate-retries|final-minute|websocket-fanout) ;; *) exit 2 ;; esac
+case "$scenario" in warmup|normal-auction|hot-auction|distributed-auction|duplicate-retries|duplicate-burst|classifier-sabotage|final-minute|final-ten|websocket-fanout) ;; *) exit 2 ;; esac
 test -f "$manifest"
 mkdir -p "$result_dir"
 manifest=$(realpath "$manifest")

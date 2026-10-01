@@ -34,6 +34,14 @@ def bucket_bounds(values):
     return count, [next((bound for bound, n in bounds if n >= count * q), None) for q in (.5, .95, .99)]
 
 
+def gauge_by(snapshot, source, label):
+    result = {}
+    for row in snapshot["prometheus"].get(source, []):
+        name = row["metric"].get(label, "total")
+        result[name] = result.get(name, 0) + float(row["value"][1])
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("result_dir", type=pathlib.Path)
@@ -60,10 +68,12 @@ def main():
                                  ("benchmark_mutation_accepted", "benchmark_mutation_domain_rejected"))
         if observed_mutations == expected_bids + expected_maxima:
             command_count, maximum_count = expected_bids, expected_maxima
-    elif fixture["scenario"] == "hot":
+    elif fixture["scenario"] in ("hot", "distributed", "closing", "challenge"):
         command_count = iterations
     elif fixture["scenario"] == "duplicate":
         command_count = iterations
+    elif fixture["scenario"] == "burst":
+        command_count = iterations * 2
     lines = [f"# {fixture['scenario']} — {fixture['run_id']}", "",
              f"Recorded from commit `{before['git_sha']}` at {before['captured_at_utc']} UTC.", "",
              "## Environment and method", "",
@@ -102,12 +112,38 @@ def main():
         lines.append(f"| {label} | {metric(summary, name) or 0} |")
     lines += ["", "## Database and telemetry", "",
               f"Authoritative checker: {len(verify['failures'])} failure(s), {sum(x['bids'] for x in verify['auctions'])} bid rows, {sum(x['maximum_bids'] for x in verify['auctions'])} maximum instructions. See `verify.json` for each auction's sequence/price/leader/revision and pending outbox counts."]
+    if fixture["scenario"] in ("closing", "challenge"):
+        closing = verify["auctions"][0]["closing"]
+        if closing:
+            lines.append(f"- Closing: {len(closing['extensions'])} recorded extensions; original end {closing['original_ends_at']}; final end {verify['auctions'][0]['ends_at']}; closed at {closing['closed_at']}; close lag {closing['close_lag_seconds']} s; leader/winner {verify['auctions'][0]['leader_id']}/{verify['auctions'][0]['winner_id']}.")
+            lines.append("- Extension revisions and observation times are in `verify.json`; closer polling observations are in `closer-observations.json`. Event observation time follows the DB decision and is not itself the decision timestamp.")
+            lines.append(f"- PostgreSQL outbox event time preceded the prior effective deadline for {closing['event_observed_before_prior_deadline']} mutation events; {closing['timing_inconclusive_events']} event time(s) cannot establish eligibility after a queued decision.")
+    if fixture["scenario"] == "fanout":
+        lines += ["", "## Action Cable client observations", "",
+                  "These receipts are k6 client observations of invalidation hints, not proof of universal browser delivery or authoritative state.", ""]
+        for label, name in [("Attempted sockets", "benchmark_socket_attempted"),
+                            ("Opened sockets", "benchmark_socket_opened"),
+                            ("Confirmed subscriptions", "benchmark_socket_confirmed"),
+                            ("Failed sockets", "benchmark_socket_failed"),
+                            ("Invalidations received", "benchmark_socket_invalidations"),
+                            ("Disconnected sockets", "benchmark_socket_disconnected")]:
+            lines.append(f"- {label}: {metric(summary, name) or 0}.")
+    if fixture["scenario"] == "burst":
+        lines.append("- Simultaneous first-wave and delayed replay latency are in `summary.json` under `benchmark_burst_initial_duration` and `benchmark_burst_later_duration`; the former mixes original ownership with concurrent idempotency waiters.")
     for label, snapshot in [("Before", before), ("During", during), ("After", after)]:
         if snapshot:
             state = snapshot["pg_state"]
             api = next((x for x in snapshot["docker_stats"] if "-api-" in x["Name"]), None)
             cpu = f"; API CPU {api['CPUPerc']}, memory {api['MemUsage']}" if api else ""
-            lines.append(f"- {label}: PostgreSQL {state['sessions']} sessions, {state['active']} active, {state['lock_waiters']} lock waiters; fixture Sidekiq/Kafka pending {state['fixture_sidekiq_pending']}/{state['fixture_kafka_pending']}{cpu}.")
+            k6_container = next((x for x in snapshot.get("running_containers", []) if "grafana/k6:" in x.get("Image", "")), None)
+            k6_stats = next((x for x in snapshot["docker_stats"] if k6_container and x["Name"] == k6_container["Names"]), None)
+            k6_text = f"; k6 CPU {k6_stats['CPUPerc']}, memory {k6_stats['MemUsage']}" if k6_stats else ""
+            lines.append(f"- {label}: PostgreSQL {state['sessions']} sessions, {state['active']} active, {state['lock_waiters']} lock waiters; fixture Sidekiq/Kafka pending {state['fixture_sidekiq_pending']}/{state['fixture_kafka_pending']}{cpu}{k6_text}.")
+            pending = gauge_by(snapshot, "outbox_pending", "channel")
+            oldest = gauge_by(snapshot, "outbox_oldest_age", "channel")
+            lag = gauge_by(snapshot, "kafka_lag", "consumer_group")
+            if pending or oldest or lag:
+                lines.append(f"  Prometheus snapshot: global outbox pending {pending}, oldest age seconds {oldest}, summed Kafka lag {lag}; gauges are asynchronous and can be stale.")
     for label, source, labels in [
         ("Auction lock wait / place_bid", "lock_wait_bucket", {"operation": "place_bid"}),
         ("Bid processing / accepted", "bid_processing_bucket", {"operation": "place_bid", "result": "accepted"}),

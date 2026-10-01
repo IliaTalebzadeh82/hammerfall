@@ -16,6 +16,11 @@ def run(*command):
     return process.stdout.strip()
 
 
+def optional_run(*command):
+    process = subprocess.run(command, text=True, capture_output=True)
+    return process.stdout.strip() if process.returncode == 0 else None
+
+
 def prometheus(expression):
     url = "http://127.0.0.1:9090/api/v1/query?" + urllib.parse.urlencode({"query": expression})
     return json.loads(run("docker", "compose", "exec", "-T", "prometheus", "wget", "-qO-", url))["data"]["result"]
@@ -32,6 +37,11 @@ def main():
     sql = ("SELECT json_build_object('sessions', (SELECT count(*) FROM pg_stat_activity WHERE datname=current_database()), "
            "'active', (SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND state='active'), "
            "'lock_waiters', (SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'), "
+           "'wait_events', (SELECT coalesce(json_object_agg(wait_name, n), '{}'::json) FROM "
+           "(SELECT coalesce(wait_event_type || ':' || wait_event, 'none') wait_name, count(*) n "
+           "FROM pg_stat_activity WHERE datname=current_database() GROUP BY 1) waits), "
+           "'blocked_sessions', (SELECT count(*) FROM pg_stat_activity "
+           "WHERE datname=current_database() AND cardinality(pg_blocking_pids(pid)) > 0), "
            "'fixture_sidekiq_pending', (SELECT count(*) FROM outbox_events WHERE auction_id IN (" + ids + ") AND published_at IS NULL), "
            "'fixture_kafka_pending', (SELECT count(*) FROM outbox_events WHERE auction_id IN (" + ids + ") AND kafka_published_at IS NULL))")
     data = {"stage": args.stage, "captured_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -39,6 +49,11 @@ def main():
             "pg_state": json.loads(run("docker", "compose", "exec", "-T", "db", "psql", "-U", "hammerfall",
                                        "-d", "hammerfall_development", "-Atc", sql)),
             "docker_stats": [json.loads(line) for line in run("docker", "stats", "--no-stream", "--format", "{{json .}}").splitlines()],
+            "running_containers": [json.loads(line) for line in run("docker", "ps", "--format", "{{json .}}").splitlines()],
+            "host_loadavg": pathlib.Path("/proc/loadavg").read_text().strip(),
+            "host_mem_available_kib": next((int(line.split()[1]) for line in pathlib.Path("/proc/meminfo").read_text().splitlines()
+                                             if line.startswith("MemAvailable:")), None),
+            "api_open_fds": optional_run("docker", "compose", "exec", "-T", "api", "sh", "-c", "ls /proc/1/fd | wc -l"),
             "prometheus": {name: prometheus(query) for name, query in {
                 "lock_wait_bucket": "sum by (le, operation) (hammerfall_auction_lock_wait_duration_seconds_bucket)",
                 "bid_processing_bucket": "sum by (le, operation, result) (hammerfall_bid_processing_duration_seconds_bucket)",
@@ -46,6 +61,11 @@ def main():
                 "outbox_pending": "hammerfall_outbox_pending_events",
                 "outbox_oldest_age": "hammerfall_outbox_oldest_event_age_seconds",
                 "kafka_lag": "hammerfall_kafka_consumer_lag",
+                "sidekiq_queue": "hammerfall_sidekiq_queue_depth",
+                "websocket_broadcasts": "hammerfall_websocket_broadcasts_total",
+                "websocket_lag_bucket": "sum by (le) (hammerfall_websocket_server_broadcast_lag_seconds_bucket)",
+                "extensions": "hammerfall_auction_extensions_total",
+                "close_lag_bucket": "sum by (le) (hammerfall_auction_close_lag_seconds_bucket)",
                 "reconciliation": "hammerfall_projection_drift_total",
             }.items()}}
     if args.stage == "before":
@@ -63,6 +83,7 @@ def main():
                                      "-d", "hammerfall_development", "-Atc",
                                      "SHOW max_connections; SHOW shared_buffers; SHOW work_mem; SHOW lock_timeout; SHOW statement_timeout;").splitlines(),
             "api_otel_enabled": run("docker", "compose", "exec", "-T", "api", "printenv", "OTEL_ENABLED"),
+            "api_open_file_limit": run("docker", "compose", "exec", "-T", "api", "sh", "-c", "ulimit -n"),
             "api_rails_max_threads": run("docker", "compose", "exec", "-T", "api", "sh", "-c", "printf '%s' \"${RAILS_MAX_THREADS:-3}\""),
             "sidekiq_concurrency": 2,
             "redis_config": run("docker", "compose", "exec", "-T", "redis", "redis-cli", "CONFIG", "GET", "maxmemory", "appendonly").splitlines(),
