@@ -47,6 +47,10 @@ origin or key. Acknowledgment says Redis accepted the job, not that Cable or a
 browser received it. Duplicate enqueue and reordered jobs remain possible and
 safe for current-revision invalidations. See [the event model](../event-model.md)
 and [the runbook](../runbooks/sidekiq-redis.md).
+Phase 13 adds bounded W3C trace context as separate outbox metadata. Publishers
+restore it for Sidekiq job metadata and Kafka transport headers; neither the
+job arguments nor the versioned domain payload gains telemetry fields. The
+stable event UUID remains independent of trace identity across retries.
 
 ## Phase 10: Kafka domain events
 

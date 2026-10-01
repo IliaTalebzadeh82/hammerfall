@@ -19,6 +19,11 @@ docker compose exec -T api bin/rails runner 'puts({ pending: OutboxEvent.kafka_p
 ```
 
 The publisher logs aggregate backlog, due, retries and oldest age each cycle.
+Phase 13 also exposes publish attempts/failures/duration, pending age and
+sampled broker high-watermark lag in Grafana. The lag gauge refreshes only
+after a successful consumer commit and at most once per partition every 30
+seconds; use the broker group-offset command above when a consumer is idle or
+stopped. Trace context travels in Kafka headers, outside the v1 event payload.
 Its row errors record only class names. Inspect a specific row's event ID,
 revision, attempts and next attempt time in a protected Rails console; do not
 log raw payloads or private records. A `kafka_published_at` value means broker

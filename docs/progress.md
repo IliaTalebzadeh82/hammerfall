@@ -1837,3 +1837,19 @@ complete; no Phase 13 work began. Publisher lock/connection occupancy, absent
 whole-cycle network bound, unkeyed idempotency digest privacy, and pre-parse
 body limit remain explicitly documented future work. The demo is not
 public-production-ready.
+
+## Phase 13 — Observability (in progress, 2026-10-01)
+
+Session 1 committed the passive OTLP/Collector/Prometheus/Tempo/Grafana
+foundation at `76df52c`. Session 2 added durable W3C context metadata,
+Sidekiq and Kafka propagation, async/projection/reconciliation metrics and a
+provisioned operations dashboard. The 69-example focused async suite passed
+with an unreachable Collector endpoint, with one opt-in live Kafka example
+pending. A live 19-span maximum command trace crossed HTTP, outbox, Sidekiq,
+Cable, Kafka audit and Redis projection. All four telemetry-service outage
+smokes passed; Kafka and Redis failure/recovery produced the expected backlog
+and retry signals. Actual Tempo, Prometheus, Grafana, privacy and cardinality
+evidence plus sabotage results are indexed in the
+[active ExecPlan](plans/phase-13-execplan.md). Full regression, browser,
+hosted CI, final documentation and adversarial review remain. Phase 13 is not
+complete; Phase 14 has not begun.

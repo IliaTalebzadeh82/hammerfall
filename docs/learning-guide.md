@@ -832,5 +832,24 @@ auction command never asks Tempo or Prometheus whether it may proceed. A trace
 helps explain the work that occurred, but a dropped span does not imply that a
 bid failed. Read `lib/observability.rb`,
 `lib/observability/http_middleware.rb`, `docs/observability.md` and the
-Phase 13 ExecPlan. Async propagation, dashboards and outage verification
-remain part of the active phase.
+Phase 13 ExecPlan.
+
+## Phase 13 — Trace context is transport metadata, not event identity
+
+The public outbox row now holds bounded W3C context alongside its stable event
+UUID. Sidekiq middleware carries it outside job arguments, and Kafka headers
+carry it outside the versioned snapshot. The worker and both consumers start
+their own spans under extracted context; neither waits for the producer to
+finish. A duplicate event may have multiple delivery attempts and spans while
+remaining one durable event. Offset commits still follow PostgreSQL or Redis
+effects. Live Tempo traces showed the HTTP command, both publishers, Sidekiq
+worker/Cable broadcast and both Kafka consumers in one trace.
+
+Exporter loss stayed outside those effects during a sustained Collector outage.
+The Collector, Tempo, Prometheus and Grafana outage checks did not change bid
+outcomes. Actual Prometheus names also showed why count gauges must omit the
+OTel unit `1`: that unit produced an unwanted `_ratio` suffix. Local debug SQL
+inlined private maximums, so development logs now use info level while request
+parameter filtering masks whole command payloads. Run live integration specs against Redis
+DB 1 when the development stack uses DB 0; separate PostgreSQL databases alone
+do not isolate projection keys that share numeric auction IDs.

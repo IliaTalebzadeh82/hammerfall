@@ -400,7 +400,7 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   [ADR-013](adr/013-bounded-reconciliation-scan-ownership.md) and the
   [runbook](runbooks/projection-reconciliation.md) define operations.
 
-## Phase 13 session 1 observability map
+## Phase 13 observability map
 
 - `lib/observability.rb` configures bounded OTLP tracing/metrics, normalizes
   metric dimensions and span attributes, and writes correlated JSON boundary
@@ -416,4 +416,15 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
 - `spec/lib/observability_spec.rb` checks bounded labels, private-field
   exclusion and exactly-once domain-block execution during telemetry errors.
   The [Phase 13 ExecPlan](plans/phase-13-execplan.md) indexes live evidence
-  and tracks asynchronous integration still to come.
+  and tracks remaining phase completion gates.
+- `OutboxEvent#trace_carrier` and its trace columns persist only bounded W3C
+  metadata. `lib/observability/sidekiq_middleware.rb` handles producer/worker
+  context without changing public job arguments; Kafka publisher/consumers use
+  `rdkafka` headers without changing the v1 business envelope.
+- The two publishers emit attempts, retries, failures, duration and global
+  backlog/age gauges. Kafka consumers emit bounded result counters and sampled
+  broker lag after offset commits. Projection/reconciliation emit actual
+  cumulative counters; their batch logs now use `_batch` names.
+- `infrastructure/observability/grafana/dashboards/hammerfall-operations.json`
+  covers auction health, delivery, consistency and runtime with explicit
+  boundaries between broker delivery, Redis projection and browser receipt.

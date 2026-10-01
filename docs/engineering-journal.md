@@ -496,3 +496,23 @@ normalizes dimensions at its instrumentation boundary, applies explicit
 histogram views for boundaries, and leaves counters on their default monotonic
 sum. Inspecting actual Prometheus series and Tempo traces exposed both issues;
 successful application tests alone did not.
+
+## 2026-10-01 — Async telemetry needed real transport and privacy checks
+
+`rdkafka` 0.30 accepts producer `headers:` and exposes consumed `message.headers`;
+the public Kafka envelope needed no version change. A live Tempo trace joined
+HTTP outbox persistence, Sidekiq enqueue/worker/broadcast, Kafka publish, audit
+and projection consumers through transport context. Event UUID remained separate
+from trace identity. Collector/Tempo/Prometheus/Grafana outages left proxy bids
+working and outboxes drained; the Collector outage emitted exporter errors.
+
+Actual Collector output exposed `_ratio` names for count gauges created with
+unit `1`, so those gauges now omit a unit. Actual development logs exposed SQL
+with inlined private maximum and priority values even though Rails filtered
+request parameters; info-level development logging removed the SQL debug lines.
+Filtering whole command payload keys also removed titles and descriptions from
+Rails info request logs.
+Concurrently running live development and test processes shared Redis DB 0,
+causing projection spec collisions when numeric auction IDs overlapped. Redis
+DB 1 isolated the focused test run. Publisher backlogs are global PostgreSQL
+counts, so Grafana uses `max` across replicas instead of summing them.

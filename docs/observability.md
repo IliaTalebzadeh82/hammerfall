@@ -1,7 +1,7 @@
 # Observability contract (Phase 13)
 
-Status: Phase 13 session 1 foundation implemented; asynchronous signals,
-dashboards and outage campaign remain. Implementation and live evidence are tracked in the
+Status: Phase 13 async milestone implemented; broad regression, browser
+verification, hosted CI and final review remain. Implementation and live evidence are tracked in the
 [Phase 13 ExecPlan](plans/phase-13-execplan.md). These signals describe work;
 PostgreSQL remains the sole auction authority. A missing signal never changes a
 bid, closing, outbox, consumer or reconciliation decision.
@@ -29,6 +29,10 @@ finishes without waiting for its consumer; consumer spans are new work in
 extracted context. Stable outbox `event_id` remains delivery/duplicate identity,
 independent of trace IDs. A persisted trace carrier may be used only for public
 outbox metadata; never put private bids or raw commands into it.
+The outbox stores bounded trace fields outside the versioned Kafka business
+envelope. Sidekiq metadata leaves job arguments unchanged. Malformed or
+oversized trace metadata is ignored. A retry keeps its event UUID even when
+its producer and consumer spans run later.
 
 Span names describe operations rather than IDs: `hammerfall.auction.lock`,
 `hammerfall.bid.decide`, `hammerfall.proxy.resolve`,
@@ -58,11 +62,14 @@ seconds. Prometheus may normalize OTel names and append
 | `hammerfall_auction_extensions` | count, counter | none | How often did an accepted action extend a deadline? |
 | `hammerfall_auction_close_lag` | seconds, histogram | none | How late was a successful DB-clock close relative to `ends_at`? Polling is not an SLA. |
 | `hammerfall_outbox_pending_events` / `hammerfall_outbox_oldest_event_age` | count gauge / seconds gauge | `channel=sidekiq|kafka` | Is committed publication intent backing up? Acknowledgment means queue enqueue or broker delivery, not browser receipt or consumer effect. |
-| `hammerfall_outbox_publish_attempts` / `hammerfall_outbox_publish_failures` / `hammerfall_outbox_publish_duration` | count counters / seconds histogram | `channel` | Are external deliveries slow/retrying while a DB lock is held? |
+| `hammerfall_outbox_publish_attempts` / `hammerfall_outbox_retry_attempts` / `hammerfall_outbox_publish_failures` / `hammerfall_outbox_publish_duration` | count counters / seconds histogram | `channel` | Are external deliveries slow/retrying while a DB lock is held? Duration surrounds transport delivery, not the whole transaction. |
+| `hammerfall_sidekiq_queue_depth` / `hammerfall_sidekiq_jobs` / `hammerfall_sidekiq_job_duration` | gauge / counter / seconds histogram | queue, bounded result | Are notification jobs queued or failing in workers? Enqueue is not Cable delivery. |
+| `hammerfall_kafka_consumed` / `hammerfall_projection_writes` | count counters | group and bounded result | Did a consumer commit a first/next/gap/stale/duplicate arrival, or a Redis write apply/duplicate/stale/conflict/fail? |
 | `hammerfall_kafka_consumer_lag` | count gauge | `consumer_group`, `partition` | Is a named consumer behind the broker? Partition is bounded by topic configuration. Broker position does not prove effect completion. |
 | `hammerfall_projection_checks` / `hammerfall_projection_drift` / `hammerfall_projection_repair_attempts` / `hammerfall_projection_repairs` / `hammerfall_projection_repair_failures` / `hammerfall_projection_operator_review` | count, counters | drift `kind=missing|behind|conflict|corrupt|ahead|unavailable` where applicable | Are projections drifting and can safe repairs complete? None of these counters change PostgreSQL truth. |
 | `hammerfall_projection_stale_age` | seconds, histogram | `source` from fixed enum | How old was an observed projection? It measures a check, not a freshness guarantee. |
-| `hammerfall_websocket_broadcasts` / `hammerfall_websocket_failures` / `hammerfall_websocket_server_broadcast_lag` | count counters / seconds histogram | bounded `result` | Did the server issue a Cable broadcast and how long after event occurrence? This cannot prove browser receipt. |
+| `hammerfall_projection_batch_size` / `hammerfall_projection_scan_duration` | count / seconds histograms | none | How much reconciliation work was checked in each page and how long did it take? |
+| `hammerfall_websocket_broadcasts` / `hammerfall_websocket_server_broadcast_lag` | counter / seconds histogram | bounded `result` | Did the server issue a Cable broadcast and how long after event occurrence? This cannot prove browser receipt. |
 | `hammerfall_http_requests` / `hammerfall_http_duration` | count counter / seconds histogram | route template, method, status class | Is the API healthy? Never label a raw URL. |
 
 Default duration histogram boundaries should span milliseconds through tens of
@@ -75,6 +82,7 @@ No metric label may contain an auction, user, bidder, bid, event, trace or span
 ID; idempotency key; raw error message; email; or URL with arbitrary IDs.
 `reason` must map to a fixed code set with an `other` fallback. Component,
 operation, status class and Kafka group are fixed allowlists.
+Partition labels accept only 0–31; projection drift kinds are a finite enum.
 
 ## Logs and correlation
 
@@ -87,6 +95,10 @@ exists. Auction/event IDs are allowed only where they materially help incident
 diagnosis; log storage access must be controlled. Do not log whole Rails params,
 Kafka payloads, exception messages, raw keys or credentials. Generic framework
 logs may remain in their existing format during this phase.
+Development Rails logs use info level because debug SQL inlined private maximum
+and priority values. Rails filters whole auction, bid, maximum-bid and user
+request payloads before its request log. Structured async logs
+include event IDs only for protected operational lookup.
 
 ## Sampling and failure behavior
 
@@ -99,6 +111,14 @@ usable when Collector, Prometheus, Tempo or Grafana are down. Observability
 exceptions are contained at the telemetry boundary, while domain, PostgreSQL
 and transport exceptions retain their existing behavior. No telemetry service
 appears in an application `depends_on` health gate.
+The Ruby span queue holds at most 1,024 spans and drops the oldest on overflow;
+batches hold at most 256 and export once per second with a one-second timeout.
+The metric reader exports every 15 seconds with a one-second timeout and a
+200-series cardinality cap per instrument/reader. The Collector has a 128 MiB
+memory limiter and a 100-batch trace queue with at most 30 seconds of retries.
+Ruby exporter retries run in SDK export threads. A 30-second Collector outage
+produced export errors while four proxy bidding smokes passed and both outbox
+backlogs drained; this is bounded local evidence, not a capacity claim.
 
 The Compose stack and local dashboards are development examples, not hardened
 public endpoints. Bind browser-facing Grafana to loopback and keep Collector,
@@ -111,17 +131,17 @@ committed. This mode must not be exposed on a public network.
 Set `OTEL_ENABLED=true` for the application processes and start the optional
 stack with `docker compose --profile observability up -d --build`. The
 provisioned Grafana UI is at `http://127.0.0.1:3002` by default; data sources
-are ready, and dashboard files will be added in the next milestone. Normal
+and the question-driven Hammerfall operations dashboard are ready. Normal
 Compose startup leaves OTel disabled. The Collector, Prometheus and Tempo have
 no host port mapping. Use `docker compose --profile observability ps` and
 Prometheus target health before interpreting an empty dashboard. Trace export
 uses OTLP/HTTP `/v1/traces`; metric export uses `/v1/metrics`.
 
-Current HTTP/domain implementation emits bid request, accepted, rejected,
-processing duration, auction row-lock wait, extension and close-lag metrics,
-plus bounded HTTP rate/duration. The Prometheus exporter names observed so far
-include `hammerfall_bid_requests_total`,
-`hammerfall_bid_accepted_total` and
-`hammerfall_auction_lock_wait_duration_seconds_bucket`. The async/outbox,
-consumer, projection, reconciliation and Cable metrics in the table remain
-planned until their session 2 integration is verified.
+Prometheus appends `_total` to counters and `_seconds` to duration instruments;
+count gauges retain their base name. Backlog dashboards use `max` across
+publisher replicas because each publisher reads the same global PostgreSQL
+backlog. Kafka lag is a broker high-watermark sample after a successful offset
+commit, at most once per partition every 30 seconds when messages arrive. An
+idle or stopped consumer does not refresh it; inspect broker group offsets
+before concluding a group has caught up. Projection and broadcast metrics
+describe derived delivery only.

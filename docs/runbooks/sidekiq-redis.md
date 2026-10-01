@@ -15,6 +15,10 @@ docker compose exec -T api bin/rails runner 'require "sidekiq/api"; puts({ notif
 ```
 
 Do not paste logs containing client requests or private data into tickets. The notification job payload should contain only auction ID and revision. Check pending/due/retry counts and oldest age alongside queue depth; a zero queue alone does not prove all committed intents were enqueued.
+Phase 13 Sidekiq jobs may also carry bounded W3C trace metadata outside their
+arguments. The Grafana server-broadcast counter and lag describe the Cable
+server action, never browser receipt. Publisher backlog gauges read the global
+PostgreSQL outbox and should be aggregated with `max` across replicas.
 
 ## Worker stopped or backlog growing
 

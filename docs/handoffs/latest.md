@@ -1,42 +1,45 @@
-# Current handoff — Phase 13 active, session 1 checkpoint
+# Current handoff — Phase 13 active, session 2 hard checkpoint
 
-Updated: 2026-10-01. Phase 12.5 remains complete at
-`41bff7c9d8ca4cc8ccec9f012541fe772c9bace0`; its 424 backend, 3 live
-Kafka, 73 frontend and 7 browser tests plus hosted run 36845095870 passed.
-Phase 13 Observability was explicitly requested. Do not begin Phase 14.
-Read `AGENTS.md`, [Phase 13](../phases/phase-13.md), the
+Updated: 2026-10-01. Phase 12.5 remains complete at `41bff7c`.
+Phase 13 Observability is active; do not begin Phase 14. Read `AGENTS.md`,
+[Phase 13](../phases/phase-13.md), the
 [active ExecPlan](../plans/phase-13-execplan.md), and targeted context via the
-[map](../context-map.md). The ExecPlan Evidence Index is the session 1 proof.
+[map](../context-map.md). The ExecPlan Evidence Index holds the exact checks,
+logs, live trace IDs, limits and remaining work.
 
-Session 1 defined the [telemetry contract](../observability.md) and added an
-optional Collector/Prometheus/Tempo/Grafana Compose profile with provisioned
-data sources. Rails now has bounded, fail-open OTLP SDK setup, safe HTTP route
-tracing, bid request/outcome/duration and auction lock wait/extension/close
-metrics, domain/DB/outbox spans and correlated JSON bid logs. PostgreSQL
-authority, transaction/lock order, idempotency and event identity were not
-redesigned.
+Session 1 (`76df52c`) established the passive Rails telemetry contract and
+optional Collector/Prometheus/Tempo/Grafana stack. Session 2 added bounded
+outbox W3C metadata, Sidekiq and Kafka context propagation, publisher and
+consumer tracing, backlog/lag/worker/projection/reconciliation/Cable metrics,
+structured async logs and a provisioned operations dashboard. The v1 Kafka
+business envelope, public Sidekiq job args, PostgreSQL authority and offset
+commit order remain intact. Development logs now use info level because debug
+SQL inlined private maximum and priority values. Rails request logs also filter
+whole command payloads; a live body-marker scan found no title/description text.
 
-Focused OTel-enabled tests passed 54 examples with the Collector endpoint
-unreachable, followed by 43 examples after privacy/route review. Targeted
-RuboCop, Zeitwerk and both Compose configurations passed. An OTel-enabled
-Compose API passed the proxy smoke, including concurrent maxima. Both
-Prometheus scrape targets were up; actual counter/histogram series had bounded
-labels and expected seconds buckets. Tempo showed an HTTP maximum command
-trace across lock, decision, proxy, PostgreSQL save and outbox persistence,
-and honored a supplied W3C parent. Grafana health and provisioned Prometheus
-and Tempo data sources returned successfully. Details and log paths are in the
-ExecPlan.
+Focused async verification passed 69 examples, zero failures, with one opt-in
+live Kafka example pending; targeted RuboCop, Zeitwerk and observability Compose
+config passed. A live 19-span maximum command trace joined HTTP, outbox,
+Sidekiq worker/Cable, Kafka audit and Redis projection. Real Prometheus series
+had bounded labels; Grafana loaded 32 panels with 30 valid PromQL queries.
+Collector, Prometheus, Tempo and Grafana outages kept proxy bidding correct and
+both outboxes drained. Kafka and Redis outages showed pending/retry signals and
+drained on recovery. Four reversible sabotage changes made the intended tests
+fail, then were restored. Actual traces/logs/series were checked for privacy.
 
-Next: inspect the existing outbox/publisher/consumer contracts and add
-privacy-safe Sidekiq/Kafka context propagation and async metrics. Then
-instrument projection/reconciliation/Cable, add dashboards, inspect live
-series/traces and run the mandatory telemetry outage campaign. Full
-backend/frontend/browser/Compose/hosted CI and final docs/adversarial review
-remain. The dashboard directory is provisioned but currently empty.
+Next fresh session: run broad backend regression with test
+`REDIS_URL=redis://redis:6379/1` while live development uses DB 0, then
+frontend regression, static/security gates, full Compose/browser scenarios,
+final telemetry inspection, hosted CI, runbook/progress completion and final
+adversarial review. Repair failures and declare Phase 13 complete only after
+those gates pass. Do not repeat the live outage campaign without a concrete
+new risk.
 
-Retained limits: the API is an unauthenticated demo and unsafe for public
-exposure. Publishers still hold outbox locks and DB connections through
-external delivery. Collector startup logs one misleading optional-namespace
-error in pinned v0.136.0, but actual export and scraping work. Ruby OTel
-metrics SDK is alpha. No capacity claim, production monitoring SLA or full
-Phase 13 outage proof exists yet.
+Retained limits: this is an unauthenticated demo, not public-production-ready.
+Publishers still hold PostgreSQL row locks/connections across external delivery.
+Kafka lag gauges sample the broker only after committed messages and can go
+stale for idle/dead consumers; inspect broker group offsets. Ruby OTel metrics
+SDK is alpha. Collector v0.136.0 still logs one misleading optional-namespace
+error although export and scraping work. The Collector outage was bounded local
+evidence, not a load or queue-saturation claim. Broad regression, browser and
+hosted CI have not run for the session 2 changes.

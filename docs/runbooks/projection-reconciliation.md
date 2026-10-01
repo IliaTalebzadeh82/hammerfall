@@ -27,9 +27,10 @@ Rails' `auction_projection_reconciliation` entries include auction ID,
 result, drift kind and error class; never log a raw projection or private
 bidder fields. `auction_projection_reconciliation_metrics` records report
 `checked`, `healthy`, drift, attempt, repair, repair failure, unavailable and
-operator-review counts for **one batch**. The `_total` field names are
-per-batch deltas, not exported cumulative counters. Aggregate records by time
-window without using auction/event IDs as metric labels.
+operator-review counts for **one batch**. The `_batch` field names are
+per-batch deltas. Exported `hammerfall_projection_*_total` series are actual
+cumulative process counters. Aggregate those series by time window without
+using auction/event IDs as metric labels.
 
 ## Expected outcomes
 
