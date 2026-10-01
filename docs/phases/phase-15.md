@@ -1,6 +1,7 @@
 # Phase 15 — Performance Engineering
 
-Status: Planned; begin only on an explicit request
+Status: Complete — 2026-10-02. See the [final performance review](../benchmarks/phase-15-final.md)
+and [verification index](../benchmarks/phase-15-final-gates/README.md).
 
 ## Goal
 

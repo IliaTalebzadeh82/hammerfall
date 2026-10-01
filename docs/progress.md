@@ -1992,3 +1992,36 @@ for above-finite histogram buckets; capture no longer retains an unnecessary
 duplicate-key digest, and retained Phase 15 snapshots were sanitized.
 Focused observability RSpec passed 15 examples; broad gates and hosted CI
 remain for the final Phase 15 session. Phase 16 has not begun.
+
+### Phase 15 complete — 2026-10-02
+
+The [final performance review](benchmarks/phase-15-final.md) reconciles both
+profiling sessions without adopting speculative tuning. Puma admission
+backlog was substantial under the shared-host hot load, while baseline DB
+checkout and auction-lock wait were small. Development request file checking
+had a repeatable local useful-work cost but no reliable tail/backlog fix.
+Five Puma threads induced DB pool waits; a larger pool removed them without
+repeatable end-to-end gain. Both changes were rejected. OTel was retained.
+FD pressure was explained by concurrent sockets at the local 1,024 soft
+limit, with no short-run FD leak. Memory evidence did not establish a leak.
+No production capacity or deployment sizing claim follows from these runs.
+
+Final gates found and repaired a Zeitwerk naming mismatch in the opt-in DB
+diagnostic module. Focused correctness specs passed 138 examples, zero
+failures, one expected pending; the repaired observability spec passed 15
+examples and Zeitwerk. The full API container gate passed 441 examples, zero
+failures, three pending; the repository's host `scripts/check` passed 441,
+zero, four pending after installing its missing local StackProf gem. RuboCop,
+Brakeman, dependency audit, frontend lint/format/typecheck, 73 Vitest tests
+and production build passed. Rebuilt Compose health and established
+API/Kafka/concurrent/proxy/closer/scheduler/publisher smokes passed. Real
+Chrome passed 7/7 scenarios. Opt-in Puma/CPU diagnostics worked with safe
+socket permissions, and ordinary runtime was restored with reloading on,
+three threads/pool three, OTel on and profiling off. Exact logs and caveats
+are in the [gate index](benchmarks/phase-15-final-gates/README.md).
+
+Verification commit `4949301bd10d3e8450da3641393d9b892881da58` passed
+hosted [GitHub Actions run 36941725862](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36941725862): API, web and Compose jobs all succeeded. The
+remaining limits are exact per-request pre-Rack time, long-term memory,
+larger WebSocket fanout and production worker/thread/pool sizing. The phase
+has no known serious correctness defect. Phase 16 has not started.

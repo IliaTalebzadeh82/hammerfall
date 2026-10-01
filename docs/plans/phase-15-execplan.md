@@ -1,7 +1,7 @@
 # Phase 15 — Performance Engineering ExecPlan
 
-Status: Active — final local gates passed; hosted CI and closure commit remain.
-Current milestone: [Final causal review](../benchmarks/phase-15-final.md), regression, rebuilt Compose/runtime, browser and diagnostic smoke are complete. Push the verified state, observe hosted CI, then record closure and Phase 16 handoff.
+Status: Complete — 2026-10-02. Phase 16 has not started.
+Current milestone: [Final causal review](../benchmarks/phase-15-final.md), regression, rebuilt Compose/runtime, browser and diagnostic smoke are complete. Hosted [CI run 36941725862](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36941725862) passed API, web and Compose for verification commit `4949301bd10d3e8450da3641393d9b892881da58`.
 
 ## Protocol and decisions
 
@@ -26,11 +26,11 @@ Current milestone: [Final causal review](../benchmarks/phase-15-final.md), regre
 
 Completed: Sessions 1/2 and the [final review](../benchmarks/phase-15-final.md). The rejected thread/pool overrides remain absent; default diagnostics and CPU profiling are off. Final gates exposed a Zeitwerk constant-name mismatch in the new DB diagnostic module; the namespace and initializer were repaired without changing checkout behavior. The default API was rebuilt and returned to reloading on, 3 threads/pool 3, OTel on and diagnostics off. No auction, publisher, FD or production performance setting changed.
 Verified: Session 2's 26 hot runs all had zero unexpected outcomes and passed PostgreSQL checkers. Final focused RSpec 138 examples/0 failures/1 pending; repaired observability spec 15/0 and Zeitwerk pass. Full container backend 441/0/3 pending; host `scripts/check` 441/0/4 pending after installing the locally missing StackProf gem. RuboCop, Brakeman, bundler-audit, frontend lint/format/types, 73 Vitest tests and production build passed. Rebuilt Compose health and existing API/Kafka/concurrent/proxy/scheduler/publisher smokes passed; real Chrome 7/7. Diagnostic opt-in socket permissions, sampler and bounded CPU trigger passed; artifacts were removed and defaults restored. [Gate index](../benchmarks/phase-15-final-gates/README.md).
-Remaining: Hosted CI, final documentation closure and clean pushed commit. No additional load run is needed: cleanup did not alter request semantics, and focused/full/live gates passed. Longer memory observation, raised-FD challenge and production sizing remain explicit future measurements, not Phase 15 blockers. Do not start Phase 16.
+Remaining: No Phase 15 work. No additional load run was needed: cleanup did not alter request semantics, and focused/full/live gates passed. Longer memory observation, raised-FD challenge and production sizing are explicit future measurements, not Phase 15 blockers. Do not start Phase 16 without a request.
 Known failures/limitations: No exact per-request pre-Rack admission timer. Development runtime comparison does not reproduce all production settings; remaining migration file checking accounted for 2.9% inclusive CPU samples. Shared-host/service conditions shifted substantially between early and late thread windows (restored 3/3 ~113/s versus earlier 146–179/s), limiting causal throughput percentages. Some Prometheus cumulative histogram deltas reset and are marked invalid; raw k6 and checker evidence remained valid. A report renderer failure on one successful run was repaired. No production-capacity result or serious correctness bug observed.
 Relevant files: `docker-compose.yml`, `apps/api/config/environments/development.rb`, `apps/api/config/puma.rb`, `apps/api/lib/observability/`, `apps/api/script/performance_sample.rb`, `load-tests/benchmark.sh`, `load-tests/capture.py`, `load-tests/report.py`, `docs/benchmarks/phase-15-session-{1,2}.md`.
 Relevant ADRs: ADR-003 auction serialization, ADR-005 deadlines, ADR-006 idempotency.
-Next-session starting point: None intended; final closure remains in this session. If interrupted, inspect this plan and [gate index](../benchmarks/phase-15-final-gates/README.md), push the finalization commit, verify hosted CI, update the handoff/progress and stop before Phase 16.
+Next-session starting point: A future explicitly requested Phase 16 session starts from [latest handoff](../handoffs/latest.md) and its own specification. The Phase 15 report and gate index are reference material, not an open implementation plan.
 
 ## Evidence Index
 
@@ -58,3 +58,4 @@ Next-session starting point: None intended; final closure remains in this sessio
 | Full local backend | Container gate and host `scripts/check` with isolated Redis DB 15 | Container 441/0/3 pending; host 441/0/4 pending; RuboCop, Brakeman, audit, Zeitwerk pass | [Gate index](../benchmarks/phase-15-final-gates/README.md) |
 | Frontend and browser | Lint, format, typecheck, Vitest, Next build; Playwright against Compose | 73 Vitest passed; build passed; 7/7 Chrome scenarios passed | [Gate index](../benchmarks/phase-15-final-gates/README.md) |
 | Runtime and diagnostics | Rebuilt Compose; established smoke commands; opt-in diagnostic restart/sample/trigger and restored default | All required health/runtime paths passed; socket 0700/0600, five Puma samples and bounded CPU artifact; defaults restored | [Gate index](../benchmarks/phase-15-final-gates/README.md) |
+| Hosted CI | Push `4949301bd10d3e8450da3641393d9b892881da58` and inspect run jobs | API, web, Compose all success | [Run 36941725862](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36941725862) |

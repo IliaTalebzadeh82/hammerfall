@@ -14,8 +14,8 @@ These are local Compose runs on a shared Intel Core Ultra 7 155H host with
 30.3 GiB RAM, Docker 29.8.1 and k6 1.8.1. They are measurements of this
 environment, not production capacity or SLOs. Each retained `p14-*` directory
 contains `report.md`, exact commands, k6 summary/log, environment and telemetry
-snapshots, and PostgreSQL verification. The active [Phase 15 ExecPlan](../plans/phase-15-execplan.md)
-has the current Evidence Index and unresolved work; the
+snapshots, and PostgreSQL verification. The completed [Phase 15 ExecPlan](../plans/phase-15-execplan.md)
+has the Evidence Index and explicit measurement limits; the
 [Phase 14 ExecPlan](../plans/phase-14-execplan.md) is historical.
 
 ## Session 2 experiments and interpretation
