@@ -1,6 +1,6 @@
 # Load testing
 
-Phase 14 local experiments and regression are complete; hosted CI is pending.
+Phase 14 is complete after local experiments, regression and hosted CI.
 The [k6 harness](../load-tests/README.md) creates
 isolated HTTP fixtures and records normal, hot, distributed-auction, closing,
 duplicate, final-ten-second challenge and Action Cable fanout runs.

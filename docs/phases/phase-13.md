@@ -1,6 +1,6 @@
 # Phase 13 — Observability
 
-Status: Complete; verified locally and in hosted CI on 2026-10-01. Phase 14 has not begun.
+Status: Complete; verified locally and in hosted CI on 2026-10-01.
 
 ## Goal
 

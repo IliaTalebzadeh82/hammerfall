@@ -1,7 +1,7 @@
 # Phase 14 — Load Testing ExecPlan
 
-Status: Final local gates complete; hosted CI pending (2026-10-01).
-Current milestone: Verify the final revision in hosted CI, then close Phase 14.
+Status: Complete — 2026-10-01.
+Current milestone: Phase 14 boundary closed. Phase 15 requires an explicit request.
 
 ## Protocol
 
@@ -24,11 +24,15 @@ Current milestone: Verify the final revision in hosted CI, then close Phase 14.
 Completed: Session 1's pinned k6 harness and normal/hot/duplicate measurements (`c86f4f8`, `fec1826`); Session 2 closing, 400/600/1,000 final-ten-second challenges, 50/200/500 fanout, 8/16/32/64 hot progression, controlled eight-row comparison, normal/hot repeats, targeted duplicate burst, checker/classifier sabotage and recovery observation. Extended harness `4f7932e`; the [benchmark index](../benchmarks/README.md) and [Session 2 analysis](../benchmarks/phase-14-session-2.md) hold actual runs and evidence classes. No auction business rule or permanent runtime setting changed.
 Verified: Focused Python/Bash/Ruby syntax, live k6 runs, authoritative PostgreSQL checks after all major mutation runs, closing/extension/winner checks, all 400/600/1,000 final-ten checkers, fanout receipts and HTTP classifications, nine-auction Redis/PostgreSQL recovery parity, empty selected outbox/Sidekiq queues, restored sabotage check. Clean stepped hot runs had zero unexpected HTTP errors. The 1,000 attempt launched all VUs but had 28 API `EMFILE` 500s and 64 k6 timeouts; 911 completed DB commands reconciled against 908 successful/expected HTTP responses. No state-check failure. Exact p50/p95/p99 and limitations are in the analysis.
 Final local verification: 24 retained reports/reconciliations reviewed; full backend/web/security/build and Compose/runtime/real-Chrome gates passed after test Redis isolation. [Final review](../benchmarks/phase-14-final.md) and [gate logs](../benchmarks/phase-14-final-gates/README.md) hold the concise evidence. No performance optimization or business-rule change was made.
-Remaining: Hosted CI on the final revision, then close the handoff/progress and Phase 14 boundary. Do not begin Phase 15.
+Remaining: No Phase 14 implementation or verification work. The stable
+telemetry overhead pair and Puma/DB checkout profiling remain unresolved
+measurements for a future explicitly requested investigation.
 Known failures/limitations: The first full local gate failed 11 Redis projection examples because the live Compose stack and native tests shared Redis DB 0; isolating tests to DB 15 passed the affected specs and full rerun. First fanout run omitted an allowed Origin and all handshakes failed; the controlled one-connection-per-VU series starts at 50. Closing shell postprocessing was interrupted by editing a running Bash file; measured k6 traffic completed and manual checker passed. First closing checker assumed one extra initial revision; corrected and sabotage-verified. The 1,000 attempt was limited by the API open-file soft limit and its single during snapshot missed peak load. Hot 8-VU repeatability varied about 16% in HTTP rate. Pool checkout and Puma admission waits were not instrumented. The optional stable telemetry-on/off comparison was not performed. Earlier Session 1 exploratory caveats remain in the benchmark index.
 Relevant files: `load-tests/`, `apps/api/script/benchmark_verify.rb`, `docs/load-testing.md`, `docs/benchmarks/`, `docs/api.md`, `docker-compose.yml`.
 Relevant ADRs: ADR-003 auction serialization, ADR-005 deadlines, ADR-006 idempotency.
-Next action: Push the committed final local-gate revision, inspect hosted API/web/Compose jobs, repair a real failure if found, then record the hosted run and mark Phase 14 complete. Keep Phase 15 out of scope.
+Next action: Start Phase 15 only on an explicit request, using the
+[evidence classes](../benchmarks/phase-14-session-2.md#publisher-recovery-and-phase-15-evidence-classes)
+as investigation input. No performance change was adopted in Phase 14.
 
 ## Evidence Index
 
@@ -54,4 +58,4 @@ Next action: Push the committed final local-gate revision, inspect hosted API/we
 | Full local regression and security | `scripts/check`; `bin/bundler-audit` | 439 examples, 0 failures, 4 pending; 73 frontend tests; Ruby/web static and build gates passed; no dependency advisories | [Gate logs](../benchmarks/phase-14-final-gates/README.md) |
 | Compose/runtime | Compose config/health, scheduled jobs, Kafka and API/concurrent/proxy/prune smokes | Passed | [Gate logs](../benchmarks/phase-14-final-gates/README.md) |
 | Real browser | Chrome Playwright against live Compose | 7 passed | [Gate logs](../benchmarks/phase-14-final-gates/README.md) |
-| Hosted CI | Push final revision; inspect API/web/Compose jobs | Pending | This plan |
+| Hosted CI | Push `752fe85`; inspect API/web/Compose jobs | All three passed | [GitHub Actions run 36881034875](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36881034875) |

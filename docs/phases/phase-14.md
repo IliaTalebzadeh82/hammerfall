@@ -1,6 +1,9 @@
 # Phase 14 — Load Testing
 
-Status: Planned; begin only on an explicit request
+Status: Complete — 2026-10-01. The [ExecPlan](../plans/phase-14-execplan.md),
+[final evidence review](../benchmarks/phase-14-final.md) and
+[progress](../progress.md) record actual verification and limits. Phase 15
+requires a separate explicit request.
 
 ## Goal
 

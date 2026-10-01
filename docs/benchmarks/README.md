@@ -73,5 +73,6 @@ found one stored command, one bid and no repeated deadline extension.
   primary runs. These are not benchmark comparisons.
 
 Final gate logs are indexed in
-[phase-14-final-gates](phase-14-final-gates/README.md). Hosted CI evidence is
-recorded in the Phase 14 ExecPlan when available.
+[phase-14-final-gates](phase-14-final-gates/README.md). Hosted
+[GitHub Actions run 36881034875](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36881034875)
+passed API, web and Compose jobs on `752fe85`.

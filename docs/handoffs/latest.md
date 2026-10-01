@@ -1,32 +1,35 @@
-# Current handoff — Phase 14 final local gates passed
+# Current handoff — Phase 14 Load Testing complete
 
-Updated: 2026-10-01. Phase 14 load experiments and final local checks are
-complete; hosted CI on the final revision remains the completion gate. Resume
-with the [Phase 14 ExecPlan](../plans/phase-14-execplan.md),
-[final review](../benchmarks/phase-14-final.md), and
-[benchmark index](../benchmarks/README.md). Do not begin Phase 15.
+Updated: 2026-10-01. Phase 14 is complete; Phase 15 has not begun and needs an
+explicit request. The [Phase 14 ExecPlan](../plans/phase-14-execplan.md),
+[final review](../benchmarks/phase-14-final.md), [benchmark index](../benchmarks/README.md)
+and [progress](../progress.md) hold durable implementation and verification
+state. Use the [context map](../context-map.md) to route any next phase work.
 
-The k6 harness, closing storm, 8/16/32/64 hot steps, one-row/eight-row
-comparison, 400/600/1,000 final-ten bursts, 50/200/500 Cable fanout steps,
-normal/hot repeats and duplicate burst are retained under `docs/benchmarks/`.
-Every major mutation run passed authoritative PostgreSQL verification. The
-1,000 attempt reached the API's 1,024-open-file limit, causing 28 server
-errors and 64 timeouts; its committed outcomes were reconciled. These short
-shared-host runs establish no production capacity. No auction rule or
-permanent runtime tuning changed.
+The pinned k6 harness covered normal, one-hot-auction, closing storm,
+duplicate, final-ten-second challenge and Action Cable fanout scenarios.
+Every major retained mutation run passed authoritative PostgreSQL verification.
+The highest clean local final-ten burst observed was 600 contenders. All 1,000
+VUs launched in the larger attempt, but the API's 1,024-open-file soft limit
+produced 28 server errors and 64 timeouts; ambiguous outcomes were reconciled
+against PostgreSQL. These are short shared-host observations, not production
+capacity or an SLO. No auction business rule or permanent runtime tuning
+changed.
 
-The first full local `scripts/check` failed 11 Redis projection examples
-while the live Compose stack and native tests shared Redis DB 0. A focused
-24-example rerun against DB 15 passed, and `scripts/check` now isolates test
-Redis there. The complete rerun passed 439 examples, 0 failures, 4 pending;
-frontend lint/format/types/build and 73 tests passed, as did Ruby static and
-security checks and bundler-audit. Compose/runtime smokes and all seven real
-Chrome scenarios passed. [Final gate logs](../benchmarks/phase-14-final-gates/README.md)
-and the ExecPlan Evidence Index hold exact commands and limits.
+At 64 hot VUs HTTP p95 reached 935 ms, while measured auction-lock p95 was
+in a ≤25 ms histogram bucket. Puma admission and DB checkout wait remain
+unmeasured; the stable telemetry overhead pair was not run. Eight rows
+accepted more bids than one at the same 16-VU loop, with a changed outcome
+mix. Sampled outbox backlog drained, nine selected Redis projections matched
+PostgreSQL, and 50/200/500 k6 Cable subscriber steps received server
+invalidation hints. The Session 2 analysis classifies Phase 15 investigation
+candidates by measured evidence, not presumed bottlenecks.
 
-Next: commit/push final local-gate changes, inspect hosted API/web/Compose
-jobs, repair any real failure, then record the hosted run and mark Phase 14
-complete in progress, handoff and plan. No benchmark rerun is warranted by
-current evidence. Pool checkout and Puma admission waits remain unmeasured;
-the stable telemetry overhead pair was not run. Phase 15 is only an
-evidence-classified investigation list, not active work.
+Final local regression passed 439 backend examples (4 expected pending), 73
+frontend tests, static/security/build gates, Compose/runtime smokes and seven
+real Chrome scenarios. Native test Redis was isolated to DB 15 after the first
+full run collided with live Compose projection keys on DB 0. Hosted
+[GitHub Actions run 36881034875](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36881034875)
+on `752fe85` passed API, web and Compose jobs. The final closure commit is
+only documentation. See [gate logs](../benchmarks/phase-14-final-gates/README.md)
+for exact commands, the initial failure and successful rerun.

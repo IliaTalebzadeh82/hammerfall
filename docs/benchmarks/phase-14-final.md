@@ -75,3 +75,13 @@ remain unresolved. Publisher transaction-held network waits are a possible
 contributor without a measured sustained bottleneck here. See the
 [evidence-class table](phase-14-session-2.md#publisher-recovery-and-phase-15-evidence-classes)
 before selecting an optimization. Phase 15 has not begun.
+
+## Final adversarial review
+
+| Area | Check and conclusion | Remaining limit |
+|---|---|---|
+| Auction correctness and concurrency | Closing, burst, duplicate and hot fixtures passed PostgreSQL sequence, price, leader, deadline, winner and command-effect checks. Controlled checker corruption was detected and restored. | The checker cannot reconstruct every private historical DB decision timestamp from an outbox observation. |
+| Failure recovery | The 1,000-bidder HTTP errors were preserved and reconciled with committed command records. Fixture outbox/Sidekiq backlog drained and nine sampled projections matched PostgreSQL after load. | Sparse recovery samples do not prove a guaranteed drain time or absence of short spikes. |
+| Privacy and security | The saved benchmark files and compressed logs were scanned for `PGPASSWORD`, `SECRET_KEY_BASE`, `Idempotency-Key`, `key_digest`, `request_fingerprint`, `maximum_amount`, `priority_sequence` and `bid_origin`; none appeared. Brakeman and bundler-audit passed. | The demo API remains unauthenticated; these checks do not qualify public exposure. |
+| Generator and metrics | The 1,000 burst launched all VUs, yet server open files limited completion. k6 was not observed CPU-bound in the clean steps. Expected rejections, replays, conflicts, errors and timeouts were separately classified. | Closed-loop VUs are not an arrival rate; histogram buckets, limited p99 samples and shared-host noise limit precision. |
+| Tests and documentation | The first broad regression failure was diagnosed and the full local gate rerun passed with test Redis isolation. Reports, raw outputs, verifier results and limitations are linked from the benchmark index. [Hosted CI](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36881034875) passed API, web and Compose on `752fe85`. | The final closure commit changes documentation only. |
