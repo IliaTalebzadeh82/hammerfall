@@ -72,6 +72,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install browser test dependencies
+        working-directory: apps/web
+        run: npm ci
       - run: cp .env.example .env
       - name: Match container user to runner
         run: |
@@ -100,17 +108,9 @@ jobs:
         run: docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-proxy-bidding
       - name: Bounded idempotency pruning task
         run: docker compose exec -T api bin/rails idempotency:prune
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .node-version
-          cache: npm
-          cache-dependency-path: apps/web/package-lock.json
       - name: Seed real browser verification
         run: |
           docker compose exec -T api bin/rails db:seed
-      - name: Install browser test dependencies
-        working-directory: apps/web
-        run: npm ci
       - name: Check runner Chrome
         run: /usr/bin/google-chrome --version
       - name: Real API browser scenarios
