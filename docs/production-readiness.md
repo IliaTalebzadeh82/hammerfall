@@ -122,3 +122,19 @@ replay and rebuild checks do not establish production replay time, capacity,
 Redis/Kafka HA or backup policy. The lease bounds scheduled overlap but no
 maximum detection or repair delay is guaranteed. See [ADR-012](adr/012-redis-public-projection.md)
 and [ADR-013](adr/013-bounded-reconciliation-scan-ownership.md).
+
+## Phase 13 observability boundary
+
+The optional local Collector, Prometheus, Tempo and Grafana stack receives
+bounded traces and metrics; Rails also emits correlated structured boundary
+logs. Live HTTP, Sidekiq and Kafka traces and telemetry-peer outages are
+documented in the [observability contract](observability.md) and
+[runbook](runbooks/observability.md). Export may time out or drop data without
+changing an auction outcome. A trace, dashboard panel or empty failure counter
+does not prove business correctness or absence of failures.
+
+This is still an unauthenticated local demo. Public ingress hardening, backups
+and restores, high availability, capacity measurements, SLOs, alerts,
+disaster recovery and Kubernetes deployment remain unverified or future work.
+The Ruby OpenTelemetry metrics SDK is alpha. Local outage exercises do not
+establish performance or queue saturation behavior.

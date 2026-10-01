@@ -516,3 +516,19 @@ Concurrently running live development and test processes shared Redis DB 0,
 causing projection spec collisions when numeric auction IDs overlapped. Redis
 DB 1 isolated the focused test run. Publisher backlogs are global PostgreSQL
 counts, so Grafana uses `max` across replicas instead of summing them.
+
+## 2026-10-01 — Final observability checks need clean test transport context
+
+The gated Kafka examples use `KAFKA_BOOTSTRAP_SERVERS=kafka:9092` when run
+inside the API container; the native default `127.0.0.1:29092` points at the
+container itself. Interrupting the initial unreachable-broker run left a test
+outbox row. The publisher test correctly selected that older due row, so I
+reset only `hammerfall_test` before the clean three-example live rerun.
+This was a test-environment artifact, not a production publisher defect.
+
+A fresh 19-span trace showed one short HTTP root with later Sidekiq and Kafka
+work under propagated context. Prometheus `series` included historical `_ratio`
+names from processes before the gauge-unit fix, while an instant query showed
+only the corrected current gauges. Instant samples and process identity matter
+when judging a final metric contract. Controlled loss and repair of one derived
+Redis key produced cumulative repair counters without changing PostgreSQL.

@@ -428,3 +428,5 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
 - `infrastructure/observability/grafana/dashboards/hammerfall-operations.json`
   covers auction health, delivery, consistency and runtime with explicit
   boundaries between broker delivery, Redis projection and browser receipt.
+  `docs/runbooks/observability.md` is the operator route for missing signals,
+  export outages, backlog interpretation and trace correlation.

@@ -144,3 +144,16 @@ through the Redis revision guard. The lease never participates in auction
 commands or holds a transaction across Redis work. See
 [ADR-013](adr/013-bounded-reconciliation-scan-ownership.md) and the
 [runbook](runbooks/projection-reconciliation.md).
+
+## Phase 13 telemetry failure
+
+The optional Collector or Prometheus/Tempo/Grafana peers may fail independently
+of auction commands. The SDK and Collector use bounded queues, timeouts and
+retries; telemetry may be delayed or lost. Auction decisions, PostgreSQL
+outbox state and consumer offset order retain their existing semantics.
+Local Collector and storage-peer outage smokes kept proxy bidding correct and
+both publication backlogs drained. This is local functional evidence, not a
+capacity or zero-overhead claim. Inspect a fresh trace and scrape after
+recovery; missing historical telemetry cannot be reconstructed. See the
+[observability runbook](runbooks/observability.md) and the
+[Phase 13 evidence index](plans/phase-13-execplan.md).

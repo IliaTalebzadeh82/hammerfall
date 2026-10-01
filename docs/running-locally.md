@@ -418,3 +418,21 @@ with Sidekiq running. Redis outage before enqueue leaves committed rows pending;
 restoring Redis lets the publisher retry. Browser REST recovery still applies.
 Phase 9 had no Kafka. Phase 10 adds a separate Kafka acknowledgment path; see
 the [Sidekiq runbook](runbooks/sidekiq-redis.md) and [Kafka runbook](runbooks/kafka.md).
+
+## Optional Phase 13 observability stack
+
+The normal Compose stack works with telemetry disabled. For local traces,
+metrics and dashboards, set `OTEL_ENABLED=true` in `.env`, then run:
+
+```sh
+docker compose --profile observability up -d --build --wait
+docker compose --profile observability ps
+```
+
+Open Grafana at `http://127.0.0.1:3002` for the provisioned Hammerfall
+operations dashboard. The Collector, Prometheus and Tempo stay on the private
+Compose network. If panels are empty, check the
+[observability runbook](runbooks/observability.md), including enabled export,
+Collector scrape targets and the distinction between missing telemetry and
+healthy auction state. This local Grafana configuration has anonymous Viewer
+access and must not be exposed publicly.

@@ -853,3 +853,11 @@ inlined private maximums, so development logs now use info level while request
 parameter filtering masks whole command payloads. Run live integration specs against Redis
 DB 1 when the development stack uses DB 0; separate PostgreSQL databases alone
 do not isolate projection keys that share numeric auction IDs.
+
+During final verification, Prometheus's historical `series` endpoint still
+listed old `_ratio` gauge names after the corrected services restarted. An
+instant query showed only the current count gauges. Compare current samples
+and process identity before diagnosing a present naming defect from retained
+history. The final distributed trace also had one short HTTP root and later
+consumer child spans, so trace parentage did not imply a synchronous request
+waiting for Kafka or Sidekiq.

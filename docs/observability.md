@@ -1,7 +1,7 @@
 # Observability contract (Phase 13)
 
-Status: Phase 13 async milestone implemented; broad regression, browser
-verification, hosted CI and final review remain. Implementation and live evidence are tracked in the
+Status: Phase 13 final local regression, runtime, browser and telemetry review
+passed; hosted CI remains. Implementation and live evidence are tracked in the
 [Phase 13 ExecPlan](plans/phase-13-execplan.md). These signals describe work;
 PostgreSQL remains the sole auction authority. A missing signal never changes a
 bid, closing, outbox, consumer or reconciliation decision.
@@ -76,7 +76,9 @@ Default duration histogram boundaries should span milliseconds through tens of
 seconds (`0.001`, `0.005`, `0.01`, `0.025`, `0.05`, `0.1`, `0.25`, `0.5`,
 `1`, `2.5`, `5`, `10`, `30` seconds). Lock wait and publication share these
 for useful tail comparisons. Count/age gauges have no histogram boundaries.
-Final names, SDK support and dashboard queries require live series inspection.
+Final names, units and dashboard queries were checked against live Prometheus
+series; the [operations runbook](runbooks/observability.md) explains how to
+diagnose missing or stale signals.
 
 No metric label may contain an auction, user, bidder, bid, event, trace or span
 ID; idempotency key; raw error message; email; or URL with arbitrary IDs.
