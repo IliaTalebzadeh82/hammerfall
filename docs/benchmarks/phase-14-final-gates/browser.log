@@ -1,0 +1,25 @@
+
+> @hammerfall/web@0.1.0 test:e2e
+> playwright test
+
+
+Running 7 tests using 1 worker
+
+(node:2345986) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Real API browser command scenario: auction=478, accepted rows=4, response-loss replay verified
+  ✓  1 e2e/auctions.spec.ts:50:5 › browse, manual bid, private maximum, stale rejection and response-loss recovery (3.0s)
+Real API browser closing scenario: auction=479, closed without winner
+  ✓  2 e2e/auctions.spec.ts:148:5 › countdown reaches zero, refreshes closed state, and never offers a new bid (10.0s)
+Responsive browser scenario: auction=480, widths=390/768/1440, screenshots captured
+  ✓  3 e2e/auctions.spec.ts:187:5 › responsive forms, long title, errors, history and keyboard focus (2.5s)
+Real API browser lifecycle scenario: auction=481, draft/scheduled/cancelled verified
+  ✓  4 e2e/auctions.spec.ts:234:5 › draft, scheduled and cancelled auctions expose no new bidding controls (1.1s)
+Cross-client delivery auction=482 initial_revision=2 notified=3,4 final_rest_revision=5 cable=ws://localhost:3001/cable HTTP_via=http://127.0.0.1:3000; missed event recovered on confirmation
+  ✓  5 e2e/realtime.spec.ts:66:5 › two clients observe proxy settlement; reconnect recovers a missed commit across HTTP and Cable processes (21.7s)
+Realtime soft close auction=483 revision=2->3 ends_at=2026-10-01T14:56:02.577000Z->2026-10-01T14:57:32.577000Z
+  ✓  6 e2e/realtime.spec.ts:162:5 › another client adopts a soft-close deadline from REST without adding local seconds (2.9s)
+Realtime closer auction=484 revision=3->4 winner=1 notification observed
+  ✓  7 e2e/realtime.spec.ts:202:5 › autonomous closer publishes the final winner to connected clients (1.2m)
+
+  7 passed (1.9m)

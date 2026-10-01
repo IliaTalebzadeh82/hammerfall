@@ -431,7 +431,7 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   `docs/runbooks/observability.md` is the operator route for missing signals,
   export outages, backlog interpretation and trace correlation.
 
-## Phase 14 load-testing map (in progress)
+## Phase 14 load-testing map
 
 - `load-tests/prepare.py` creates labeled, isolated demo users/auctions through
   HTTP and writes an ignored fixture manifest. `common.js` provides bounded

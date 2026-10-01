@@ -5,7 +5,7 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Completed scope: Phase 13 — Observability.** Browse real auctions, inspect public bid
+**Current work: Phase 14 — Load Testing, final CI pending.** Browse real auctions, inspect public bid
 history, select an explicit demo bidder, and submit manual or private maximum bids.
 The responsive Next.js interface preserves stable client intentions for safe retry
 after lost responses, including tab reload. Rails/PostgreSQL still owns price,
@@ -62,7 +62,9 @@ port overrides, dependency updates, and shutdown.
 - `scripts`: shared local verification.
 - `docs`: architecture, decisions, learning notes, and progress.
 - `infrastructure/observability`: optional local Collector, Prometheus, Tempo
-  and provisioned Grafana dashboard. `load-tests` remains future scope.
+  and provisioned Grafana dashboard.
+- `load-tests`: pinned k6 scenarios, environment capture and authoritative
+  PostgreSQL post-run verification. See the [local benchmark evidence](docs/benchmarks/README.md).
 
 ## Correctness and architecture
 
@@ -94,6 +96,6 @@ and [learning guide](docs/learning-guide.md) explain the foundation.
 
 [Failure scenarios](docs/failure-model.md), [job/Redis runbook](docs/runbooks/sidekiq-redis.md), [Kafka runbook](docs/runbooks/kafka.md), [projection recovery](docs/runbooks/redis-projection.md), [reconciliation operations](docs/runbooks/projection-reconciliation.md), [consistency](docs/consistency-model.md),
 [event contracts](docs/event-model.md), [benchmarks](docs/load-testing.md), and
-[observability](docs/observability.md) describe current limits and future work. A
-local operations dashboard exists; no benchmark results exist yet. See [security](docs/security.md) and
+[observability](docs/observability.md) describe current limits and future work. The
+local benchmark results are comparative evidence, not production capacity. See [security](docs/security.md) and
 [production readiness](docs/production-readiness.md) for current limits.

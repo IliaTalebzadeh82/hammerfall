@@ -1,0 +1,32 @@
+PONG
+Topic: hammerfall.auction-events.v1	TopicId: ZYQUTeCuT2S5T2L8rylbTg	PartitionCount: 3	ReplicationFactor: 1	Configs: min.insync.replicas=1
+	Topic: hammerfall.auction-events.v1	Partition: 0	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+	Topic: hammerfall.auction-events.v1	Partition: 1	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+	Topic: hammerfall.auction-events.v1	Partition: 2	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+reconciliation_scheduler starting interval=60.0 once=true
+[1;34mINFO [0m 2026-10-01T14:52:57.973Z pid=199 tid=3lj: Sidekiq 8.1.7 connecting to Redis with options {size: 10, pool_name: "internal", network_timeout: 2, url: "redis://redis:6379/0"}
+{"event":"reconciliation_scheduler","scan":"postgresql_state","result":"enqueued"}
+{"event":"reconciliation_scheduler","scan":"projection","result":"enqueued"}
+reconciliation_scheduler stopped
+outbox_publisher starting interval=1.0 batch_size=100 once=true
+[1;34mINFO [0m 2026-10-01T14:52:59.090Z pid=109 tid=3od: Sidekiq 8.1.7 connecting to Redis with options {size: 10, pool_name: "internal", network_timeout: 2, url: "redis://redis:6379/0"}
+outbox_publisher published=0 failed=0 backlog=0 due=0 retries=0 oldest_age_seconds=0
+outbox_publisher stopped
+kafka_outbox_publisher published=0 failed=0 backlog=0 due=0 retries=0 oldest_age_seconds=0
+SERVICE                     STATUS
+api                         Up 2 hours (healthy)
+auction-closer              Up 2 hours
+db                          Up 16 hours (healthy)
+grafana                     Up 3 hours
+kafka                       Up 3 hours (healthy)
+kafka-audit-consumer        Up 2 hours
+kafka-outbox-publisher      Up 2 hours
+kafka-projection-consumer   Up 2 hours
+otel-collector              Up 3 hours
+outbox-publisher            Up 2 hours
+prometheus                  Up 3 hours
+reconciliation-scheduler    Up 2 hours
+redis                       Up 3 hours (healthy)
+sidekiq                     Up 2 hours
+tempo                       Up 3 hours
+web                         Up 2 days (healthy)

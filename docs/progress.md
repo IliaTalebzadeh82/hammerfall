@@ -1912,3 +1912,24 @@ load, with zero fixture outbox backlog and empty Sidekiq queues. No permanent
 performance change was made. Broad backend/frontend/security regression,
 Compose/browser checks, hosted CI, final documentation and adversarial review
 remain open. Phase 14 is not complete; Phase 15 has not begun.
+
+### Phase 14 final local verification — 2026-10-01
+
+Evidence reconciliation found all 24 retained `p14-*` reports had command,
+summary, snapshot, raw k6 log and verifier files; all PostgreSQL verifier
+`failures` arrays were empty. The [final review](benchmarks/phase-14-final.md)
+keeps the unfavorable 1,000-contender result and all sampling/host limits.
+
+The first `scripts/check` run produced 439 RSpec examples with 11 failures in
+Redis projection/reconciliation tests. Native test auctions and the running
+Compose development stack used Redis DB 0 and overlapping auction IDs. The
+affected three spec files passed with Redis DB 15 (24 examples, 0 failures,
+2 pending). `scripts/check` now uses DB 15 by default for tests. The complete
+rerun passed 439 examples, 0 failures, 4 pending; all 73 Vitest tests,
+RuboCop, Brakeman, Zeitwerk, frontend lint/format/types/build and
+bundler-audit passed. Compose health, scheduled job, Kafka, sequential API,
+closer, concurrent bid, proxy bid and pruning smokes passed. Seven real
+Chrome Playwright scenarios passed. [Gate logs](benchmarks/phase-14-final-gates/README.md)
+retain commands and output. Hosted CI on the final revision is pending; Phase
+14 remains open until that run and the final handoff are recorded. No Phase 15
+work began.

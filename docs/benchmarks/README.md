@@ -1,4 +1,4 @@
-# Phase 14 benchmark evidence (in progress)
+# Phase 14 benchmark evidence
 
 These are local Compose runs on a shared Intel Core Ultra 7 155H host with
 30.3 GiB RAM, Docker 29.8.1 and k6 1.8.1. They are measurements of this
@@ -20,6 +20,8 @@ burst observed was 600 contenders; the 1,000 attempt hit the API container's
 1,024-open-file soft limit and had 28 server errors plus 64 timeouts. All
 post-run PostgreSQL state checkers passed; this does not turn the degraded
 HTTP run into a capacity success.
+The [final evidence review](phase-14-final.md) summarizes methodology limits,
+Phase 15 investigation inputs and the local regression/runtime/browser gates.
 
 During Session 2, `git rev-parse HEAD` recorded application commit `fec1826`
 in snapshots while the expanded harness was being developed in the working
@@ -70,5 +72,6 @@ found one stored command, one bid and no repeated deadline extension.
   the selection was fixed and validated across all eight auctions before the
   primary runs. These are not benchmark comparisons.
 
-Broad backend/frontend/security regression, Compose/browser checks, hosted
-CI, final Phase 14 documentation and final adversarial review remain open.
+Final gate logs are indexed in
+[phase-14-final-gates](phase-14-final-gates/README.md). Hosted CI evidence is
+recorded in the Phase 14 ExecPlan when available.

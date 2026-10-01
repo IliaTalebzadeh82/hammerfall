@@ -2,8 +2,9 @@
 
 This is a development system with tested concurrent manual/proxy bidding and deadline closure, not a
 production auction service. PostgreSQL serializes each auction's writers; a hot
-auction can queue requests and exhaust connection capacity. No load measurement
-or throughput claim exists. Long outer transactions retain locks longer.
+auction can queue requests and exhaust connection capacity. Phase 14 measured
+short local Compose workloads, but established no production throughput or
+capacity target. Long outer transactions retain locks longer.
 
 There is no authentication, authorization,
 rate limiting, production backup/restore procedure, production deployment or
@@ -134,7 +135,21 @@ changing an auction outcome. A trace, dashboard panel or empty failure counter
 does not prove business correctness or absence of failures.
 
 This is still an unauthenticated local demo. Public ingress hardening, backups
-and restores, high availability, capacity measurements, SLOs, alerts,
+and restores, high availability, production capacity measurements, SLOs, alerts,
 disaster recovery and Kubernetes deployment remain unverified or future work.
 The Ruby OpenTelemetry metrics SDK is alpha. Local outage exercises do not
 establish performance or queue saturation behavior.
+
+## Phase 14 local load boundary
+
+[Retained benchmark reports](benchmarks/README.md) cover normal, one-row hot,
+closing, duplicate, final-ten-second and Action Cable fanout workloads. The
+largest clean local final-ten burst was 600 contenders. A 1,000-contender
+attempt hit the API process's 1,024-open-file soft limit, producing 28 server
+errors and 64 timeouts; PostgreSQL reconciliation still found a valid final
+state. At 64 hot-auction VUs, HTTP p95 rose to 935 ms while auction-lock p95
+remained in a ≤25 ms histogram bucket. Puma admission and database checkout
+wait were not instrumented. These shared-host results cannot determine
+production capacity, a safe file limit, or the best pool/concurrency setting.
+At 500 k6 Cable subscribers, all subscriptions were confirmed; receipt of
+invalidation hints does not establish durable or universal browser delivery.

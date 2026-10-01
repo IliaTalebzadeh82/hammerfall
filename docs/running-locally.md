@@ -105,8 +105,13 @@ named databases in database.yml.
 The check script reads root `.env`, validates Compose, checks Ruby lint/security and
 autoloading, prepares the test database, runs RSpec, then frontend lint, formatting,
 types, Vitest, and a production build. Run `bin/rails db:prepare` for development
-schema changes and `RAILS_ENV=test bin/rails db:prepare` before specs. Phase 1 has a reversible migration for users, auctions, and bids; current schema
-is committed. Never roll back a populated development database just to test a migration.
+schema changes and `RAILS_ENV=test bin/rails db:prepare` before specs. The script
+uses Redis DB 15 for tests, separate from the live Compose projection in DB 0.
+Set `TEST_REDIS_URL` to override that test endpoint when the local Redis port
+differs. No test run should share projection keys with the live app.
+Phase 1 has a reversible migration for users, auctions, and bids; current
+schema is committed. Never roll back a populated development database just
+to test a migration.
 
 CI executes equivalent checks plus a container smoke test. A local build does not
 prove a remote GitHub Actions run succeeded.

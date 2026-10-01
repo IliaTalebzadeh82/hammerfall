@@ -576,3 +576,16 @@ invalidations, while handshake p95 reached about 2 seconds. These are k6
 receipts, not a claim of universal browser delivery. The [Session 2 report](benchmarks/phase-14-session-2.md)
 preserves unfavorable runs, sampling limits, recovery checks and Phase 15
 investigation classes. No auction or runtime optimization was made.
+
+## 2026-10-01 — Live projection consumers can invalidate native test assumptions
+
+The full Phase 14 regression initially failed 11 reconciliation examples,
+even though the auction benchmark checkers had passed. Native RSpec and the
+running Compose projection consumer both used Redis DB 0, while test and
+development PostgreSQL sequences could produce the same auction IDs. The
+consumer created or advanced a key just as a test expected it missing. A
+focused rerun against Redis DB 15 passed, and the full gate passed after
+`scripts/check` assigned that isolated test endpoint. This was a test
+environment collision, not evidence of an auction-state failure. The useful
+lesson is to isolate derived-state namespaces as well as SQL databases when
+running live integration stacks beside native tests.

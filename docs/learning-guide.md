@@ -862,7 +862,7 @@ history. The final distributed trace also had one short HTTP root and later
 consumer child spans, so trace parentage did not imply a synchronous request
 waiting for Kafka or Sidekiq.
 
-## Phase 14 — Measuring load without changing auction authority (in progress)
+## Phase 14 — Measuring load without changing auction authority
 
 A 2xx-only load script would confuse successful reads, accepted bids and
 idempotent replays, while treating expected stale bids as failures. The k6

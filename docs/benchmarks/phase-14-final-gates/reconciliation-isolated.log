@@ -1,0 +1,20 @@
+
+Randomized with seed 28624
+.*[1;34mINFO [0m 2026-10-01T14:50:17.564Z pid=2328653 tid=1e10l: Sidekiq 8.1.7 connecting to Redis with options {size: 10, pool_name: "internal", network_timeout: 2, url: "redis://127.0.0.1:6379/15"}
+.*....................
+
+Pending: (Failures listed here are expected and do not affect your suite's status)
+
+  1) Live auction projection reconciliation does not regress a newer Kafka projection delivered between comparison and repair
+     # set PHASE12_LIVE_KAFKA=1 and create hammerfall.phase12.verify for the live broker race
+     # ./spec/integration/auction_projection_reconciliation_live_spec.rb:51
+
+  2) Live auction projection reconciliation converges when repair wins before a later Kafka delivery
+     # set PHASE12_LIVE_KAFKA=1 and create hammerfall.phase12.verify for the live broker race
+     # ./spec/integration/auction_projection_reconciliation_live_spec.rb:69
+
+Finished in 5.48 seconds (files took 0.7628 seconds to load)
+24 examples, 0 failures, 2 pending
+
+Randomized with seed 28624
+
