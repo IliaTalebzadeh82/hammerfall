@@ -1,6 +1,6 @@
 # Context routing and migration map
 
-`AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the compact current-state entry point. The [context lifecycle and ExecPlan convention](context-lifecycle.md) governs checkpoints and resumption; the closed [Phase 12.5 ExecPlan](plans/phase-12-5-hardening-execplan.md) holds its findings and evidence, while `docs/plans/phase-12-execplan.md` records completed Phase 12 evidence. [Phase specifications](phases/) hold the scope for each requested phase. [Progress](progress.md) is historical evidence, not startup context; the [archived original](archive/masterprompt-original.md) is for a specific missing historical fact only. Do not start Phase 13 without an explicit request.
+`AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the compact current-state entry point. The [context lifecycle and ExecPlan convention](context-lifecycle.md) governs checkpoints and resumption; the active [Phase 13 ExecPlan](plans/phase-13-execplan.md) holds current decisions and evidence. The closed [Phase 12.5 ExecPlan](plans/phase-12-5-hardening-execplan.md) holds its findings, while `docs/plans/phase-12-execplan.md` records completed Phase 12 evidence. [Phase specifications](phases/) hold each phase's scope. [Progress](progress.md) is historical evidence, not startup context; the [archived original](archive/masterprompt-original.md) is for a specific missing historical fact only.
 
 | Working on | Required context | Optional targeted context |
 |---|---|---|

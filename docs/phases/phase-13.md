@@ -1,6 +1,6 @@
 # Phase 13 — Observability
 
-Status: Planned; begin only on an explicit request
+Status: In progress; explicitly requested on 2026-10-01
 
 ## Goal
 

@@ -1,6 +1,10 @@
 module Api
   module V1
     class MaximumBidsController < BaseController
+      around_action only: :update do |_controller, action|
+        observe_bid_command("set_maximum_bid", &action)
+      end
+
       def update
         key = Idempotency::Executor.validate_key!(request.headers["Idempotency-Key"])
         attributes = resource_params(:maximum_bid, %w[bidder_id maximum_amount])

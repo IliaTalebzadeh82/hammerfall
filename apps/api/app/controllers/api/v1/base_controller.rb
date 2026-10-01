@@ -26,6 +26,8 @@ module Api
       private
 
       def render_idempotent(outcome)
+        @observability_replayed = outcome.replayed
+        @observability_reason = outcome.body.dig("error", "code") if outcome.status >= 400
         response.set_header("Idempotency-Replayed", "true") if outcome.replayed
         render json: outcome.body, status: outcome.status
       end
@@ -35,8 +37,53 @@ module Api
       end
 
       def render_error(code, message, status, details = {})
+        @observability_reason = code
         set_presentation_time
         render json: { error: { code: code, message: message, details: details } }, status: status
+      end
+
+      def observe_bid_command(operation)
+        started = Observability.monotonic
+        Observability.counter("hammerfall_bid_requests", attributes: { operation: operation })
+        failure = nil
+        yield
+      rescue StandardError => error
+        failure = error
+        raise
+      ensure
+        if started
+          reason = failure ? observed_failure_reason(failure) : @observability_reason
+          result = if failure
+            reason ? "rejected" : "error"
+          elsif @observability_replayed
+            "replayed"
+          elsif response.status < 400
+            "accepted"
+          else
+            "rejected"
+          end
+          if result == "accepted"
+            Observability.counter("hammerfall_bid_accepted", attributes: { operation: operation })
+          elsif result == "rejected"
+            Observability.counter("hammerfall_bid_rejected",
+              attributes: { operation: operation, reason: reason || "other" })
+          end
+          Observability.histogram("hammerfall_bid_processing_duration", Observability.monotonic - started,
+            attributes: { operation: operation, result: result })
+          Observability.log(level: :info, operation: operation, component: "http", result: result,
+            error_class: failure&.class&.name)
+        end
+      end
+
+      def observed_failure_reason(error)
+        case error
+        when Idempotency::Executor::InvalidKey, DomainError then error.code
+        when ActiveRecord::RecordInvalid then "validation_failed"
+        when ActiveRecord::RecordNotFound
+          { "Auction" => "auction_not_found", "User" => "user_not_found" }.fetch(error.model, "other")
+        when ActionController::ParameterMissing, ActionController::BadRequest,
+          ActionDispatch::Http::Parameters::ParseError then "invalid_request"
+        end
       end
 
       def resource_params(root, fields)

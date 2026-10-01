@@ -55,8 +55,9 @@ class Auction < ApplicationRecord
 
   # Finalize if due. Discovery and callers cannot force an early close.
   def close!
-    transaction(requires_new: true) do
-      reload(lock: true)
+    close_lag = nil
+    result = transaction(requires_new: true) do
+      Observability.lock_wait("close") { reload(lock: true) }
       decision_time = AuctionClock.now
       return self if status == "closed"
       unless status == "active"
@@ -64,12 +65,15 @@ class Auction < ApplicationRecord
       end
       return self unless AuctionDeadline.due?(ends_at, decision_time)
 
+      close_lag = [ decision_time - ends_at, 0 ].max
       self.winner_id = current_leader_id
       self.closed_at = decision_time
       self.status = "closed"
-      persist_public_change!(:transition)
+      Observability.trace("hammerfall.auction.close") { persist_public_change!(:transition) }
       self
     end
+    Observability.histogram("hammerfall_auction_close_lag", close_lag) if close_lag
+    result
   end
 
   def cancel!
@@ -80,50 +84,56 @@ class Auction < ApplicationRecord
   def place_bid!(bidder:, amount:)
     # Preserve atomicity even if a caller rescues failure inside an outer transaction.
     transaction(requires_new: true) do
-      reload(lock: true)
-      decision_time = AuctionClock.now
-      validate_bidding_window!(decision_time)
+      Observability.lock_wait("place_bid") { reload(lock: true) }
+      Observability.trace("hammerfall.bid.decide", attributes: { "hammerfall.operation" => "place_bid" }) do
+        decision_time = AuctionClock.now
+        validate_bidding_window!(decision_time)
 
-      bid = Bid.new(auction_id: id, bidder: bidder, amount: amount, sequence: (bids.maximum(:sequence) || 0) + 1)
-      raise ActiveRecord::RecordInvalid.new(bid) unless bid.valid?(:placement)
+        bid = Bid.new(auction_id: id, bidder: bidder, amount: amount, sequence: (bids.maximum(:sequence) || 0) + 1)
+        raise ActiveRecord::RecordInvalid.new(bid) unless bid.valid?(:placement)
 
-      minimum = minimum_bid
-      if bid.amount < minimum
-        raise DomainError.new("bid_too_low", "Bid must be at least #{minimum} cents.", details: { minimum_bid: minimum, current_price: current_price })
+        minimum = minimum_bid
+        if bid.amount < minimum
+          raise DomainError.new("bid_too_low", "Bid must be at least #{minimum} cents.", details: { minimum_bid: minimum, current_price: current_price })
+        end
+
+        accepted_bid = Observability.trace("hammerfall.proxy.resolve") do
+          Bidding::ProxyResolver.new(self).manual(bidder, bid.amount)
+        end
+        persist_bidding_action!(decision_time)
+        accepted_bid
       end
-
-      accepted_bid = Bidding::ProxyResolver.new(self).manual(bidder, bid.amount)
-      persist_bidding_action!(decision_time)
-      accepted_bid
     end
   end
 
   def set_maximum!(bidder:, maximum_amount:)
     transaction(requires_new: true) do
-      reload(lock: true)
-      decision_time = AuctionClock.now
-      validate_bidding_window!(decision_time)
-      instruction = MaximumBid.find_or_initialize_by(auction_id: id, bidder_id: bidder&.id)
-      instruction.bidder = bidder
-      previous = instruction.maximum_amount
-      instruction.maximum_amount = maximum_amount
-      instruction.priority_sequence ||= 1
-      raise ActiveRecord::RecordInvalid.new(instruction) unless instruction.valid?(:maximum_configuration)
+      Observability.lock_wait("set_maximum_bid") { reload(lock: true) }
+      Observability.trace("hammerfall.bid.decide", attributes: { "hammerfall.operation" => "set_maximum_bid" }) do
+        decision_time = AuctionClock.now
+        validate_bidding_window!(decision_time)
+        instruction = MaximumBid.find_or_initialize_by(auction_id: id, bidder_id: bidder&.id)
+        instruction.bidder = bidder
+        previous = instruction.maximum_amount
+        instruction.maximum_amount = maximum_amount
+        instruction.priority_sequence ||= 1
+        raise ActiveRecord::RecordInvalid.new(instruction) unless instruction.valid?(:maximum_configuration)
 
-      if previous && maximum_amount < previous
-        raise DomainError.new("maximum_bid_cannot_decrease", "Maximum bids cannot decrease.")
-      end
-      return instruction if previous == maximum_amount
+        if previous && maximum_amount < previous
+          raise DomainError.new("maximum_bid_cannot_decrease", "Maximum bids cannot decrease.")
+        end
+        return instruction if previous == maximum_amount
 
-      minimum = current_leader_id.nil? ? starting_price : current_price + (current_leader_id == bidder.id ? 0 : 1)
-      if maximum_amount < minimum
-        raise DomainError.new("maximum_bid_too_low", "Maximum does not cover the public price.", details: { current_price: current_price })
+        minimum = current_leader_id.nil? ? starting_price : current_price + (current_leader_id == bidder.id ? 0 : 1)
+        if maximum_amount < minimum
+          raise DomainError.new("maximum_bid_too_low", "Maximum does not cover the public price.", details: { current_price: current_price })
+        end
+        instruction.priority_sequence = (maximum_bids.maximum(:priority_sequence) || 0) + 1
+        instruction.save!(context: :maximum_configuration)
+        Observability.trace("hammerfall.proxy.resolve") { Bidding::ProxyResolver.new(self).maximum(instruction) }
+        persist_bidding_action!(decision_time)
+        instruction
       end
-      instruction.priority_sequence = (maximum_bids.maximum(:priority_sequence) || 0) + 1
-      instruction.save!(context: :maximum_configuration)
-      Bidding::ProxyResolver.new(self).maximum(instruction)
-      persist_bidding_action!(decision_time)
-      instruction
     end
   end
 
@@ -189,7 +199,7 @@ class Auction < ApplicationRecord
     changed = (changes_to_save.keys & (EDITABLE_FIELDS + %w[current_price current_leader_id status winner_id original_ends_at closed_at])).any?
     self.public_revision += 1 if changed
     @persisting_public_change = true
-    save!(context: context)
+    Observability.trace("hammerfall.postgresql.auction_save") { save!(context: context) }
     if changed
       event_type = if saved_change_to_status? && status == "closed"
         "auction.closed.v1"
@@ -207,8 +217,10 @@ class Auction < ApplicationRecord
         starts_at: starts_at.utc.iso8601(6), original_ends_at: original_ends_at.utc.iso8601(6),
         current_price: current_price, current_leader_id: current_leader_id,
         ends_at: ends_at.utc.iso8601(6), closed_at: closed_at&.utc&.iso8601(6), winner_id: winner_id }
-      OutboxEvent.record_auction_change!(auction_id: id, revision: public_revision,
-        domain_event_type: event_type, domain_payload: public_data)
+      Observability.trace("hammerfall.outbox.persist", attributes: { "hammerfall.event_type" => event_type }) do
+        OutboxEvent.record_auction_change!(auction_id: id, revision: public_revision,
+          domain_event_type: event_type, domain_payload: public_data)
+      end
     end
   ensure
     @persisting_public_change = false

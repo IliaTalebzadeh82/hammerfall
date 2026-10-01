@@ -399,3 +399,21 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   [ExecPlan](plans/phase-12-execplan.md) indexes live outage/sabotage evidence;
   [ADR-013](adr/013-bounded-reconciliation-scan-ownership.md) and the
   [runbook](runbooks/projection-reconciliation.md) define operations.
+
+## Phase 13 session 1 observability map
+
+- `lib/observability.rb` configures bounded OTLP tracing/metrics, normalizes
+  metric dimensions and span attributes, and writes correlated JSON boundary
+  logs. `config/initializers/observability.rb` activates it only when
+  `OTEL_ENABLED=true`; initialization errors disable telemetry.
+- `lib/observability/http_middleware.rb` extracts W3C trace context and uses
+  fixed HTTP route templates. Bid controllers count requests and terminal
+  outcomes. `Auction` measures row-lock acquisition separately from decision,
+  proxy, save and outbox persistence spans.
+- `infrastructure/observability/` holds Collector, Prometheus, Tempo and
+  Grafana provisioning. `docker-compose.yml` places them in an optional
+  profile without adding application health dependencies.
+- `spec/lib/observability_spec.rb` checks bounded labels, private-field
+  exclusion and exactly-once domain-block execution during telemetry errors.
+  The [Phase 13 ExecPlan](plans/phase-13-execplan.md) indexes live evidence
+  and tracks asynchronous integration still to come.

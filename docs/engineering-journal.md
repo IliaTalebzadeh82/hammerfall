@@ -483,3 +483,16 @@ precise environment cause remains unknown. Installed runner Chrome then ran
 the real browser suite. The final API, web and Compose jobs all passed on
 `1135838`, demonstrating why hosted execution belongs in phase completion
 evidence even after equivalent local checks pass.
+
+## 2026-10-01 — OpenTelemetry Ruby exporter and metric-view traps
+
+An explicit OTLP exporter `endpoint:` is treated as the full URL by the Ruby
+exporters. Supplying only the Collector origin sent data to `/`, while manual
+HTTP connectivity looked healthy. Appending `/v1/traces` and `/v1/metrics`
+made real spans and counters arrive. The Ruby metrics SDK also treats a
+matching view without a concrete aggregation as non-recording; counter views
+with only an attribute allowlist silently dropped counter data. Hammerfall now
+normalizes dimensions at its instrumentation boundary, applies explicit
+histogram views for boundaries, and leaves counters on their default monotonic
+sum. Inspecting actual Prometheus series and Tempo traces exposed both issues;
+successful application tests alone did not.

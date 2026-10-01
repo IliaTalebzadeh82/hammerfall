@@ -1,5 +1,10 @@
 name: hammerfall
 
+x-telemetry-env: &telemetry-env
+  OTEL_ENABLED: ${OTEL_ENABLED:-false}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+  OTEL_SAMPLE_RATIO: ${OTEL_SAMPLE_RATIO:-1}
+
 services:
   db:
     image: postgres:18.6-bookworm
@@ -72,6 +77,7 @@ services:
         LOCAL_UID: ${LOCAL_UID:-1000}
         LOCAL_GID: ${LOCAL_GID:-1000}
     environment:
+      <<: *telemetry-env
       RAILS_ENV: development
       CABLE_WORKER_THREADS: ${CABLE_WORKER_THREADS:-2}
       CABLE_ALLOWED_ORIGINS: ${CABLE_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
@@ -102,6 +108,7 @@ services:
   auction-closer:
     image: hammerfall-api
     environment:
+      <<: *telemetry-env
       RAILS_ENV: development
       PGHOST: db
       PGPORT: 5432
@@ -123,6 +130,7 @@ services:
   sidekiq:
     image: hammerfall-api
     environment:
+      <<: *telemetry-env
       RAILS_ENV: development
       PGHOST: db
       PGPORT: 5432
@@ -144,6 +152,7 @@ services:
   outbox-publisher:
     image: hammerfall-api
     environment:
+      <<: *telemetry-env
       RAILS_ENV: development
       PGHOST: db
       PGPORT: 5432
@@ -165,6 +174,7 @@ services:
   kafka-outbox-publisher:
     image: hammerfall-api
     environment:
+      <<: *telemetry-env
       RAILS_ENV: development
       PGHOST: db
       PGPORT: 5432
@@ -188,6 +198,7 @@ services:
   kafka-audit-consumer:
     image: hammerfall-api
     environment:
+      <<: *telemetry-env
       RAILS_ENV: development
       PGHOST: db
       PGPORT: 5432
@@ -208,6 +219,7 @@ services:
   kafka-projection-consumer:
     image: hammerfall-api
     environment:
+      <<: *telemetry-env
       RAILS_ENV: development
       PGHOST: db
       PGPORT: 5432
@@ -231,6 +243,7 @@ services:
   reconciliation-scheduler:
     image: hammerfall-api
     environment:
+      <<: *telemetry-env
       RAILS_ENV: development
       PGHOST: db
       PGPORT: 5432
@@ -274,6 +287,53 @@ services:
       retries: 12
       start_period: 30s
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.136.0
+    profiles: ["observability"]
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./infrastructure/observability/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    expose: ["4318", "9464"]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: ["observability"]
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
+    volumes:
+      - ./infrastructure/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    expose: ["9090"]
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:2.8.2
+    profiles: ["observability"]
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./infrastructure/observability/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    expose: ["3200", "4318"]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3002}:3000"
+    volumes:
+      - ./infrastructure/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
@@ -282,3 +342,6 @@ volumes:
   api_tmp:
   web_node_modules:
   web_next:
+  prometheus_data:
+  tempo_data:
+  grafana_data:

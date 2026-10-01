@@ -12,6 +12,8 @@ require "action_controller/railtie"
 # require "action_text/engine"
 require "action_view/railtie"
 require "action_cable/engine"
+require_relative "../lib/observability"
+require_relative "../lib/observability/http_middleware"
 # require "rails/test_unit/railtie"
 
 # Require the gems listed in Gemfile, including any gems
@@ -47,5 +49,6 @@ module Hammerfall
       Rails.env.production? ? "" : "http://localhost:3000,http://127.0.0.1:3000").split(",").map(&:strip).reject(&:empty?)
     config.action_cable.worker_pool_size = Integer(ENV.fetch("CABLE_WORKER_THREADS", "2"))
     config.generators.test_framework :rspec
+    config.middleware.use Observability::HttpMiddleware
   end
 end

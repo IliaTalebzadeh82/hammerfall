@@ -820,3 +820,17 @@ than two independent comparisons. `starts_at < ends_at` plus
 `original_ends_at <= ends_at` still allows an original deadline before the
 start. Normal commands set it correctly, but model, SQL and shared Kafka/Redis
 validation now reject that impossible stored state explicitly.
+
+## Phase 13 — Passive telemetry foundation
+
+The tempting shortcut is to auto-instrument every library and use raw URLs,
+SQL statements or message bodies as span attributes. Those fields can reveal
+private bids or create unbounded series. Hammerfall uses bounded route names
+and manually selected domain spans, with separate lock-wait and total bid
+duration signals. The OTLP SDK exports on bounded background queues; the
+auction command never asks Tempo or Prometheus whether it may proceed. A trace
+helps explain the work that occurred, but a dropped span does not imply that a
+bid failed. Read `lib/observability.rb`,
+`lib/observability/http_middleware.rb`, `docs/observability.md` and the
+Phase 13 ExecPlan. Async propagation, dashboards and outage verification
+remain part of the active phase.
