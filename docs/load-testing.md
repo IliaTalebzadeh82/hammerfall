@@ -1,9 +1,12 @@
 # Load testing
 
-No load tests or benchmarks have been run. k6 arrives in Phase 14.
+Phase 14 is in progress. The [k6 harness](../load-tests/README.md) creates
+isolated HTTP fixtures and records normal multi-auction, one-hot-auction and
+duplicate-retry runs. PostgreSQL verification checks each fixture after load.
+Retained [results](benchmarks/) include the exact command, local environment,
+warm-up, k6 summary/log, observability snapshots and interpretation. These are
+local shared-host measurements, not production capacity claims.
 
-Future scenarios belong in load-tests/ and measured results in docs/benchmarks/.
-Each result must include environment, commit, configuration, setup, measurements,
-and interpretation. [Phase 14](phases/phase-14.md) and
-[operations architecture](architecture/operations-and-security.md) define normal
-traffic, hot-auction, closing-storm, duplicate-request, and WebSocket fanout scenarios.
+The closing-storm, 1,000-bidder challenge, WebSocket fanout, stepped saturation,
+repeatability and final regressions remain Phase 14 work. See the active
+[ExecPlan](plans/phase-14-execplan.md) for the Evidence Index and next step.
