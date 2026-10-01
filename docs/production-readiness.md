@@ -153,3 +153,21 @@ wait were not instrumented. These shared-host results cannot determine
 production capacity, a safe file limit, or the best pool/concurrency setting.
 At 500 k6 Cable subscribers, all subscriptions were confirmed; receipt of
 invalidation hints does not establish durable or universal browser delivery.
+
+## Phase 15 performance boundary
+
+The [final causal review](benchmarks/phase-15-final.md) and its Session 1/2
+reports add Puma admission, DB checkout/queue, CPU, SQL, FD and memory
+evidence. Local hot load showed substantial Puma backlog while baseline DB
+checkout and auction-lock wait were small. Development request file checking
+consumed CPU; disabling it improved local accepted work but did not reliably
+improve the HTTP tail. Five Puma threads moved pressure into the DB pool, and
+pool five removed those waits without repeatable end-to-end gain. Neither
+tuning change was adopted. OTel remains enabled in the measured local stack.
+
+There is no measured production worker/thread/pool setting, exact per-request
+pre-Rack delay, safe FD limit, maximum WebSocket fanout, long-term memory-leak
+finding, production capacity, SLO or cloud-sizing conclusion. The ordinary
+local development runtime remains three threads/pool three with reloading on;
+diagnostic profiling is opt-in. A production traffic and resource study is
+needed before deployment sizing.

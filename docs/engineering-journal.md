@@ -627,3 +627,14 @@ off increased throughput in repeated runs; keeping it on preserves the
 lock/pool/outbox/error visibility needed to operate this system. These are
 distinct decisions: a measurable overhead does not by itself justify a
 production visibility loss.
+
+## 2026-10-02 — Final gates found a diagnostics eager-load mismatch
+
+The new DB pool diagnostic file defined two sibling modules but no constant
+matching its Zeitwerk path. Request tests could pass because the initializer
+required the file directly; `zeitwerk:check` still failed on eager load. Moving
+the modules under `Observability::DbPoolDiagnostics` and updating the prepend
+targets repaired the contract. Focused and full gates passed afterward. This
+is a reminder to run eager-load checks on opt-in instrumentation even when
+default runtime smoke looks healthy. The [final gate index](benchmarks/phase-15-final-gates/README.md)
+records the failure and recheck.

@@ -161,3 +161,7 @@ additionally enables the bounded StackProf trigger used by the Phase 15
 benchmark harness; leave it off for ordinary runs. The diagnostic DB metrics
 add work at checkout and must be compared against the same build with the
 diagnostic switch off before claiming a performance improvement.
+The pool modules remain prepended with diagnostics off; they perform only a
+flag check and immediately delegate, with no timing or metric recording.
+The [final Phase 15 review](benchmarks/phase-15-final.md) retains this bounded
+runtime switch and records the measured limits of its overhead comparison.

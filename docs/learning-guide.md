@@ -914,3 +914,8 @@ request reloading raised local service rate but did not reliably reduce the
 HTTP tail or Puma backlog. Telemetry-off runs were faster, but operational
 visibility was retained. A later identical baseline shifted enough to rule
 out precise capacity or tuning claims from a single window.
+The [final Phase 15 review](benchmarks/phase-15-final.md) also records why
+increasing the connection pool removed a measured queue without improving
+the whole HTTP path. A queue can migrate to a new resource when concurrency
+is raised; compare accepted work, latency and resource cost before retaining
+a configuration change.

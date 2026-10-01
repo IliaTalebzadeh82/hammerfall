@@ -471,3 +471,5 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   fixture command keys and digests, while `report.py` tolerates observations
   above finite histogram buckets. The [Session 2 report](benchmarks/phase-15-session-2.md)
   records the rejected Puma/pool experiments and runtime limits.
+  The [final review](benchmarks/phase-15-final.md) classifies retained
+  diagnostics, rejected tuning and the remaining measurement boundaries.

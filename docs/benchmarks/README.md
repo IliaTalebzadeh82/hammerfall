@@ -7,6 +7,8 @@ labels their Phase 15 diagnostic provenance and limitations.
 The [Phase 15 Session 2 report](phase-15-session-2.md) records repeated
 diagnostic, development-runtime, telemetry, Puma thread and DB-pool
 comparisons, including rejected tuning and shared-host drift.
+The [Phase 15 final review](phase-15-final.md) is the concise causal model,
+decision ledger and limitations for Phase 15; Session 1/2 retain the data.
 
 These are local Compose runs on a shared Intel Core Ultra 7 155H host with
 30.3 GiB RAM, Docker 29.8.1 and k6 1.8.1. They are measurements of this
