@@ -1,0 +1,7 @@
+git SHA: fec182614d0ce21a6ffd60d3b8728fa5c0808285
+fixture: python3 load-tests/prepare.py --scenario closing --auctions 1 --users 64 --minutes 20 --output <ignored manifest>
+warm-up: load-tests/run.sh warmup <ignored manifest> 1 5s docs/benchmarks/p14-20261001T134853Z-f5b63800-closing/warmup
+measurement: load-tests/run.sh final-minute <ignored manifest> 16 25s docs/benchmarks/p14-20261001T134853Z-f5b63800-closing
+checker: docker compose exec -T -e BENCHMARK_MANIFEST=<ignored manifest JSON> api bin/rails runner script/benchmark_verify.rb
+telemetry wait: 20 seconds after k6 for exporter/scrape settlement
+closer observation: python3 load-tests/wait_closed.py <ignored manifest> docs/benchmarks/p14-20261001T134853Z-f5b63800-closing/closer-observations.json --timeout 240

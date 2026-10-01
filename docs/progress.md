@@ -1885,4 +1885,30 @@ Exploratory runs exposed and corrected operation/auction selection correlation,
 API telemetry being disabled despite running observability containers, and an
 early Prometheus snapshot. The retained exploratory reports label those limits.
 Closing storm, fanout, saturation, repeatability, sabotage, broad regression and
-hosted CI remain open. Phase 14 is not complete; Phase 15 has not begun.
+hosted CI remained open after this first milestone.
+
+### Phase 14 second experimental milestone — 2026-10-01
+
+Extended harness commit `4f7932e` added closing, final-ten-second challenge,
+distributed-auction, duplicate-burst and Action Cable fanout scenarios, more
+resource snapshots and checker coverage. These runs were made while the
+harness was developing in the working tree; application HEAD was `fec1826`,
+and the final harness commit followed measurement. The [Session 2 analysis](benchmarks/phase-14-session-2.md)
+and per-run raw reports record exact method, provenance, limitations and
+candidate Phase 15 investigation classes.
+
+| Experiment | Actual result | PostgreSQL check |
+|---|---|---|
+| Closing storm, 16 VUs | 138 accepted bids, 1,018 expected rejections; one +90s extension; final close lag 0.240s | Passed; leader=winner |
+| Hot steps, 8/16/32/64 VUs | ~84–101 HTTP/s while HTTP p95 rose from 89–106ms at 8 VUs to 935ms at 64; lock p95 bucket ≤25ms at 64 | All passed |
+| Same-loop eight-row comparison, 16 VUs | 590 accepted in 20s versus 111 on one row; changed accepted/rejection mix | Passed |
+| Final-ten burst, 400/600 bidders | All requested commands completed; 0 unexpected HTTP errors; p95 5.98/8.81s | Passed; one bid and valid close each |
+| Final-ten attempt, 1,000 bidders | All launched; 28 API `EMFILE` 500s and 64 timeouts under 1,024-file soft limit; 911 completed DB records | Passed; one bid, valid extension/winner; degraded HTTP run |
+| Cable fanout, 50/200/500 subscribers | All subscriptions confirmed; 1,400/5,600/13,500 k6 invalidation receipts; 500-socket handshake p95 ~2s | Bid fixtures passed |
+| Duplicate burst and sabotage | One original/127 replays; first-wave p95 347ms versus later-wave 52ms; checker and classifier intentionally failed on controlled bad input then restored | One logical bid; restored checker passed |
+
+Nine selected auctions matched PostgreSQL and Redis public revisions after
+load, with zero fixture outbox backlog and empty Sidekiq queues. No permanent
+performance change was made. Broad backend/frontend/security regression,
+Compose/browser checks, hosted CI, final documentation and adversarial review
+remain open. Phase 14 is not complete; Phase 15 has not begun.

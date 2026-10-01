@@ -872,10 +872,23 @@ warm-up, exact configuration and retained raw output make each local run
 interpretable. Read `load-tests/README.md`, `load-tests/common.js`,
 `apps/api/script/benchmark_verify.rb` and `docs/benchmarks/README.md`.
 
-One hot auction intentionally serializes mutations. The first 8 VU primary
-run measured 1,519 bid attempts, 370 accepted bids and 1,149 expected domain
-rejections with no database-check failure. Lock-wait p95 fell within the 50 ms
-histogram bucket, while bid HTTP p95 was 96.42 ms. Neither a row lock nor a
-single CPU sample proves the dominant bottleneck; later steps must separate
-post-lock work, server queueing, pool pressure and shared-host effects. The
-remaining Phase 14 scenarios and saturation study are still open.
+One hot auction intentionally serializes mutations. The 8/16/32/64 VU steps
+held HTTP throughput around 84–101 requests/s while HTTP p95 rose from about
+89–106 ms to 935 ms; the two 8-VU runs themselves varied. At 64 VUs, bid HTTP
+p95 was 956 ms, but the auction-lock p95 histogram bucket was ≤25 ms and
+rejected-bid processing p95 ≤100 ms. This points to work or queueing outside
+the measured lock section, not a measured row-lock dominated HTTP tail.
+Puma admission and DB checkout waits were not directly measured, so the next
+investigation needs those boundaries rather than a guessed pool-size change.
+
+At the same 16 VUs and read/bid loop, spreading across eight rows accepted
+590 bids in 20 seconds versus 111 on one row, yet HTTP throughput fell because
+accepted mutations perform more work than expected rejections. Compare useful
+work, outcome mix and latency together. A 1,000-bidder final-ten-second burst
+launched all VUs but reached the API process's 1,024-open-file soft limit:
+28 server errors and 64 HTTP timeouts did not corrupt the auction. PostgreSQL
+recorded 911 completed commands versus 908 successful/expected HTTP replies,
+showing why timeout reconciliation must use command identity. A clean
+600-bidder local burst and 500-socket fanout step are observations of this
+Compose host, not capacity promises. Read the [Session 2 evidence](benchmarks/phase-14-session-2.md)
+before drawing performance conclusions.

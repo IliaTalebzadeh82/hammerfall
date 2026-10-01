@@ -1,0 +1,1 @@
+[1;34mINFO [0m 2026-10-01T14:20:07.366Z pid=3361 tid=6a1: Sidekiq 8.1.7 connecting to Redis with options {size: 10, pool_name: "internal", network_timeout: 2, url: "redis://redis:6379/0"}

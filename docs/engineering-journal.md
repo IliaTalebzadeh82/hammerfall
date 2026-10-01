@@ -551,3 +551,28 @@ and 96.42 ms p95 bid HTTP duration, with 370 accepted and 1,149 expected
 rejections. One during-run sample saw 4 Sidekiq and 7 Kafka pending outbox
 rows, all drained afterward. This is evidence for deeper Phase 14 isolation,
 not proof of a saturation point or grounds for a Phase 15 redesign.
+
+## 2026-10-01 — Phase 14 load separated HTTP queueing from auction lock wait
+
+The hot closed-loop steps flattened near 84–101 HTTP/s while p95 rose to
+935 ms at 64 VUs. Lock-wait p95 remained in a ≤25 ms bucket at that step and
+bid processing p95 was ≤100 ms; k6 consumed about 14% CPU and API about one
+core. Thus the initially plausible row-lock-tail hypothesis was not supported
+by this local evidence. One PostgreSQL sample did catch a transaction-ID lock
+waiter at 32 VUs, so row serialization exists; its measured duration did not
+explain the HTTP tail. The 3-connection Rails pool had no checkout-wait metric,
+and Puma admission wait was also unmeasured. Phase 15 needs profiling at those
+boundaries before any concurrency or pool change.
+
+The 1,000 final-ten-second challenge was a useful failure, not a performance
+score: all VUs launched, but the API's 1,024 open-file soft limit produced
+28 `Errno::EMFILE` responses and 64 k6 timeouts. PostgreSQL held 911 completed
+command records against 908 acknowledged successful/expected responses, at
+least three ambiguous HTTP observations with DB outcomes. State remained
+correct after extension and closer. A 600-bidder burst was clean with p95
+8.81 seconds; it is the highest clean local attempt, not production capacity.
+At 500 Action Cable clients, all confirmed subscriptions received server
+invalidations, while handshake p95 reached about 2 seconds. These are k6
+receipts, not a claim of universal browser delivery. The [Session 2 report](benchmarks/phase-14-session-2.md)
+preserves unfavorable runs, sampling limits, recovery checks and Phase 15
+investigation classes. No auction or runtime optimization was made.

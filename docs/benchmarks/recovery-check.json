@@ -1,0 +1,81 @@
+{
+  "checked_at": "2026-10-01T14:20:07.365978Z",
+  "auctions": [
+    {
+      "auction_id": 440,
+      "status": "closed",
+      "postgresql_revision": 141,
+      "redis_revision": 141,
+      "sidekiq_pending": 0,
+      "kafka_pending": 0
+    },
+    {
+      "auction_id": 447,
+      "status": "active",
+      "postgresql_revision": 32,
+      "redis_revision": 32,
+      "sidekiq_pending": 0,
+      "kafka_pending": 0
+    },
+    {
+      "auction_id": 455,
+      "status": "active",
+      "postgresql_revision": 76,
+      "redis_revision": 76,
+      "sidekiq_pending": 0,
+      "kafka_pending": 0
+    },
+    {
+      "auction_id": 456,
+      "status": "closed",
+      "postgresql_revision": 4,
+      "redis_revision": 4,
+      "sidekiq_pending": 0,
+      "kafka_pending": 0
+    },
+    {
+      "auction_id": 457,
+      "status": "closed",
+      "postgresql_revision": 4,
+      "redis_revision": 4,
+      "sidekiq_pending": 0,
+      "kafka_pending": 0
+    },
+    {
+      "auction_id": 458,
+      "status": "closed",
+      "postgresql_revision": 4,
+      "redis_revision": 4,
+      "sidekiq_pending": 0,
+      "kafka_pending": 0
+    },
+    {
+      "auction_id": 459,
+      "status": "active",
+      "postgresql_revision": 29,
+      "redis_revision": 29,
+      "sidekiq_pending": 0,
+      "kafka_pending": 0
+    },
+    {
+      "auction_id": 460,
+      "status": "active",
+      "postgresql_revision": 299,
+      "redis_revision": 299,
+      "sidekiq_pending": 0,
+      "kafka_pending": 0
+    },
+    {
+      "auction_id": 469,
+      "status": "active",
+      "postgresql_revision": 3,
+      "redis_revision": 3,
+      "sidekiq_pending": 0,
+      "kafka_pending": 0
+    }
+  ],
+  "sidekiq_queues": {
+    "maintenance": 0,
+    "notifications": 0
+  }
+}

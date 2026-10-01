@@ -435,14 +435,19 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
 
 - `load-tests/prepare.py` creates labeled, isolated demo users/auctions through
   HTTP and writes an ignored fixture manifest. `common.js` provides bounded
-  outcome classification; `normal-auction.js`, `hot-auction.js` and
-  `duplicate-retries.js` express the current workloads.
+  outcome classification; `normal-auction.js`, `hot-auction.js`,
+  `distributed-auction.js`, `final-minute.js`, `final-ten.js`,
+  `duplicate-retries.js`, `duplicate-burst.js` and `websocket-fanout.js`
+  express the measured workloads. The final-ten script uses client time only
+  to pace launch; Rails/PostgreSQL still decides bid legality.
 - `load-tests/benchmark.sh` orchestrates a separate read-only warm-up, pinned
   k6 container run, environment/telemetry capture and database check.
   `capture.py` records PostgreSQL, container and Prometheus snapshots;
-  `report.py` generates a concise run report.
+  `report.py` generates a concise run report. `wait_closed.py` observes the
+  independent closer after closing/challenge load stops.
 - `apps/api/script/benchmark_verify.rb` independently checks auction history,
   price/leader, maximum ceilings, revision/outbox continuity and duplicate
-  command effect against PostgreSQL. [Results](benchmarks/README.md) retain
-  machine output separately from fixture data. Closing/fanout scenarios remain
-  to be implemented.
+  command effect against PostgreSQL, including recorded 90-second extension
+  transitions, final close/winner and challenge command records. [Results](benchmarks/README.md)
+  retain machine output separately from fixture data; [Session 2 analysis](benchmarks/phase-14-session-2.md)
+  classifies the observed limits without changing auction business logic.

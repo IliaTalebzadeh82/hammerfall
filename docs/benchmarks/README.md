@@ -7,6 +7,30 @@ contains `report.md`, exact commands, k6 summary/log, environment and telemetry
 snapshots, and PostgreSQL verification. The active [ExecPlan](../plans/phase-14-execplan.md)
 has the current Evidence Index and unresolved work.
 
+## Session 2 experiments and interpretation
+
+The [Session 2 analysis](phase-14-session-2.md) contains the saturation and
+scenario comparison tables, 1,000-bidder failure reconciliation, fanout
+steps, resource/telemetry correlation, recovery read, checker sabotage and
+evidence-classified Phase 15 questions. Its retained runs cover closing,
+controlled one-row/eight-row work, hot 8/16/32/64 VUs, 400/600/1,000
+final-ten-second bursts, 50/200/500 Action Cable subscribers, a targeted
+duplicate burst and normal/hot repeats. The highest clean local final-ten
+burst observed was 600 contenders; the 1,000 attempt hit the API container's
+1,024-open-file soft limit and had 28 server errors plus 64 timeouts. All
+post-run PostgreSQL state checkers passed; this does not turn the degraded
+HTTP run into a capacity success.
+
+During Session 2, `git rev-parse HEAD` recorded application commit `fec1826`
+in snapshots while the expanded harness was being developed in the working
+tree. The final harness was committed as `4f7932e`. Scenario scripts for the
+primary step series were stable after their first validation; capture/report
+fields changed as noted in the analysis. The failed first fanout handshake
+run and the closing postprocessing repair remain labeled with their raw
+evidence. Do not treat these measurements as having been taken from a clean
+`4f7932e` checkout. API observability and Compose service settings stayed
+unchanged throughout the primary comparisons.
+
 ## Primary committed-harness runs
 
 All three used harness commit `c86f4f8`, API OTEL enabled, a separate 1 VU
@@ -46,5 +70,5 @@ found one stored command, one bid and no repeated deadline extension.
   the selection was fixed and validated across all eight auctions before the
   primary runs. These are not benchmark comparisons.
 
-Closing-storm, WebSocket fanout, stepped saturation, a feasible 1,000-bidder
-attempt, repeatability and broader correctness/regression work remain open.
+Broad backend/frontend/security regression, Compose/browser checks, hosted
+CI, final Phase 14 documentation and final adversarial review remain open.
