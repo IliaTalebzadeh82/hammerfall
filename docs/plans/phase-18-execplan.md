@@ -1,24 +1,21 @@
 # Phase 18 — Kubernetes ExecPlan
 
-Status: In progress; Session 2 live-failure milestone complete and checkpoint ready.
-Current milestone: start a fresh final session for completion gates and review.
+Status: Final local verification passed; hosted CI and closure commit pending.
+Current milestone: push closure documentation/configuration and observe CI.
 Completed: local kind strategy; ADR-014; immutable API/web images; API
-readiness; namespace, config, Secret generation, external dependency Services,
-all application Deployments, web runtime proxy and repeatable local setup.
+readiness; all application workloads; runtime web proxy; generated Secret and
+external dependency routing; repeatable fresh-cluster setup with compatible
+kubectl/server versions; final adversarial review and documentation.
 Verified: [Session 1](../kubernetes/session-1.md) proves startup, lifecycle,
 replacement and initial scaling. [Session 2](../kubernetes/session-2.md)
-proves bounded active API termination/retry, post-commit lost response,
-API/web rollouts, scale-down, async pod replacement and durable catch-up,
-Kafka rebalance, closer/scheduler replacement, browser Cable recovery and
-cgroup resource snapshot.
-Remaining: final adversarial review and any repairs; optional bounded load;
-full regression, lint/security/build gates, fresh cluster setup, final
-browser/runtime verification, documentation and hosted CI.
-Known failures/limitations: kubectl 1.35 versus kind server 1.37 warns of
-unsupported two-minor skew; no metrics-server, so `kubectl top` unavailable.
-No serious correctness failure is currently known. Long active worker
-interruption and production capacity are unproven. Local values are not
-production sizing. Startup probes were unnecessary in observed boots.
+proves failure/rollout/rebalance campaigns. The
+[final review](../kubernetes/phase-18-final.md) records zero-cluster rebuild,
+fresh lifecycle/browser evidence, full regression and Compose restoration.
+Remaining: hosted CI, final commit/push, and Phase 19 handoff.
+Known failures/limitations: one 502 among 40 reads during fresh API deletion
+was traced to an upstream connection refusal; reads resumed and replacement
+state matched PostgreSQL. No metrics-server, HPA, PDB or production sizing.
+Long active worker interruption and high availability remain unproven.
 Relevant files: `k8s/`, `infrastructure/*-k8s.Dockerfile`, API health
 controller/route/spec, frontend Cable fallback and browser harness, ADR-014,
 and Session 1/2 reports.
@@ -26,11 +23,9 @@ Relevant ADRs: [ADR-001](../adr/001-modular-monolith.md),
 [ADR-010](../adr/010-transactional-public-outbox.md),
 [ADR-011](../adr/011-kafka-domain-events.md),
 [ADR-014](../adr/014-local-kubernetes-process-orchestration.md).
-Next-session starting point: fresh Codex conversation; read AGENTS, handoff,
-this plan, Phase 18 spec and [Session 2 report](../kubernetes/session-2.md).
-Keep Phase 19 gated. Inspect the current diff and finish final verification.
-The kind cluster is running with desired replicas restored. The web
-port-forward is an ephemeral terminal session and may need restarting.
+Next-session starting point: not applicable once hosted CI closes this phase.
+Phase 19 remains gated. The final kind cluster was deleted after its live
+proof, and the ordinary Compose stack was restored and verified healthy.
 
 ## Decisions
 
@@ -87,4 +82,11 @@ progress contracts must be checked with job/offset/outbox evidence.
 | Secret byte audit | Compare Compose env bytes to Kubernetes Secret without printing value | PASS after newline correction | [Session 1](../kubernetes/session-1.md) |
 | Lifecycle/failure campaign | Active API TERM/crash, rollouts, worker replacement, rebalance, Cable, resources | PASS within stated limits | [Session 2](../kubernetes/session-2.md) |
 | Cable harness lint and syntax | Biome check, `node --check` | PASS | Session 2 |
-| Final regression and security | Pending | INCONCLUSIVE | Final session |
+| Final adversarial review | Manifests, setup, images, process roles, probes and durable ownership | No Critical/High correctness issue; fixed kubectl skew; observed one transient replacement 502 | [Final review](../kubernetes/phase-18-final.md) |
+| Fresh cluster from zero | `kind delete`, `bash k8s/local/up.sh` | Kubernetes 1.36.4; 2 API, 2 web, seven background Ready; Job succeeded; zero restarts; generated Secret/endpoints current | [Final review](../kubernetes/phase-18-final.md) |
+| Fresh lifecycle and replacement | `scripts/smoke-api`, SQL, pod delete + 40 GETs | Auction 660 closed correctly; 39/40 reads 200, one 502; replacement read revision 6 | [Final review](../kubernetes/phase-18-final.md) |
+| Fresh browser | Chrome Cable harness and normal Playwright suite via kind web | Reconnect/hint/REST passed; 7 passed, one Compose-only scenario skipped | [Final review](../kubernetes/phase-18-final.md) |
+| Full backend/frontend/static/security | `scripts/check`, bundler-audit, syntax/config checks | 450 RSpec/0 failures/3 pending; 74 Vitest; lint, format, types, build, RuboCop, Brakeman, Zeitwerk, audit PASS | [Final review](../kubernetes/phase-18-final.md) |
+| Manifest and image validation | client/server dry-run, Job server dry-run under validation name; fresh apply/build plus uncached builds | PASS; unique API/web images, no Secret in image config or `.env`/master key in filesystems | [Final review](../kubernetes/phase-18-final.md) |
+| Compose regression | `docker compose up --build --wait`, HTTP probes/auction read | all running services healthy; API/web/auction checks PASS | [Final review](../kubernetes/phase-18-final.md) |
+| Hosted CI | Pending final push | PENDING | Record after run |

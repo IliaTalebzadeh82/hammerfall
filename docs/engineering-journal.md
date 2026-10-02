@@ -738,3 +738,21 @@ The first Secret generator piped `printenv`, which appended a newline to the
 password bytes. A byte comparison caught the mismatch even though local
 database queries succeeded. Printing with `printf %s` inside the Compose
 container preserved the actual environment value without exposing it in logs.
+
+## 2026-10-02 — Fresh kind recreation and endpoint drain
+
+The final fresh-cluster run exposed kind v0.33's default Kubernetes 1.37
+server as two minor versions beyond the installed kubectl 1.35. The setup now
+pins the release's Kubernetes 1.36.4 image by digest; a zero-object rebuild
+then used a supported client/server pair. Image builds, generated Secret and
+endpoints, one-shot database preparation, and all application roles completed
+without manual resource patches.
+
+Deleting an API pod during 40 reads produced one HTTP 502. Nginx logged an
+upstream connection refusal while its API Service target changed; the next
+reads succeeded and a new pod read the same revision. This is a useful limit
+to the phrase “two healthy replicas”: readiness and endpoint withdrawal
+reduce disruption but cannot guarantee that every in-flight or immediately
+adjacent request succeeds. Safe GET retry and keyed command replay still
+belong to clients, while PostgreSQL preserves the result. The
+[final report](kubernetes/phase-18-final.md) records the exact proof boundary.

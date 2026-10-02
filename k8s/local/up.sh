@@ -10,7 +10,10 @@ docker compose stop api api-replica-b api-proxy web auction-closer sidekiq \
 docker compose up -d db redis kafka kafka-init
 
 if ! kind get clusters | rg -qx hammerfall; then
-  kind create cluster --name hammerfall --wait 120s
+  # kind v0.33 defaults to Kubernetes 1.37, outside kubectl 1.35's supported
+  # one-minor skew. Pin the release's 1.36 node image for this local baseline.
+  kind create cluster --name hammerfall --wait 120s \
+    --image kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed
 fi
 
 network=$(docker network ls --filter 'label=com.docker.compose.project=hammerfall' --format '{{.Name}}' | rg '^hammerfall_default$')

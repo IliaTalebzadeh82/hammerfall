@@ -516,7 +516,7 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
   real PostgreSQL lock chains for soft close, deadline and closer races. See
   [Session 2](multi-instance/session-2.md) for the live campaign and the
   [final review](multi-instance/phase-17-final.md) for closure and limits.
-## Phase 18 local Kubernetes map (Session 1)
+## Phase 18 local Kubernetes map
 
 - `infrastructure/api-k8s.Dockerfile` and `web-k8s.Dockerfile` bake source
   into images; the web image runs the Next.js production build/server.
@@ -532,4 +532,7 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
   Secret/EndpointSlices, loads images and runs `db-prepare.yaml` before
   deployment. See [local setup](../k8s/README.md),
   [ADR-014](adr/014-local-kubernetes-process-orchestration.md) and the
-  [Session 1 evidence](kubernetes/session-1.md).
+  [final evidence](kubernetes/phase-18-final.md).
+- `apps/web/scripts/phase18_k8s_cable.mjs` exercises real Chrome Cable socket
+  loss and REST recovery on API pod deletion. The local setup pins kind v0.33's
+  Kubernetes 1.36.4 node digest to avoid a kubectl 1.35/1.37 version skew.

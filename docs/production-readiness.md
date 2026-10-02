@@ -211,3 +211,21 @@ failover, large-replica behavior, cloud load balancing, autoscaling or
 Kubernetes operation. Background closer and scheduler process counts are
 operational choices; their correctness protocols are PostgreSQL locks and
 leases. See the [final review](multi-instance/phase-17-final.md).
+
+## Phase 18 local Kubernetes boundary
+
+The [Phase 18 final review](kubernetes/phase-18-final.md) verifies a fresh
+one-node kind cluster running two API and two web pods plus all seven
+background roles. It covers probes, bounded API/web rollouts, manual scaling,
+active API termination and idempotent retry, Cable reconnection, worker
+replacement, Kafka consumer rebalancing and a fresh-cluster lifecycle. A
+transient 502 occurred in one of 40 reads during fresh API pod deletion;
+subsequent reads and replacement state converged. Compose development startup
+still works. PostgreSQL, Redis and Kafka remain external Compose containers.
+
+This is an application orchestration proof. It does not verify production
+Kubernetes configuration, cloud networking, managed or highly available
+stateful dependencies, node failure, production TLS/secrets, autoscaling,
+capacity or long in-flight worker termination. Resource settings are local
+starting values. PostgreSQL transactions, idempotency and durable outbox
+protocols remain the correctness mechanisms during process loss.

@@ -2159,3 +2159,43 @@ responses at 200 and the replacement read current SQL state. Manual 2→3 scale
 made the third pod Ready; 60 GETs reached all three. The cluster returned to
 two API replicas. Active termination, worker recovery, rollout, browser,
 fresh-cluster and final regression work remain; Phase 18 is not complete.
+
+### Phase 18 Session 2 lifecycle checkpoint — 2026-10-02
+
+Commit `4c1449fb47547a14d22333b00b74607c4e5e77cf` retained the
+[Session 2 report](kubernetes/session-2.md). It proved a 35-second blocked bid
+finishing during API SIGTERM within the 45-second grace, a committed but lost
+response recovered with the same idempotency key, 100/100 bounded API and web
+rollout reads, 100/100 API scale-down reads, and replacement/catch-up of all
+five asynchronous delivery roles during 20 accepted bids. Both Kafka consumer
+groups rebalanced 1→2→1 and caught up. Closer and scheduler replacement
+resumed correct work. Real Chrome observed Cable owner deletion, reconnection,
+hint delivery and REST refresh. Long active-job termination and production
+capacity remained unproven.
+
+### Phase 18 final local verification — 2026-10-02
+
+The [final review](kubernetes/phase-18-final.md) records a full destruction
+and recreation from no kind clusters. Pinning kind v0.33's Kubernetes 1.36.4
+node image removed the kubectl 1.35/server 1.37 unsupported skew. The
+documented script rebuilt both images, generated matching Secret bytes and
+current external EndpointSlices, completed `db-prepare`, and made all nine
+Deployments Ready (2 API, 2 web, seven background pods; zero restarts).
+Fresh auction 660 passed the full create-to-close lifecycle; PostgreSQL showed
+closed, price 11000, correct winner, revision 6 and two bids. Pod deletion
+returned 39/40 successful bounded reads and one transient 502 at nginx's
+upstream connection boundary; reads resumed and the replacement read revision
+6. Fresh Chrome Cable recovery passed on auction 661. The normal browser
+suite passed 7/7 with one Compose-only fault scenario skipped.
+
+`scripts/check` passed 450 RSpec examples, zero failures, three intentionally
+gated pending cases (seed 31585), 74 Vitest tests, frontend lint/format/types
+and production build, RuboCop (132 files, no offenses), Brakeman (zero
+warnings/errors), and Zeitwerk. Dependency audit found no vulnerabilities.
+Ruby, Python, Node and shell syntax, nginx configuration, Compose config,
+Kubernetes base client/server and Job server dry-runs, and diff whitespace
+checks passed. Separate uncached API/web image builds and image filesystem
+exclusion checks passed after a transient Docker Hub 403 on the first Ruby
+base lookup cleared. The ordinary Compose application rebuilt healthy after kind
+was removed; API health, web and auction reads worked. Phase 18 hosted CI and
+closure commit remain pending at this point in the chronology.

@@ -241,12 +241,15 @@ job retries can still lose a hint. A connected browser still needs REST recovery
 | Duplicate/replayed event has one audit side effect | Unique receipt/event and audit rows in one transaction; offset follows commit | Consumer specs, live duplicate/replay and sabotage C/D |
 | Stale, gap and poison events cannot change auction truth | Audit-only effect; strict envelope validation; poison offset remains uncommitted | Consumer specs and live poison/reset/replay evidence |
 
-## Phase 18 local orchestration boundary (in progress)
+## Phase 18 local orchestration boundary
 
 Kubernetes pod identity, Service routing, readiness and replica count have no
 role in auction ordering, deadline, winner, idempotency or outbox identity.
 The local API Deployment uses PostgreSQL readiness and process liveness;
-replacement and 2→3 scaling read the same durable state. This is an observed
-Session 1 process-placement result, not yet an active SIGTERM or production
-availability guarantee. See [ADR-014](adr/014-local-kubernetes-process-orchestration.md)
-and the [Session 1 evidence](kubernetes/session-1.md).
+replacement, manual scaling and bounded active SIGTERM preserved durable
+command outcomes. A fresh replacement campaign observed one transient 502
+among 40 reads, so process orchestration does not guarantee uninterrupted
+responses. Same-key retry and current-state GET remain necessary. See
+[ADR-014](adr/014-local-kubernetes-process-orchestration.md) and the
+[Phase 18 final review](kubernetes/phase-18-final.md). This one-node local
+proof is not a production availability claim.

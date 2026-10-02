@@ -976,7 +976,7 @@ observation, not a capacity estimate.
 The [final review](multi-instance/phase-17-final.md) combines command,
 realtime, replica-loss and closure evidence with the local scaling limits.
 
-## Phase 18 local Kubernetes lesson (Session 1)
+## Phase 18 local Kubernetes lesson
 
 Kubernetes starts and routes executors; it does not serialize bids. The
 initial kind proof ran two API pods behind a Service, deleted one while 80
@@ -989,6 +989,13 @@ Readiness asks whether a new API pod can query PostgreSQL before it receives
 traffic. Liveness asks whether Rails is running; it must not restart a healthy
 process merely because Redis or Kafka is unavailable. Worker pods have no
 HTTP Service to gate, so a green `Running` state does not prove offset, outbox,
-job or lease progress. The Phase 18 failure campaign still has to test active
-SIGTERM, same-key ambiguity and worker recovery. No production capacity or
-availability follows from the local resource values or one-node cluster.
+job or lease progress. Later campaigns verified bounded active SIGTERM,
+same-key replay after a lost committed response, worker replacement and Kafka
+consumer rebalance. Fresh setup from zero revealed one 502 among 40 reads
+during pod deletion: an upstream connection can fail while endpoints drain,
+even with another healthy replica. Subsequent GETs and the replacement read
+the same PostgreSQL revision. A client therefore needs safe GET retry and
+same-key mutation retry; a green Deployment alone cannot promise every
+request will succeed. See the [final review](kubernetes/phase-18-final.md).
+No production capacity or high availability follows from the local values or
+one-node cluster.

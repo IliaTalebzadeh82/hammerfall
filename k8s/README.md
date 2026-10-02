@@ -21,6 +21,8 @@ Kubernetes Job and applies manifests rendered with those image tags.
 `--no-build` reuses the last tag built on this workstation for unchanged
 application code and configuration; run the ordinary command after edits or
 in a new checkout.
+The script pins kind v0.33's Kubernetes 1.36.4 node image by digest, keeping
+the installed kubectl 1.35 within the supported one-minor version skew.
 To return to the ordinary Compose application after the Kubernetes exercise,
 run `kind delete cluster --name hammerfall` and then `docker compose up -d`.
 This removes only the local cluster; the Compose stateful volumes remain.
@@ -80,7 +82,13 @@ but PostgreSQL locking and leases remain their correctness controls. Resource
 requests and limits are conservative local starting values, not production
 capacity findings. Manual scale is used because an HPA target and database
 connection budget have not been validated. The one-node cluster cannot prove
-high availability or voluntary-disruption protection.
+high availability or voluntary-disruption protection, so no PDB is declared.
+Metrics-server is absent; `kubectl top` and utilization-based HPA evidence are
+unavailable. During fresh API pod deletion, one of 40 bounded reads received
+a transient 502 at the upstream connection boundary; subsequent reads and the
+replacement pod recovered current PostgreSQL state. See the
+[final Phase 18 review](../docs/kubernetes/phase-18-final.md) for the observed
+failure and recovery limits.
 
 ## Scope
 
