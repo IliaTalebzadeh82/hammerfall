@@ -685,3 +685,21 @@ notification completeness. Phase 16 also found that event crash hooks lacked
 the command hook's atomic one-shot marker; adding the marker made respawn
 safety explicit without changing ordinary event delivery. See the
 [final review](chaos/phase-16-final.md).
+
+## 2026-10-02 — Cross-process realtime and lock-chain evidence
+
+A browser socket on replica `a` received a revision hint from a bid handled by
+`b`, and the inverse also worked through PostgreSQL Cable pub/sub. The browser
+rendered the REST-fetched price. Stopping the socket owner closed the socket;
+automatic resubscription occurred in one run but not within 30 seconds in
+later runs. A visibility REST read recovered each committed bid, and the
+rejoined replica read current SQL state. This variability needs final-session
+investigation, even though no auction truth was lost.
+
+The deadline harness initially misread its own lock evidence. Rails cached a
+repeated `pg_stat_activity` count; then a direct-blocker-only query omitted a
+second waiter queued behind the first. Clearing the statistics snapshot and
+counting the transitive chain produced two observed waiters. Releasing after
+PostgreSQL time crossed the deadline yielded two valid rejections, while a
+separate near-deadline run serialized two accepted bids and one extension. See
+the [Session 2 report](multi-instance/session-2.md).

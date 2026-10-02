@@ -1,33 +1,42 @@
-# Current handoff — Phase 17 Session 1 checkpoint
+# Current handoff — Phase 17 Session 2 checkpoint
 
-Updated: 2026-10-02. Phase 17 is active; Phase 18 is excluded. Start the next
-fresh session with [Phase 17](../phases/phase-17.md), the
-[active ExecPlan](../plans/phase-17-execplan.md), and the
-[Session 1 report](../multi-instance/session-1.md). The retained
-[three runs](../multi-instance/session-1-runs.jsonl) are concise public
-evidence; no Phase 16 raw chaos reread is needed.
+Updated: 2026-10-02. Phase 17 remains active; Phase 18 is excluded. Resume in
+a fresh conversation with [Phase 17](../phases/phase-17.md), the
+[active ExecPlan](../plans/phase-17-execplan.md) and the
+[Session 2 report](../multi-instance/session-2.md). Session 1's initial
+two-replica/proxy and sequential/concurrent command proof is retained in its
+[report](../multi-instance/session-1.md); do not replay it without a concrete
+invalidation.
 
-The normal localhost:3001 API endpoint now reaches a local nginx proxy and two
-separate Rails/Puma containers. The web server uses that same proxy. A bounded
-development-only header identifies `a` or `b`; it is diagnostic only. Existing
-closer, worker, publishers, consumers and reconciliation scheduler remain
-separate single operational roles. PostgreSQL remains auction, time, sequence,
-priority, idempotency, revision and outbox authority; development Cable already
-uses the PostgreSQL adapter.
+The local nginx endpoint `localhost:3001` routes ordinary HTTP and Cable to
+two Rails/Puma processes without affinity. Session 2 used a local upgrade
+header plus Chrome DevTools to prove a browser WebSocket on `a` received a
+PostgreSQL-backed revision hint caused by a bid on `b`, and the inverse. The
+browser fetched the matching public revision by REST and displayed the price;
+the hint carried only `type`, `auction_id`, `revision`. A scoped missed hint
+while Sidekiq was stopped still recovered through browser visibility REST.
 
-Six GETs alternated between replicas. Three retained end-to-end runs passed
-sequential commands, ten simultaneous bids on one auction, equal maximum-bid
-priority and concurrent same-key requests plus replay on another replica. The
-verifier checked direct PostgreSQL results. Focused real-PostgreSQL tests passed
-80 examples with zero failures; targeted RuboCop/static/proxy checks and the
-established sequential API smoke through the proxy passed. CI has a new
-cross-replica step but has not run. No application-domain correctness failure
-was observed; invalid initial proxy and verifier assumptions were repaired and
-are described in the report. Two API pools of three can reserve six connections;
-14 client backends were observed against a 100-connection local maximum.
+Stopping socket-owning `b` closed the WebSocket. One run resubscribed on `a`;
+later runs did not show a new handshake within 30 seconds. In all retained
+runs, `a` served new bids and GETs, browser REST recovered current state and
+restarted `b` read the current PostgreSQL revision through the proxy without
+reconstruction. Investigate the variable automatic reconnect behavior before
+final closure; do not claim uninterrupted realtime failover.
 
-Session 2 should prove Cable notification from a mutation on the opposite API
-process, REST recovery, replica stop/rejoin, ambiguous same-key retry onto a
-different replica, and deadline/soft-close races. Then checkpoint before final
-broad, browser, hosted CI and adversarial verification. Do not call Phase 17
-complete or begin Phase 18 yet.
+Scoped process death on `b` after commit produced HTTP 502, then same-key
+replay on `a` returned the original 201 with no extra bid, revision, outbox
+row or command effect. Death before commit left no partial SQL state; the same
+key executed once on `a`. Direct PostgreSQL snapshots proved both boundaries.
+Cross-replica bids waiting behind one auction lock produced two valid soft-close
+bids with one extension in that timing. A separate race held both bids until
+after PostgreSQL time passed the deadline; both were rejected. An autonomous
+closer racing a waiting bid finalized one coherent closed state. Existing
+focused tests prove the complementary close order and duplicate close safety.
+
+Session 2 focused RSpec passed 82 examples with zero failures (seed 39585).
+Targeted RuboCop, Biome, Ruby/Python/Node syntax, nginx/Compose validation and
+diff checks passed. A bounded PostgreSQL snapshot showed 11 client backends
+against 100 configured connections. No pool/thread/DB limit or business rule
+changed. Final full backend/frontend regression, clean Compose recreation,
+browser regression, hosted CI, adversarial review and documentation
+reconciliation belong to Session 3. Phase 17 is **not complete**.

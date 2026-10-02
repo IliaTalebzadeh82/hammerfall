@@ -955,5 +955,19 @@ rows directly, including a same-key race on distinct processes.
 **Checker detail:** a Rails runner may retain query-cache entries while another
 process writes through HTTP. Uncached SQL reads are necessary when using that
 runner as a direct-state oracle. [Session 1 evidence](multi-instance/session-1.md)
-shows both the corrected topology and the direct results; realtime and
-process-failure proofs remain in later sessions.
+shows both the corrected topology and the direct results.
+
+**Session 2 lesson:** an Action Cable socket naturally belongs to one Rails
+process, but PostgreSQL pub/sub carried an invalidation from a bid handled by
+the other. The browser then fetched current state by REST. Stopping the
+socket's process disconnected it; one run automatically resubscribed, while
+later runs did not within 30 seconds. Visibility-triggered REST still recovered
+the price. Correctness cannot depend on the transport reconnecting promptly.
+
+For lock experiments, counting only processes directly blocked by a held
+auction row missed the second bid waiting behind the first. The verifier needed
+uncached `pg_stat_activity`, a cleared PostgreSQL statistics snapshot and the
+transitive lock chain. The resulting two-process wait proved one serialized
+soft-close extension and post-lock DB-clock deadline rejection. See
+[Session 2](multi-instance/session-2.md); the connection count is an
+observation, not a capacity estimate.

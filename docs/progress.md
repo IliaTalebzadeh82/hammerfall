@@ -2092,3 +2092,18 @@ and the existing sequential API smoke via proxy passed. See the
 [Session 1 report](multi-instance/session-1.md) for failures corrected and
 limits. Realtime, process failure, deadlines, full/browser/hosted CI remain;
 Phase 17 is not complete.
+
+### Phase 17 Session 2 — 2026-10-02
+
+Live Compose/browser runs proved cross-process PostgreSQL Cable fanout, REST
+refresh from a public revision hint, missed-hint visibility recovery, replica
+stop/rejoin, and both committed/uncommitted crash-window retries onto the other
+API process. Direct SQL verified bid history, revisions, outbox and completed
+command outcomes. Real row-lock chains across the APIs proved coherent soft
+close and DB-clock deadline rejection; the separate closer process produced one
+valid closed state in a competing bid race. Focused RSpec passed 82 examples,
+zero failures (seed 39585); targeted static/config checks passed. The socket
+always disconnected when its owner stopped, but automatic resubscription was
+observed in only one retained run and absent within 30 seconds in later runs;
+browser REST recovery worked. See [Session 2](multi-instance/session-2.md).
+Full gates, hosted CI, final review and Phase 17 closure remain pending.

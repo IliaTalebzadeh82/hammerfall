@@ -503,5 +503,12 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   sends commands through the stable proxy and verifies uncached PostgreSQL
   results. [Session 1](multi-instance/session-1.md) and the
   [active ExecPlan](plans/phase-17-execplan.md) index current evidence.
+- The proxy's local `X-Hammerfall-Cable-Upstream` upgrade header lets the
+  browser harness attribute a socket to a real container. `apps/web/scripts/phase17_session2_realtime.mjs`
+  checks cross-process hints, browser REST refresh, missed hints and owner
+  stop/rejoin. `apps/api/script/phase17_session2_ambiguity.py` runs the two
+  scoped command crash boundaries; `phase17_session2_deadlines.rb` measures
+  real PostgreSQL lock chains for soft close, deadline and closer races. See
+  [Session 2](multi-instance/session-2.md) for evidence and limitations.
   The [final review](benchmarks/phase-15-final.md) classifies retained
   diagnostics, rejected tuning and the remaining measurement boundaries.
