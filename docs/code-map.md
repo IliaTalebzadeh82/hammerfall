@@ -496,19 +496,23 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
 
 - `docker-compose.yml` keeps `api` and adds `api-replica-b`; `api-proxy` owns
   localhost:3001. `infrastructure/api-proxy.conf` routes HTTP and WebSocket
-  upgrades without affinity; `infrastructure/nginx-local.conf` fixes one local
-  nginx worker for observable round-robin distribution.
+  upgrades without affinity and bounds dead-upstream Cable connects to five
+  seconds; `infrastructure/nginx-local.conf` fixes one local nginx worker for
+  observable round-robin distribution.
 - `apps/api/app/controllers/api/v1/base_controller.rb` emits the bounded
   development-only diagnostic instance header. `script/phase17_session1.rb`
   sends commands through the stable proxy and verifies uncached PostgreSQL
   results. [Session 1](multi-instance/session-1.md) and the
-  [active ExecPlan](plans/phase-17-execplan.md) index current evidence.
+  [final review](multi-instance/phase-17-final.md) index evidence.
 - The proxy's local `X-Hammerfall-Cable-Upstream` upgrade header lets the
   browser harness attribute a socket to a real container. `apps/web/scripts/phase17_session2_realtime.mjs`
   checks cross-process hints, browser REST refresh, missed hints and owner
-  stop/rejoin. `apps/api/script/phase17_session2_ambiguity.py` runs the two
+  stop/rejoin. CDP records Cable creation, attempts, handshake and closure;
+  the final upstream address identifies the actual socket owner after a proxy
+  retry. `apps/api/script/phase17_session2_ambiguity.py` runs the two
   scoped command crash boundaries; `phase17_session2_deadlines.rb` measures
   real PostgreSQL lock chains for soft close, deadline and closer races. See
-  [Session 2](multi-instance/session-2.md) for evidence and limitations.
+  [Session 2](multi-instance/session-2.md) for the live campaign and the
+  [final review](multi-instance/phase-17-final.md) for closure and limits.
   The [final review](benchmarks/phase-15-final.md) classifies retained
   diagnostics, rejected tuning and the remaining measurement boundaries.

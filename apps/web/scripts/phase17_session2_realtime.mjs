@@ -77,29 +77,58 @@ try {
     hints = [];
     browserReads = [];
     socketEvents = [];
+    const cableRequests = new Set();
     const cdp = await context.newCDPSession(page);
+    const record = (kind, details = {}) =>
+      socketEvents.push({ at: new Date().toISOString(), kind, ...details });
     await cdp.send("Network.enable");
-    cdp.on("Network.webSocketHandshakeResponseReceived", ({ response }) => {
-      const header = Object.entries(response.headers).find(
-        ([key]) => key.toLowerCase() === "x-hammerfall-cable-upstream",
-      )?.[1];
-      if (header) socketOwner = owners[String(header).split(":")[0]];
-      socketEvents.push({
-        kind: "handshake",
-        upstream: header,
-        owner: socketOwner,
-      });
+    cdp.on("Network.webSocketCreated", ({ requestId, url }) => {
+      if (!url.endsWith("/cable")) return;
+      cableRequests.add(requestId);
+      record("created", { requestId, url });
     });
-    cdp.on("Network.webSocketFrameReceived", ({ response }) => {
+    cdp.on("Network.webSocketWillSendHandshakeRequest", ({ requestId }) => {
+      if (cableRequests.has(requestId)) record("attempt", { requestId });
+    });
+    cdp.on(
+      "Network.webSocketHandshakeResponseReceived",
+      ({ requestId, response }) => {
+        if (!cableRequests.has(requestId)) return;
+        const header = Object.entries(response.headers).find(
+          ([key]) => key.toLowerCase() === "x-hammerfall-cable-upstream",
+        )?.[1];
+        if (header)
+          socketOwner =
+            owners[String(header).split(",").at(-1).trim().split(":")[0]];
+        record("handshake", {
+          status: response.status,
+          upstream: header,
+          owner: socketOwner,
+        });
+      },
+    );
+    cdp.on("Network.webSocketFrameError", ({ requestId, errorMessage }) => {
+      if (cableRequests.has(requestId))
+        record("frame-error", { requestId, errorMessage });
+    });
+    cdp.on("Network.webSocketFrameSent", ({ requestId, response }) => {
+      if (!cableRequests.has(requestId)) return;
+      try {
+        const frame = JSON.parse(response.payloadData);
+        if (frame.command === "subscribe") record("subscribe-sent");
+      } catch {
+        /* Ignore non-JSON frames. */
+      }
+    });
+    cdp.on("Network.webSocketFrameReceived", ({ requestId, response }) => {
+      if (!cableRequests.has(requestId)) return;
       try {
         const frame = JSON.parse(response.payloadData);
         if (frame.message?.type === "auction.changed.v1")
           hints.push(frame.message);
-        if (frame.type === "confirm_subscription")
-          socketEvents.push({ kind: "confirmed" });
+        if (frame.type === "confirm_subscription") record("confirmed");
         if (frame.type === "disconnect")
-          socketEvents.push({
-            kind: "disconnect",
+          record("disconnect", {
             reconnect: frame.reconnect,
             reason: frame.reason,
           });
@@ -107,9 +136,23 @@ try {
         /* Ignore protocol pings. */
       }
     });
-    cdp.on("Network.webSocketClosed", () =>
-      socketEvents.push({ kind: "closed" }),
-    );
+    cdp.on("Network.webSocketClosed", ({ requestId, timestamp }) => {
+      if (cableRequests.has(requestId))
+        record("closed", { requestId, timestamp });
+    });
+    page.on("console", (message) => {
+      if (message.type() === "error")
+        record("console-error", { text: message.text() });
+    });
+    await page.addInitScript(() => {
+      document.addEventListener("visibilitychange", () =>
+        console.info("PHASE17_VISIBILITY", document.visibilityState),
+      );
+    });
+    page.on("console", (message) => {
+      if (message.text().startsWith("PHASE17_VISIBILITY"))
+        record("visibility", { text: message.text() });
+    });
     page.on("response", async (response) => {
       if (
         response.url().includes(`/api/v1/auctions/${id}`) &&
@@ -262,6 +305,7 @@ try {
   }
   if (stopOwner) {
     assert.equal(target, "b", "Stop scenario owns the b socket");
+    const stopAt = new Date().toISOString();
     compose("stop", "api-replica-b");
     stopped = true;
     const recoveryDeadline = Date.now() + 30_000;
@@ -281,8 +325,10 @@ try {
       JSON.stringify({
         scenario: "socket-owner-stop-observation",
         auction_id: id,
+        stop_at: stopAt,
         socket_events: socketEvents,
         page_connection: await page.getByText(/Live updates/).allTextContents(),
+        page_visibility: await page.evaluate(() => document.visibilityState),
       }),
     );
     assert.ok(

@@ -1,22 +1,23 @@
 # Phase 17 — Multi-Instance Deployment ExecPlan
 
-Status: active; Session 2 checkpoint. Phase 18 excluded.
+Status: active; final hosted CI gate pending. Phase 18 excluded.
 
-Current milestone: completed live cross-process realtime, loss/rejoin, ambiguity and deadline campaigns. Stop at this checkpoint; Session 3 owns final closure gates and the observed socket-reconnection limitation.
+Current milestone: final local gates and adversarial review complete. The
+[final report](../multi-instance/phase-17-final.md) holds the concise outcome.
 
 Completed: Session 1 two-container/proxy topology and command proof; Session 2 cross-instance Cable and browser REST recovery, missed hint, stop/rejoin, committed and pre-commit crash retries, soft close, deadline and closer races. Starting commit `44eb6cef8a941faa1d77da61130666b11b0d11dd` for the phase; Session 2 started at `0efedbba69a3bc0bf12ea3a925007fe17473cc65`. [Session 1](../multi-instance/session-1.md) and [Session 2](../multi-instance/session-2.md) reports carry retained evidence and invalid harness attempts.
 
-Verified: Session 1's three command runs and 80 focused examples; Session 2's browser/CDP and direct PostgreSQL campaigns; 82 focused real-PostgreSQL RSpec examples, zero failures (seed 39585); targeted RuboCop, Biome lint/format, Ruby/Python/Node syntax, nginx and Compose validation and diff check. Hosted CI and full gates unrun.
+Verified: Session 1's three command runs and 80 focused examples; Session 2's browser/CDP and direct PostgreSQL campaigns and 82 focused RSpec examples. Final session: 449 full RSpec examples, zero failures, three opt-in pending; 73 frontend tests; seven normal Chrome scenarios; clean Compose recreation, proxy distribution, lifecycle/Kafka/Redis/background-role smokes, both cross-replica Cable directions and owner-loss reconnect/rejoin. RuboCop, Brakeman, dependency audit, Zeitwerk, frontend lint/format/typecheck/build, syntax, nginx/Compose and diff checks passed.
 
-Remaining: Session 3 investigate variable automatic Cable reconnection after stopping the socket-owning container; run full backend/frontend gates, clean Compose recreation, runtime/browser regression, hosted CI, final architecture/adversarial review and phase closure. Do not repeat passing Session 1/2 campaigns without a concrete invalidation. Phase 18 remains excluded.
+Remaining: commit/push closure changes, observe required hosted API/web/Compose jobs including the cross-replica step, then record final SHA/run, close this plan and rewrite the handoff for unstarted Phase 18. Do not repeat passing local campaigns without a concrete invalidation.
 
-Known failures/limitations: Session 1 harness/proxy corrections are in its report. Session 2's initial lock observer cached PostgreSQL activity and then missed a transitive waiter; corrected proof observed two waiters. A Python header-case assertion was fixed. The socket disconnected on replica stop; one run resubscribed on `a`, while later runs did not reconnect within 30 seconds. Browser visibility REST recovered the committed state in those runs. No domain correctness failure observed. Local two-replica proof is not production availability or capacity evidence.
+Known failures/limitations: Session 1/2 invalid harness attempts are retained in their reports. Final CDP found a new socket attempt hidden by nginx's dead-upstream Cable connect; adding a five-second timeout and parsing the final attempted upstream produced three confirmed recovery runs. A socket interruption remains. Local two-replica proof is not production availability, capacity, PostgreSQL failover or cloud load-balancer evidence.
 
 Relevant files: `docker-compose.yml`, `infrastructure/{api-proxy,nginx-local}.conf`, `apps/api/config/cable.yml`, `apps/api/app/{models/auction.rb,services/auction_publication.rb,services/idempotency/executor.rb}`, `apps/web/src/{components/auction/auction-detail.tsx,lib/realtime/auction-subscription.ts}`, three Phase 17 harness scripts, `.github/workflows/ci.yml` and focused integration specs.
 
 Relevant ADRs: ADR-003 (auction lock), ADR-004 (proxy bidding), ADR-005 (deadline), ADR-006 (idempotency), ADR-008 (Cable).
 
-Next-session starting point: read this plan, handoff and [Session 2 report](../multi-instance/session-2.md). Investigate the observed automatic reconnect variability using the existing browser harness and Action Cable monitor behavior; preserve REST recovery. Then perform one final broad verification/hosted CI/review pass and close Phase 17 only if all gates hold. Do not start Phase 18.
+Final review: no process-local auction authority, sticky routing, unsafe POST replay opt-in, duplicated background role or premature Phase 18 work found. No business-rule or frontend application code changed in this final session.
 
 ## Decisions
 
@@ -24,7 +25,7 @@ Next-session starting point: read this plan, handoff and [Session 2 report](../m
 - Use a fixed, local-only logical replica label in a diagnostic response header. It must not enter command or domain state.
 - Keep one operational closer and one reconciliation scheduler. Their authoritative checks remain PostgreSQL transactions/locks and durable lease state, respectively.
 - Add a local WebSocket upgrade response header with the upstream address solely for browser/CDP socket-owner attribution. The HTTP instance header remains diagnostic; no affinity or domain behavior changed.
-- Treat observed socket interruption and sometimes delayed/absent 30-second resubscription as expected realtime degradation for this checkpoint. REST/focus recovery is proven; final review should decide whether a client reconnect change is warranted.
+- Keep Action Cable's built-in reconnect monitor. Bound nginx's `/cable` dead-upstream connect to five seconds and retain REST/focus recovery. There is no uninterrupted failover or reconnect latency contract.
 
 ## Process-local audit
 
@@ -39,7 +40,7 @@ Next-session starting point: read this plan, handoff and [Session 2 report](../m
 | Realtime publication | SHARED BY DESIGN | Development Action Cable PostgreSQL adapter; hints crossed processes in live browser runs. |
 | Closer process and reconciliation scheduler | SAFE PROCESS-LOCAL | Operational polling only; locked DB recheck and durable lease decide effects. |
 
-No correctness-sensitive per-process map, mutex, sequence, idempotency record or maximum-bid state found in targeted `app`, `config` and `lib` search. Session 2 also confirmed session middleware is disabled and the scheduler uses a durable lease. Recheck any new code during final review.
+No correctness-sensitive per-process map, mutex, sequence, idempotency record or maximum-bid state found in targeted `app`, `config` and `lib` search. Session 2 confirmed session middleware is disabled and the scheduler uses a durable lease. Final review found the new instance labels and Cable diagnostic header remain presentation/observation only.
 
 ## Evidence Index
 
@@ -62,3 +63,5 @@ No correctness-sensitive per-process map, mutex, sequence, idempotency record or
 | DB deadline contention | Locked auction; bids `a` and `b` waited before due | Post-lock DB time decides | Both 422 `auction_ended` | Auction 616 no bids, rev/outbox 2, two completed rejections | Not sampled | Release after DB deadline | PASS | Closer paused for isolation |
 | Closer vs bid | API `a` and separate closer waited past due; later bid `b` | One coherent close; reject post-close bid | Both bids 422, closer finalized | Auction 618 closed once, no bid, rev/outbox 3, valid `closed_at` | Not sampled | Cross-process lock chain | PASS | One ordering; other order in focused RSpec |
 | Session 2 checks | Live Compose, real PostgreSQL test DB | Preserve contracts and configurations | 82 RSpec examples, seed 39585, zero failures; static checks passed | 11 client backends during two-API lock wait against 100 max | Browser campaigns above | None | PASS | Full/hosted CI in Session 3 |
+| Final reconnect investigation | Socket `b`, nginx retries dead upstream to `a` | Preserve client reconnection and REST authority | CDP recorded attempt, `b,a` upgrade chain and subscription confirmation after five-second connect timeout | Auction 645 revision 4 served by surviving and rejoined replica | Browser REST fetched revision 4; three post-change recovery runs | Replica stop | PASS WITH EXPECTED INTERRUPTION | [Final review](../multi-instance/phase-17-final.md); no latency guarantee |
+| Final local gates | Rebuilt Compose, two APIs and all background roles | Preserve entire system | 449 RSpec examples, 0 failures, 3 gated pending; seven Chrome scenarios; API/web/static/config gates pass | 13 development connections including sampler versus 100 configured | Fresh cross-replica Cable both directions, runtime Kafka/Redis/projection smokes pass | None | PASS | Hosted CI pending; local-only scope |

@@ -957,12 +957,14 @@ process writes through HTTP. Uncached SQL reads are necessary when using that
 runner as a direct-state oracle. [Session 1 evidence](multi-instance/session-1.md)
 shows both the corrected topology and the direct results.
 
-**Session 2 lesson:** an Action Cable socket naturally belongs to one Rails
-process, but PostgreSQL pub/sub carried an invalidation from a bid handled by
-the other. The browser then fetched current state by REST. Stopping the
-socket's process disconnected it; one run automatically resubscribed, while
-later runs did not within 30 seconds. Visibility-triggered REST still recovered
-the price. Correctness cannot depend on the transport reconnecting promptly.
+**Realtime and failover lesson:** an Action Cable socket belongs to one Rails
+process, while PostgreSQL pub/sub can carry another process's invalidation to
+it. The browser fetches current state by REST. Stopping the socket owner
+disconnects it. In the final CDP investigation, the client created a new
+socket, but nginx's Cable route waited on the dead upstream; a five-second
+connect timeout let nginx retry the survivor. The harness also had to read the
+last attempted upstream address. Subscription confirmation and visibility
+both trigger REST reads. Auction truth does not depend on prompt reconnect.
 
 For lock experiments, counting only processes directly blocked by a held
 auction row missed the second bid waiting behind the first. The verifier needed
@@ -971,3 +973,5 @@ transitive lock chain. The resulting two-process wait proved one serialized
 soft-close extension and post-lock DB-clock deadline rejection. See
 [Session 2](multi-instance/session-2.md); the connection count is an
 observation, not a capacity estimate.
+The [final review](multi-instance/phase-17-final.md) combines command,
+realtime, replica-loss and closure evidence with the local scaling limits.

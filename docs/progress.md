@@ -2107,3 +2107,28 @@ always disconnected when its owner stopped, but automatic resubscription was
 observed in only one retained run and absent within 30 seconds in later runs;
 browser REST recovery worked. See [Session 2](multi-instance/session-2.md).
 Full gates, hosted CI, final review and Phase 17 closure remain pending.
+
+### Phase 17 final local verification — 2026-10-02
+
+The [final multi-instance report](multi-instance/phase-17-final.md) reconciles
+both sessions. CDP showed Action Cable did create another socket after owner
+loss; nginx stalled its upgrade while connecting to the dead upstream. Giving
+`/cable` the same five-second connect timeout as ordinary HTTP let nginx retry
+the surviving API. The harness now distinguishes Cable from Next HMR sockets
+and reads the last address in nginx's multi-upstream diagnostic header. Three
+post-change stop runs confirmed resubscription; the fresh-stack run confirmed
+REST revision 4 on `a` and immediate current-state reads after `b` rejoined.
+There is still a visible interruption and no reconnect-latency guarantee.
+
+Full backend RSpec passed 449 examples, zero failures, three gated pending
+(seed 53371). Frontend lint/format/typecheck, 73 Vitest tests and production
+build passed. RuboCop, Brakeman, dependency audit, Zeitwerk and syntax/config
+checks passed. A clean Compose recreation brought up both APIs and all
+background roles healthy. Proxy GETs alternated `a,b`; API lifecycle,
+concurrent/proxy bidding, Kafka, Redis, closer, scheduler/publisher one-shots
+and the cross-replica command runner passed. Seven normal Chrome scenarios
+passed with one opt-in worker-outage scenario skipped. Fresh Cable runs proved
+both socket/mutation directions, owner-loss recovery and rejoin. A bounded DB
+snapshot counted 13 development connections including the sampler against
+`max_connections=100`; it is not capacity evidence. Hosted CI remains the
+last closure gate. Phase 18 has not started.

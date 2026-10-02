@@ -703,3 +703,16 @@ counting the transitive chain produced two observed waiters. Releasing after
 PostgreSQL time crossed the deadline yielded two valid rejections, while a
 separate near-deadline run serialized two accepted bids and one extension. See
 the [Session 2 report](multi-instance/session-2.md).
+
+## 2026-10-02 — A reconnect attempt can be hidden behind an upstream timeout
+
+The first CDP view showed only that a stopped Cable owner's socket closed and
+no new handshake appeared in 30 seconds. Recording socket creation and
+handshake attempts showed the browser had already retried. Nginx was waiting
+on the dead container because `/cable` lacked the ordinary HTTP route's
+five-second upstream connect timeout. Adding it allowed retry to the live
+replica. The upgrade diagnostic header then contained both upstream addresses;
+the harness initially called the successful `b,a` route `b`. Parsing its last
+address and excluding Next HMR sockets made the evidence accurate. No second
+client reconnect system was needed. The [final review](multi-instance/phase-17-final.md)
+records the local repeat and remaining interruption limit.

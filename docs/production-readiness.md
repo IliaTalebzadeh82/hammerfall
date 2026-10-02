@@ -190,3 +190,24 @@ a silent missed hint until an explicit/visibility/reconnect/later-hint REST
 refresh. Restore failed dependencies, inspect pending outbox/consumer lag and
 reconcile stale projections using the existing runbooks; corrupt or ahead
 projection keys still require operator review.
+
+## Phase 17 local multi-instance boundary
+
+Two Rails/Puma containers behind local nginx preserved PostgreSQL command
+correctness across replica changes, same-key retries, concurrent bids and
+deadline/close races. Action Cable used PostgreSQL pub/sub across processes;
+its public hint still requires REST recovery. A socket-owning replica's death
+interrupts the connection. The client monitor retries, and nginx's bounded
+Cable upstream connect timeout lets a retry reach the surviving replica; no
+reconnect time or uninterrupted delivery is guaranteed. A missed hint can
+leave an open page stale until a REST recovery trigger.
+
+Each added API may increase concurrent work reaching the same PostgreSQL rows
+and consume more DB connections. The two local API pools are configured for
+three each; Cable and background roles add connections. A single snapshot of
+13 development connections against 100 configured is not a capacity claim.
+This phase does not establish production high availability, PostgreSQL
+failover, large-replica behavior, cloud load balancing, autoscaling or
+Kubernetes operation. Background closer and scheduler process counts are
+operational choices; their correctness protocols are PostgreSQL locks and
+leases. See the [final review](multi-instance/phase-17-final.md).
