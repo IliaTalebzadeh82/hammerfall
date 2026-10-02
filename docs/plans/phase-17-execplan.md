@@ -1,6 +1,6 @@
 # Phase 17 — Multi-Instance Deployment ExecPlan
 
-Status: active; final hosted CI gate pending. Phase 18 excluded.
+Status: complete. Phase 18 has not started.
 
 Current milestone: final local gates and adversarial review complete. The
 [final report](../multi-instance/phase-17-final.md) holds the concise outcome.
@@ -9,7 +9,12 @@ Completed: Session 1 two-container/proxy topology and command proof; Session 2 c
 
 Verified: Session 1's three command runs and 80 focused examples; Session 2's browser/CDP and direct PostgreSQL campaigns and 82 focused RSpec examples. Final session: 449 full RSpec examples, zero failures, three opt-in pending; 73 frontend tests; seven normal Chrome scenarios; clean Compose recreation, proxy distribution, lifecycle/Kafka/Redis/background-role smokes, both cross-replica Cable directions and owner-loss reconnect/rejoin. RuboCop, Brakeman, dependency audit, Zeitwerk, frontend lint/format/typecheck/build, syntax, nginx/Compose and diff checks passed.
 
-Remaining: commit/push closure changes, observe required hosted API/web/Compose jobs including the cross-replica step, then record final SHA/run, close this plan and rewrite the handoff for unstarted Phase 18. Do not repeat passing local campaigns without a concrete invalidation.
+Remaining Phase 17 work: none. Hosted
+[run 36999538692](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36999538692)
+passed API, web and Compose on verification SHA
+`d36d05d831ed8d01376903dffbb39e27620c5199`, including cross-replica
+correctness and browser steps. The final documentation commit is separately
+subject to CI; no application/config change follows the verified SHA.
 
 Known failures/limitations: Session 1/2 invalid harness attempts are retained in their reports. Final CDP found a new socket attempt hidden by nginx's dead-upstream Cable connect; adding a five-second timeout and parsing the final attempted upstream produced three confirmed recovery runs. A socket interruption remains. Local two-replica proof is not production availability, capacity, PostgreSQL failover or cloud load-balancer evidence.
 
@@ -53,7 +58,7 @@ No correctness-sensitive per-process map, mutex, sequence, idempotency record or
 | Equal-ceiling proxy tie | Maximum commands on opposite processes | SQL priority resolves tie | `a→b` or `b→a` | Priority 1/2, original leader at 30,000, rev 4 | GET omitted private keys | None | PASS | Concurrent distinct-maximum race remains existing focused integration evidence |
 | Same-key concurrent claim and replay | Race across `a`,`b`, later replay opposite executor | One effect, historical response | One original 201 and one replayed 201 | One bid and one new idempotency record, rev 3 | Not sampled | None | PASS | Process-death ambiguity proven separately below |
 | Focused backend | Real PostgreSQL test DB | Preserve command contracts | `RAILS_ENV=test` on API container | 80 examples, 0 failures, seed 41872 | N/A | Initial invocation omitted test env and correctly aborted | PASS | Five focused files only |
-| Local static/runtime | Two API processes, proxy, web | Config valid and ordinary entrypoint works | nginx/Compose/Ruby/RuboCop passed | Existing `smoke-api` passed through proxy; auction 596 | Web root returned expected 307 | None | PASS | Browser ran in Session 2; hosted CI pending |
+| Local static/runtime | Two API processes, proxy, web | Config valid and ordinary entrypoint works | nginx/Compose/Ruby/RuboCop passed | Existing `smoke-api` passed through proxy; auction 596 | Web root returned expected 307 | None | PASS | Browser and hosted CI completed later below |
 | Cross-replica Cable | Socket `a`/bid `b` and inverse | Hint crosses process; REST owns state | Upgrade upstream IP and bid label differ | Auction 597 rev/outbox 3; 599 later rev/outbox 4 | Browser received public revision 3 and REST fetched 3 | None | PASS | Local PG pub/sub; [Session 2](../multi-instance/session-2.md) |
 | Missed hint REST | Socket `a`, bid `b`, Sidekiq paused | REST recovers absent hint | Bid committed while socket stayed connected | Auction 612 rev/outbox 4, two bids | No revision-4 hint before visibility GET; browser displayed €110 | Delayed notification | PASS WITH EXPECTED DEGRADATION | One scoped interruption |
 | Socket owner loss/rejoin | Socket `b`, then stop/start `b`; `a` serves | Truth and commands survive owner loss | Socket closed; one run reconnected on `a`, others did not within 30 s | Auctions 599/615 retained bids and rev 4 | Focus REST reached rev 4; rejoined `b` read rev 4 | Visible interruption | PASS WITH EXPECTED DEGRADATION | Reconnect variability needs final review |
@@ -62,6 +67,6 @@ No correctness-sensitive per-process map, mutex, sequence, idempotency record or
 | Soft-close contention | Locked auction; bid `a` then bid `b` | Serialize extension on SQL state | Both 201, two SQL waiters | Auction 608 sequences 1/2, original fixed, effective +90, rev/outbox 4 | Not sampled | Cross-process lock chain | PASS | Two commands only |
 | DB deadline contention | Locked auction; bids `a` and `b` waited before due | Post-lock DB time decides | Both 422 `auction_ended` | Auction 616 no bids, rev/outbox 2, two completed rejections | Not sampled | Release after DB deadline | PASS | Closer paused for isolation |
 | Closer vs bid | API `a` and separate closer waited past due; later bid `b` | One coherent close; reject post-close bid | Both bids 422, closer finalized | Auction 618 closed once, no bid, rev/outbox 3, valid `closed_at` | Not sampled | Cross-process lock chain | PASS | One ordering; other order in focused RSpec |
-| Session 2 checks | Live Compose, real PostgreSQL test DB | Preserve contracts and configurations | 82 RSpec examples, seed 39585, zero failures; static checks passed | 11 client backends during two-API lock wait against 100 max | Browser campaigns above | None | PASS | Full/hosted CI in Session 3 |
+| Session 2 checks | Live Compose, real PostgreSQL test DB | Preserve contracts and configurations | 82 RSpec examples, seed 39585, zero failures; static checks passed | 11 client backends during two-API lock wait against 100 max | Browser campaigns above | None | PASS | Full/hosted CI completed in final session below |
 | Final reconnect investigation | Socket `b`, nginx retries dead upstream to `a` | Preserve client reconnection and REST authority | CDP recorded attempt, `b,a` upgrade chain and subscription confirmation after five-second connect timeout | Auction 645 revision 4 served by surviving and rejoined replica | Browser REST fetched revision 4; three post-change recovery runs | Replica stop | PASS WITH EXPECTED INTERRUPTION | [Final review](../multi-instance/phase-17-final.md); no latency guarantee |
-| Final local gates | Rebuilt Compose, two APIs and all background roles | Preserve entire system | 449 RSpec examples, 0 failures, 3 gated pending; seven Chrome scenarios; API/web/static/config gates pass | 13 development connections including sampler versus 100 configured | Fresh cross-replica Cable both directions, runtime Kafka/Redis/projection smokes pass | None | PASS | Hosted CI pending; local-only scope |
+| Final local gates | Rebuilt Compose, two APIs and all background roles | Preserve entire system | 449 RSpec examples, 0 failures, 3 gated pending; seven Chrome scenarios; API/web/static/config gates pass | 13 development connections including sampler versus 100 configured | Fresh cross-replica Cable both directions, runtime Kafka/Redis/projection smokes pass | None | PASS | Local-only scope; [hosted CI](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36999538692) green |

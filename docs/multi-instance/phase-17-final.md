@@ -111,4 +111,8 @@ regional failover, zero interruption or exactly-once WebSocket delivery. More
 APIs can send more concurrent work to shared PostgreSQL, raising hot-row and
 connection contention. Phase 17 did not tune pools or redesign ordering.
 
-Hosted CI evidence: pending closure commit.
+Hosted [GitHub Actions run 36999538692](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36999538692)
+on verification SHA `d36d05d831ed8d01376903dffbb39e27620c5199`
+completed successfully: API, web and Compose jobs passed, including the
+cross-replica correctness and real-browser steps. The final documentation
+commit has no application/config change and receives its own CI run.

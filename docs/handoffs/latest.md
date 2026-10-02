@@ -1,42 +1,48 @@
-# Current handoff — Phase 17 Session 2 checkpoint
+# Current handoff — Phase 17 complete
 
-Updated: 2026-10-02. Phase 17 remains active; Phase 18 is excluded. Resume in
-a fresh conversation with [Phase 17](../phases/phase-17.md), the
-[active ExecPlan](../plans/phase-17-execplan.md) and the
-[Session 2 report](../multi-instance/session-2.md). Session 1's initial
-two-replica/proxy and sequential/concurrent command proof is retained in its
-[report](../multi-instance/session-1.md); do not replay it without a concrete
-invalidation.
+Updated: 2026-10-02. Phase 17 is complete. Phase 18 — Kubernetes has not
+started; begin it only on an explicit request. Read its
+[specification](../phases/phase-18.md) and use the
+[context map](../context-map.md) for targeted architecture when that work
+begins. The [Phase 17 final report](../multi-instance/phase-17-final.md) is
+the concise authority; its [ExecPlan](../plans/phase-17-execplan.md) indexes
+the two detailed sessions and verification evidence.
 
-The local nginx endpoint `localhost:3001` routes ordinary HTTP and Cable to
-two Rails/Puma processes without affinity. Session 2 used a local upgrade
-header plus Chrome DevTools to prove a browser WebSocket on `a` received a
-PostgreSQL-backed revision hint caused by a bid on `b`, and the inverse. The
-browser fetched the matching public revision by REST and displayed the price;
-the hint carried only `type`, `auction_id`, `revision`. A scoped missed hint
-while Sidekiq was stopped still recovered through browser visibility REST.
+Two local Rails/Puma API containers run behind nginx without sticky routing.
+Proxy GETs and command responses reached both; sequential/concurrent bidding,
+proxy/max bids, same-key replay and ambiguous committed/uncommitted retries
+remained correct across replicas. PostgreSQL row locks, SQL uniqueness,
+post-lock DB time, transactions, idempotency rows, outbox rows and public
+revision remain authoritative. The API processes are replaceable executors.
+Redis, Kafka, Sidekiq and Cable remain downstream delivery/derived state.
 
-Stopping socket-owning `b` closed the WebSocket. One run resubscribed on `a`;
-later runs did not show a new handshake within 30 seconds. In all retained
-runs, `a` served new bids and GETs, browser REST recovered current state and
-restarted `b` read the current PostgreSQL revision through the proxy without
-reconstruction. Investigate the variable automatic reconnect behavior before
-final closure; do not claim uninterrupted realtime failover.
+PostgreSQL Action Cable pub/sub carried public revision hints across API
+processes. The browser used each hint to fetch authoritative REST state.
+Stopping the socket-owning replica disconnected Cable but left the surviving
+replica able to serve bids and reads. CDP showed Action Cable's monitor
+created a reconnect attempt; nginx's five-second Cable upstream connect
+timeout let it retry the survivor. A confirmed resubscription and REST
+recovery followed in retained local runs. Visibility REST recovery still
+matters for missed hints. Rejoining the stopped API immediately read current
+PostgreSQL state without reconstruction. No uninterrupted delivery or
+reconnect-latency promise exists.
 
-Scoped process death on `b` after commit produced HTTP 502, then same-key
-replay on `a` returned the original 201 with no extra bid, revision, outbox
-row or command effect. Death before commit left no partial SQL state; the same
-key executed once on `a`. Direct PostgreSQL snapshots proved both boundaries.
-Cross-replica bids waiting behind one auction lock produced two valid soft-close
-bids with one extension in that timing. A separate race held both bids until
-after PostgreSQL time passed the deadline; both were rejected. An autonomous
-closer racing a waiting bid finalized one coherent closed state. Existing
-focused tests prove the complementary close order and duplicate close safety.
+One closer and one reconciliation scheduler are operational roles. Closure
+uses auction row locking and DB-time recheck; scheduled reconciliation uses
+durable PostgreSQL leases. Replica-local diagnostics do not decide outcomes.
+Each additional API may add concurrent PostgreSQL work and connections: the
+two API pools are configured for three each, plus Cable/background services.
+One snapshot found 13 development connections including the sampler against
+`max_connections=100`; this is not a capacity finding.
 
-Session 2 focused RSpec passed 82 examples with zero failures (seed 39585).
-Targeted RuboCop, Biome, Ruby/Python/Node syntax, nginx/Compose validation and
-diff checks passed. A bounded PostgreSQL snapshot showed 11 client backends
-against 100 configured connections. No pool/thread/DB limit or business rule
-changed. Final full backend/frontend regression, clean Compose recreation,
-browser regression, hosted CI, adversarial review and documentation
-reconciliation belong to Session 3. Phase 17 is **not complete**.
+Final local gates: 449 backend examples, zero failures, three opt-in pending;
+73 frontend tests; seven normal Chrome scenarios; rebuilt Compose and
+runtime/Kafka/Redis/background smokes; static/security/config checks. Hosted
+[GitHub Actions run 36999538692](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36999538692)
+passed API, web and Compose, including cross-replica correctness and browser
+steps, on verification SHA `d36d05d831ed8d01376903dffbb39e27620c5199`.
+
+The proof covers two local API processes only. It does not establish linear
+throughput, production capacity, Kubernetes/autoscaling, PostgreSQL failover,
+large replica counts, cloud load balancing or regional failover. Phase 18 has
+not started.

@@ -2132,3 +2132,15 @@ both socket/mutation directions, owner-loss recovery and rejoin. A bounded DB
 snapshot counted 13 development connections including the sampler against
 `max_connections=100`; it is not capacity evidence. Hosted CI remains the
 last closure gate. Phase 18 has not started.
+
+### Phase 17 complete — 2026-10-02
+
+Verification SHA `d36d05d831ed8d01376903dffbb39e27620c5199`
+passed hosted [GitHub Actions run 36999538692](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36999538692):
+required API, web and Compose jobs succeeded, including the cross-replica
+auction correctness and real-browser steps. The
+[final report](multi-instance/phase-17-final.md) records retained topology,
+command, failure, realtime, deadline and reconnect evidence and explicit
+local-only limits. The last closure commit updates documentation only. No
+known serious correctness bug remains in Phase 17 scope. Phase 18 has not
+started.
