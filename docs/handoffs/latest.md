@@ -1,37 +1,9 @@
-# Current handoff — Phase 19 gated
+# Current handoff — Phase 19 active, Session 1 checkpoint
 
-Updated: 2026-10-03. Phase 18 — Kubernetes is complete. Phase 19 (Terraform
-and GCP) has not started; begin it only on an explicit user request. Read
-`AGENTS.md`, the [Phase 19 specification](../phases/phase-19.md), this handoff
-and [context map](../context-map.md) before opening a new phase ExecPlan.
+Updated: 2026-10-03. Phase 18 is complete; Phase 19 Terraform/GCP work is explicitly authorized, but cloud spending and resource creation are not. Session 1 reached its architecture and safe-IaC milestone. Resume in a fresh conversation from the [Phase 19 ExecPlan](../plans/phase-19-execplan.md), [Session 1 report](../cloud/session-1.md) and [Phase 19 spec](../phases/phase-19.md). Phase 19 is **not complete**; Phase 20 is gated.
 
-Phase 18's [final review](../kubernetes/phase-18-final.md),
-[ADR-014](../adr/014-local-kubernetes-process-orchestration.md),
-[Session 1](../kubernetes/session-1.md) and
-[Session 2](../kubernetes/session-2.md) are the durable evidence. The local
-one-node kind topology places two API pods, two web pods and seven recoverable
-background roles in Kubernetes. PostgreSQL, Redis and Kafka deliberately
-remain in Compose. The setup script pins a compatible Kubernetes 1.36.4 node
-image, regenerates external endpoints and a local database Secret, and runs
-`db-prepare` before application rollout. API readiness queries PostgreSQL;
-liveness stays independent of Redis/Kafka. Manual API scaling, rolling
-updates, pod replacement, bounded active termination, same-key replay,
-worker recovery, Kafka rebalance, closer/scheduler recovery and real Chrome
-Cable/REST recovery were exercised. The fresh-cluster proof and normal
-Compose workflow both passed. Hosted verification commit
-`0c01c1a7b4679131cb317e9c52208ba4484d1cb6` passed
-[CI run 37066291721](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37066291721)
-for API, web and Compose.
+[ADR-015](../adr/015-gcp-reference-infrastructure.md) adopts a `europe-west4` GKE Autopilot reference with PostgreSQL authority in private Cloud SQL, derived Redis, a managed-Kafka target, Artifact Registry, WIF/Secret Manager and private VPC. [Architecture](../cloud/architecture.md) and [cost model](../cloud/cost-estimate.md) separate public Catawiki evidence from Hammerfall decisions and show a region-qualified planning estimate. The Terraform foundation in `infra/terraform/` has disabled bootstrap and reference roots; `enable_reference_infrastructure=false` and `enable_redis=false` by default. No broker, public edge, secret payload or application Deployment is provisioned. No GCP login, billing change, API mutation, apply or paid resource occurred.
 
-Cloud work must retain PostgreSQL auction authority and the durable lock,
-idempotency, outbox, consumer and reconciliation protocols. The local
-resource requests/limits are starting guardrails, not production sizes. HPA
-was omitted pending meaningful metrics and a database connection budget;
-PDB was omitted because one-node kind cannot prove voluntary-disruption
-availability. Metrics-server was absent. A fresh pod deletion caused one
-transient 502 in 40 reads before recovery, so do not claim uninterrupted
-responses. Long active worker termination, multi-node placement, stateful
-HA, production TLS/secrets, cloud networking/load balancing and capacity
-remain unproven and belong to later work. Do not infer Phase 19's GCP or
-Terraform design from local Docker networking. No Phase 19 implementation
-exists.
+Static `terraform fmt -check` passed. Both roots passed `init -backend=false` and `validate` on the final HCL using a checksum-verified OpenTofu mirror of Google provider 8.5.0 because HashiCorp distribution endpoints returned a geographic block. Committed lock files contain official HashiCorp release ZIP hashes. A credential-free plan stopped at missing ADC; official-provider validation, real plan, Netherlands SKU quote and cloud connectivity are unverified. Host Terraform and gcloud were absent; kubectl client was v1.35.9. See the ExecPlan Evidence Index for commands and limits.
+
+Next: implement and test managed Kafka TLS/auth without changing partitions/offset semantics; Redis TLS/auth and out-of-state secret flow; Cloud SQL user/verified TLS connection; workload KSAs/Secret Manager mounts; then cloud-specific Gateway, workload overlay, cost and failure review. Application and Compose/Kubernetes regression remains a final Phase 19 gate. Do not infer production readiness from Phase 18's one-node kind proof or its local resource requests. Do not apply Terraform or create any billable resource without a separate explicit instruction.

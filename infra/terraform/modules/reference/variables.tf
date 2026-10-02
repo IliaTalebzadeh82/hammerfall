@@ -1,0 +1,9 @@
+variable "project_id" { type = string }
+variable "region" { type = string }
+variable "environment" { type = string }
+variable "admin_cidr" { type = string }
+variable "sql_tier" { type = string }
+variable "sql_availability_type" { type = string }
+variable "redis_tier" { type = string }
+variable "redis_memory_gb" { type = number }
+variable "enable_redis" { type = bool }

@@ -1,0 +1,8 @@
+project_id = "replace-with-dedicated-project-id"
+
+# Only after separate authorization to create billable resources:
+# enable_reference_infrastructure = true
+# admin_cidr = "203.0.113.10/32"
+# sql_availability_type = "REGIONAL"
+# redis_tier = "STANDARD_HA"
+# enable_redis = true # only after TLS/auth client work and an explicit review

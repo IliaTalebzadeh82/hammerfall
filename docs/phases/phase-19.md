@@ -1,6 +1,6 @@
 # Phase 19 — Terraform + Gcp Architecture
 
-Status: Planned; begin only on an explicit request
+Status: Active since 2026-10-03 by explicit request; Session 1 checkpoint recorded in the [ExecPlan](../plans/phase-19-execplan.md)
 
 ## Goal
 
