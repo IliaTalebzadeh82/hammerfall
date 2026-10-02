@@ -171,3 +171,22 @@ finding, production capacity, SLO or cloud-sizing conclusion. The ordinary
 local development runtime remains three threads/pool three with reloading on;
 diagnostic profiling is opt-in. A production traffic and resource study is
 needed before deployment sizing.
+
+## Phase 16 local failure boundary
+
+The [final chaos review](chaos/phase-16-final.md) links direct PostgreSQL
+checks, retained Redis/Kafka/worker/API faults and browser REST recovery.
+Kafka publication is at least once: a publisher died after broker acceptance
+and retried the same event. Consumer event-ID deduplication kept one durable
+audit effect, and revision guards prevented Redis regression. A lost HTTP
+response after commit requires a same-key/same-payload client retry; the
+historical outcome is then replayed, followed by a fresh GET for current
+state. A pre-commit API death rolled its command and outbox back together.
+
+These one-instance Compose observations do not establish multi-instance
+behavior, PostgreSQL failover, Kafka/Redis high availability, production
+recovery time or durable WebSocket delivery. A browser can remain stale during
+a silent missed hint until an explicit/visibility/reconnect/later-hint REST
+refresh. Restore failed dependencies, inspect pending outbox/consumer lag and
+reconcile stale projections using the existing runbooks; corrupt or ahead
+projection keys still require operator review.

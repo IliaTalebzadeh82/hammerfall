@@ -7,6 +7,10 @@ is the direct PostgreSQL correctness checker. No raw request body, private
 maximum, idempotency key or full process log is retained.
 
 [Session 1 report](session-1.md) is the evidence index and interpretation.
+The [Session 2 report](session-2.md) covers ambiguous publisher, consumer and
+HTTP crash windows. The [final review](phase-16-final.md) and
+[final gates](final-gates.md) reconcile these sessions with browser recovery,
+regression, runtime and CI evidence.
 The three early failed/aborted baseline directories are retained as harness
 preflight failures, not treated as Hammerfall failures or successful campaigns.
 

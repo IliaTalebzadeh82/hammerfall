@@ -2041,3 +2041,27 @@ examples, zero failures, one gated live-Kafka pending example. Four invalid
 Session 2 harness attempts remain documented. Full regression, browser and
 CI gates plus final review remain; the phase is not complete and Phase 17 has
 not started.
+
+### Phase 16 final local verification — 2026-10-02
+
+The [final chaos review](chaos/phase-16-final.md) reconciles both retained
+sessions with real-browser evidence. The normal Chrome suite passed seven
+scenarios with one opt-in test skipped. The opt-in worker-outage scenario passed
+twice: Sidekiq and its outbox publisher stopped while Rails/Cable stayed up;
+an authoritative bid committed without a hint, explicit REST refreshed the
+browser, and a later hint after restoration triggered REST convergence. The
+browser did not invent price from Cable or duplicate a mutation.
+
+Final review found that event crash hooks needed the same atomic one-shot
+marker as command hooks; this was added and scoped guard tests passed. The
+focused failure-semantics suite passed 46 examples, zero failures, one gated
+pending. The full backend suite passed 449 examples, zero failures, three
+gated pending, both before and after that hook change. `scripts/check` passed
+RuboCop, Brakeman, Zeitwerk, 73 Vitest tests, frontend lint/format/typecheck
+and production build. Dependency audit reported no vulnerabilities. Rebuilt
+Compose and established Kafka, API lifecycle, closer, concurrent/proxy,
+scheduler/publisher and prune smokes passed; a second full recreation had no
+chaos marker, environment or log and a new Kafka smoke passed. The retained
+Session 2 test log's local Redis URL was redacted. Exact commands, browser
+fixtures and limits are in the [final gate record](chaos/final-gates.md).
+Hosted CI and phase closure remain pending. Phase 17 has not started.

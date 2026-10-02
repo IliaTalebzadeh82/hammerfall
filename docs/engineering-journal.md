@@ -661,3 +661,15 @@ intended command boundary but still let a 201 response complete; synchronous
 `Process.exit!` produced the actual lost connection. These invalid harness
 runs were retained, not promoted to correctness evidence. See the
 [Session 2 report](chaos/session-2.md).
+
+## 2026-10-02 — A connected socket can still miss a notification
+
+The browser stayed connected to the API/Cable process while Sidekiq and its
+outbox publisher were stopped. PostgreSQL accepted a bid and REST showed the
+new price, but the observer's history remained empty without a hint. An
+explicit REST refresh recovered it; after the workers restarted, a later
+revision hint prompted another REST read. This separates socket liveness from
+notification completeness. Phase 16 also found that event crash hooks lacked
+the command hook's atomic one-shot marker; adding the marker made respawn
+safety explicit without changing ordinary event delivery. See the
+[final review](chaos/phase-16-final.md).

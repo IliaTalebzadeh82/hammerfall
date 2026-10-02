@@ -6,6 +6,7 @@ import {
   type Page,
   type WebSocketRoute,
 } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 
 // Real Rails/PostgreSQL only. Labelled local demo records are retained.
 async function auction(request: APIRequestContext, seconds = 7200) {
@@ -156,6 +157,104 @@ test("two clients observe proxy settlement; reconnect recovers a missed commit a
   } finally {
     await a.context.close();
     await b.context.close();
+  }
+});
+
+test("REST recovers a bid while notification workers are stopped; a later hint refreshes automatically", async ({
+  browser,
+  request,
+  baseURL,
+}) => {
+  test.skip(
+    process.env.PHASE16_CHAOS_BROWSER !== "1",
+    "Local Compose fault injection is opt-in",
+  );
+  test.setTimeout(120000);
+  const users = (await (await request.get("/api/v1/users")).json()).data;
+  const id = await auction(request);
+  const observer = await client(
+    browser,
+    baseURL ?? "http://127.0.0.1:3000",
+    id,
+    users[1].id,
+  );
+  const hints: number[] = [];
+  let reads = 0;
+  observer.page.on("websocket", (socket) => {
+    if (new URL(socket.url()).pathname !== "/cable") return;
+    socket.on("framereceived", ({ payload }) => {
+      const frame = JSON.parse(payload.toString());
+      if (frame.message?.type === "auction.changed.v1") {
+        expect(Object.keys(frame.message).sort()).toEqual([
+          "auction_id",
+          "revision",
+          "type",
+        ]);
+        hints.push(frame.message.revision);
+      }
+    });
+  });
+  observer.page.on("request", (req) => {
+    if (req.method() === "GET" && req.url().endsWith(`/api/v1/auctions/${id}`))
+      reads++;
+  });
+  let stopped = false;
+  try {
+    await observer.open();
+    stopped = true;
+    execFileSync("docker", ["compose", "stop", "sidekiq", "outbox-publisher"]);
+    const before = await state(request, id);
+    const first = await request.post(`/api/v1/auctions/${id}/bids`, {
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      data: { bid: { bidder_id: users[0].id, amount: 10000 } },
+    });
+    expect(first.status()).toBe(201);
+    const committed = await state(request, id);
+    expect(committed.public_revision).toBe(before.public_revision + 1);
+    expect(committed.current_price).toBe(10000);
+    expect(committed.current_leader_id).toBe(users[0].id);
+    expect(hints).not.toContain(committed.public_revision);
+    await expect(observer.page.locator(".hero-price")).toHaveText("€100.00");
+    expect(await observer.page.locator("tbody tr").count()).toBe(0);
+    const readsBeforeRecovery = reads;
+    await observer.page
+      .getByRole("button", { name: "Refresh auction" })
+      .click();
+    await expect(observer.page.locator("tbody tr")).toHaveCount(1);
+    expect(reads).toBeGreaterThan(readsBeforeRecovery);
+    await expect(
+      observer.page.getByText(`Current leader · ${users[0].name}`),
+    ).toBeVisible();
+    execFileSync("docker", ["compose", "start", "sidekiq", "outbox-publisher"]);
+    stopped = false;
+    const second = await request.post(`/api/v1/auctions/${id}/bids`, {
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      data: { bid: { bidder_id: users[1].id, amount: 20000 } },
+    });
+    expect(second.status()).toBe(201);
+    const final = await state(request, id);
+    await expect.poll(() => hints).toContain(final.public_revision);
+    await expect(observer.page.locator(".hero-price")).toHaveText("€200.00");
+    await expect(observer.page.locator("tbody tr")).toHaveCount(2);
+    expect(final.current_leader_id).toBe(users[1].id);
+    expect(
+      (await (await request.get(`/api/v1/auctions/${id}/bids`)).json()).data,
+    ).toHaveLength(2);
+    expect(await observer.page.locator("body").innerText()).not.toMatch(
+      /private.max|maximum.priority|idempotency.key/i,
+    );
+    console.log(
+      `Phase 16 worker outage auction=${id} revision=${before.public_revision}->${committed.public_revision}->${final.public_revision} REST recovery and resumed Cable hint observed`,
+    );
+  } finally {
+    if (stopped)
+      execFileSync("docker", [
+        "compose",
+        "start",
+        "sidekiq",
+        "outbox-publisher",
+      ]);
+    await observer.context.close();
   }
 });
 

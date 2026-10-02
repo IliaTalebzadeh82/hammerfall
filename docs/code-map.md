@@ -472,7 +472,7 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   above finite histogram buckets. The [Session 2 report](benchmarks/phase-15-session-2.md)
   records the rejected Puma/pool experiments and runtime limits.
 
-## Phase 16 chaos map (active)
+## Phase 16 chaos map
 
 - `scripts/chaos/run.py` creates isolated auctions, snapshots direct SQL and
   public reads, applies bounded faults and invokes the PostgreSQL checker.
@@ -485,7 +485,11 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   `Idempotency::Executor` and `IdempotentBidding` invoke it before and after
   the command transaction. The hook targets one event or auction and is inert
   in production. `script/chaos_probe.rb` retains public counts and digests.
-- [Session 1](chaos/session-1.md), [Session 2](chaos/session-2.md) and the
-  [active ExecPlan](plans/phase-16-execplan.md) index direct local evidence.
+- `apps/web/e2e/realtime.spec.ts` includes an opt-in real Compose worker-outage
+  browser test: explicit REST refresh recovers a missed hint, then a later hint
+  triggers another REST read. It uses PostgreSQL-backed API results for truth.
+- [Session 1](chaos/session-1.md), [Session 2](chaos/session-2.md), the
+  [final review](chaos/phase-16-final.md) and
+  [ExecPlan](plans/phase-16-execplan.md) index direct local evidence.
   The [final review](benchmarks/phase-15-final.md) classifies retained
   diagnostics, rejected tuning and the remaining measurement boundaries.

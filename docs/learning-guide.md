@@ -920,7 +920,7 @@ the whole HTTP path. A queue can migrate to a new resource when concurrency
 is raised; compare accepted work, latency and resource cost before retaining
 a configuration change.
 
-## Phase 16 crash-window lesson (active)
+## Phase 16 crash-window lesson
 
 **Question:** what happens when an external effect succeeds but the local
 acknowledgment, consumer offset or HTTP response is lost?
@@ -935,7 +935,10 @@ event ID and projections by revision; a client retries the same semantic
 command with the same key and obtains its historical result. A fresh GET
 supplies current state.
 
-**Evidence and limit:** [Session 2](chaos/session-2.md) observed each ambiguous
-boundary with targeted local process death, direct state and offset checks.
-Local recovery timing is not an SLA, and browser Cable receipt remains for
-the final Phase 16 session.
+**Evidence and limit:** [Session 2](chaos/session-2.md) observed the ambiguous
+publisher, consumer and HTTP boundaries with targeted local process death,
+direct state and offset checks. The [final review](chaos/phase-16-final.md)
+adds the six-window timing taxonomy. A real browser observed explicit REST
+recovery while notification workers were stopped and later hint-driven REST
+convergence after restoration. Local recovery timing is not an SLA; a silently
+missed hint can leave an open page stale until a recovery trigger.

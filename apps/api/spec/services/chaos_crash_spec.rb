@@ -22,9 +22,14 @@ RSpec.describe ChaosCrash do
 
   it "kills only at the configured local boundary and event" do
     configure(boundary: "kafka_delivered")
-    expect(Process).to receive(:kill).with("KILL", Process.pid).once
-    described_class.at!("audit_effect_committed", event_id)
-    described_class.at!("kafka_delivered", event_id)
+    Dir.mktmpdir do |dir|
+      stub_const("ChaosCrash::MARKER_DIR", dir)
+      expect(Process).to receive(:kill).with("KILL", Process.pid).once
+      described_class.at!("audit_effect_committed", event_id)
+      described_class.at!("kafka_delivered", event_id)
+      described_class.at!("kafka_delivered", event_id)
+      expect(Dir.children(dir)).to have_attributes(length: 1)
+    end
   end
 
   it "is inert in production even with opt-in variables" do
@@ -40,7 +45,7 @@ RSpec.describe ChaosCrash do
     allow(ENV).to receive(:[]).with("HAMMERFALL_CHAOS_CRASH_BOUNDARY").and_return("command_committed")
     allow(ENV).to receive(:[]).with("HAMMERFALL_CHAOS_AUCTION_ID").and_return("42")
     Dir.mktmpdir do |dir|
-      stub_const("ChaosCrash::COMMAND_MARKER_DIR", dir)
+      stub_const("ChaosCrash::MARKER_DIR", dir)
       expect(Process).to receive(:exit!).with(137).once
       described_class.at_command!("command_before_commit", 42)
       described_class.at_command!("command_committed", 43)

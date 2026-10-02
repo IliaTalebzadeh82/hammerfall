@@ -1,8 +1,10 @@
 # Phase 16 — Chaos Testing ExecPlan
 
-Status: active; Session 2 checkpoint complete. Phase 17 is excluded.
+Status: final local gates passed; hosted CI and closure remain. Phase 17 is excluded.
 
-Current milestone: deterministic ambiguous crash windows and API restart retained.
+Current milestone: browser/worker recovery, broad regression, runtime and final
+adversarial review retained. See the [final report](../chaos/phase-16-final.md)
+and [gate record](../chaos/final-gates.md) instead of replaying raw runs.
 
 Completed: Session 1's bounded outage campaigns plus Session 2's deterministic
 publisher post-broker/pre-SQL-ack, audit consumer post-effect/pre-offset,
@@ -18,21 +20,20 @@ derived comparison. Session 2's relevant RSpec files passed 46 examples,
 0 failures, 1 gated live-Kafka pending. Focused static/privacy checks are
 indexed below.
 
-Remaining: final browser REST recovery/Cable scenario if feasible, full backend
-and frontend regression/lint, local runtime and hosted CI gates, final
-adversarial review, documentation reconciliation and Phase 16 closure. Phase 17
-requires a separate request. Reconciliation crash is supported by Phase 12
-lease/fencing tests and Session 1 repair; no redundant Session 2 campaign was
-run. Browser notification receipt was not directly observed.
+Remaining: hosted CI, closure status and handoff.
+Phase 17 requires a separate request. Reconciliation crash is supported by
+Phase 12 lease/fencing tests and Session 1 repair; no redundant campaign was
+run. Browser Cable receipt and REST recovery are now directly observed.
 
 Known failures/limitations: Session 1 has three preflight failures; Session 2
 has four invalid harness attempts retained and explained. No Hammerfall
 correctness failure was observed. Session 2 directly proved the exact publisher
 and audit consumer crash windows that Session 1 did not. Sidekiq job execution
 and reconciliation scan progress during API outage were not counted; their
-process independence was observed. WebSocket/browser recovery remains untested
-in Phase 16. Prometheus missed short-lived fixture backlog; direct state is
-the proof. Redis loss used fixture-key deletion, not a shared-volume wipe.
+process independence was observed. Browser recovery was observed for explicit
+refresh, reconnect and later hints; silent missed hints can leave an open page
+stale. Prometheus missed short-lived fixture backlog; direct state is the proof.
+Redis loss used fixture-key deletion, not a shared-volume wipe.
 
 Relevant files: `scripts/chaos/run.py`, `session2*.py`,
 `apps/api/app/services/chaos_crash.rb`, `apps/api/script/chaos_*.rb`,
@@ -42,12 +43,9 @@ idempotency executor.
 Relevant ADRs: ADR-010 (outbox), ADR-011 (Kafka), ADR-012 (projection),
 ADR-013 (reconciliation).
 
-Next-session starting point: read the compact handoff, this plan and
-[Session 2 report](../chaos/session-2.md). Do not rerun passed campaigns without
-a code change or concrete gap. Run final broad regression/lint and browser
-REST recovery/Cable verification; inspect current CI/runtime needs; then
-adversarially review and complete Phase 16 if all gates pass. Do not start
-Phase 17.
+Final-session next action: push coherent
+closure commit, observe hosted API/web/Compose jobs, record the run and mark
+Phase 16 complete only if required jobs pass. Do not start Phase 17.
 
 ## Decisions
 
@@ -65,6 +63,12 @@ Phase 17.
   a container-local marker so a respawned Puma process cannot repeat the fault.
 - Treat observed broker duplicate logs and unchanged durable audit counts as
   distinct claims. Retain Kafka committed-offset snapshots for consumer death.
+- The final browser test stops both Sidekiq and its publisher because API/Cable
+  is a separate process. A missed hint remains stale until a REST recovery
+  trigger; no automatic replay claim is made.
+- Event-scoped crash hooks now atomically claim a container-local marker too,
+  so a process respawn with the same opt-in fault cannot repeat it. Recreating
+  from base Compose removes the injected environment and marker.
 
 ## Evidence Index
 
@@ -88,6 +92,12 @@ Phase 17.
 | One-shot API hook | Two scoped Rails runner invocations in API container | PASS; exit 137 with marker, then exit 0 without second marker | [result](../chaos/session2-hook-once.json) |
 | Ruby/Python static checks | Ruby `-c` (6 files), Python AST parse (4 files), targeted RuboCop | PASS; Ruby/Python parse, 9 Ruby files without offenses | Session 2 report |
 | Raw-evidence privacy and local links | Pattern scan of Session 2 logs/JSON/YAML; local Markdown link resolution | PASS; zero sensitive-pattern matches, zero missing local links | Session 2 report |
+| Browser/Cable and worker outage | Real Chrome normal E2E plus opt-in Compose stop/start test | 7 normal passed, 1 gated skip; opt-in scenario passed, revision 2→3→4 with REST and later hint convergence | [final gates](../chaos/final-gates.md), `apps/web/e2e/realtime.spec.ts` |
+| Broad local gates | `scripts/check`, then backend rerun after hook hardening | 449 backend examples, 0 failures, 3 pending; 73 Vitest tests, build/lint/static passed | [final gates](../chaos/final-gates.md) |
+| Focused hook and failure semantics | RSpec three files, targeted RuboCop/Ruby syntax | 46 examples, 0 failures, 1 pending; static passed | [final gates](../chaos/final-gates.md) |
+| Rebuilt Compose/runtime | Force recreation and established CI smokes | Initial rebuild healthy; Kafka, API lifecycle, closer, concurrent/proxy and scheduler/publisher smokes passed | [final gates](../chaos/final-gates.md) |
+| Clean final recreation | `docker compose up -d --build --force-recreate --wait`; marker/env/log check; Kafka smoke | Healthy; no chaos marker/env/log; post-rebuild Kafka path passed | [final gates](../chaos/final-gates.md) |
+| Hosted CI | GitHub Actions API, web, Compose | Pending | [final gates](../chaos/final-gates.md) |
 
 ## Campaign record
 

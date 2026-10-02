@@ -1,6 +1,6 @@
 # Phase 16 — Chaos Testing
 
-Status: Planned; begin only on an explicit request
+Status: Active; local closure gates passed, hosted CI pending
 
 ## Goal
 
