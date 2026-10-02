@@ -1,7 +1,7 @@
 # Phase 18 — local Kubernetes final review
 
-Date: 2026-10-02. Scope: application process orchestration in a one-node kind
-cluster. [Session 1](session-1.md) and [Session 2](session-2.md) retain the
+Evidence collected 2026-10-02–03. Scope: application process orchestration in
+a one-node kind cluster. [Session 1](session-1.md) and [Session 2](session-2.md) retain the
 longer lifecycle observations; [ADR-014](../adr/014-local-kubernetes-process-orchestration.md)
 records the boundary. This review does not claim production Kubernetes
 readiness.
@@ -145,8 +145,11 @@ After the Kubernetes evidence was collected, the kind cluster was removed and
 `docker compose up --build --wait --wait-timeout 360` restored the ordinary
 development stack. Every running service with a health check reported healthy;
 API `/up` and `/ready` returned 200, the web root redirected normally, and a
-Compose web-proxied read of auction 660 returned 200. Hosted CI remains the
-separate final regression gate for the committed closure state.
+Compose web-proxied read of auction 660 returned 200. Verification commit
+`0c01c1a7b4679131cb317e9c52208ba4484d1cb6` passed hosted
+[GitHub Actions run 37066291721](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37066291721):
+API, web and Compose jobs all succeeded, including the hosted real-browser
+scenarios.
 
 A further Phase 18 load run was omitted: Phase 17 supplied multi-instance
 load/correctness evidence, while Sessions 1/2 and this fresh run exercised

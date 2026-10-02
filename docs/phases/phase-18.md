@@ -1,6 +1,6 @@
 # Phase 18 — Kubernetes
 
-Status: Planned; begin only on an explicit request
+Status: Complete; 2026-10-03. See the [final review](../kubernetes/phase-18-final.md).
 
 ## Goal
 

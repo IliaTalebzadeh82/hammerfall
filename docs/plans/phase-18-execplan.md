@@ -1,7 +1,7 @@
 # Phase 18 — Kubernetes ExecPlan
 
-Status: Final local verification passed; hosted CI and closure commit pending.
-Current milestone: push closure documentation/configuration and observe CI.
+Status: Complete; Phase 18 scope and required verification are closed.
+Current milestone: none. Phase 19 awaits an explicit user request.
 Completed: local kind strategy; ADR-014; immutable API/web images; API
 readiness; all application workloads; runtime web proxy; generated Secret and
 external dependency routing; repeatable fresh-cluster setup with compatible
@@ -11,7 +11,7 @@ replacement and initial scaling. [Session 2](../kubernetes/session-2.md)
 proves failure/rollout/rebalance campaigns. The
 [final review](../kubernetes/phase-18-final.md) records zero-cluster rebuild,
 fresh lifecycle/browser evidence, full regression and Compose restoration.
-Remaining: hosted CI, final commit/push, and Phase 19 handoff.
+Remaining: no Phase 18 work. Cloud architecture remains Phase 19 scope.
 Known failures/limitations: one 502 among 40 reads during fresh API deletion
 was traced to an upstream connection refusal; reads resumed and replacement
 state matched PostgreSQL. No metrics-server, HPA, PDB or production sizing.
@@ -23,9 +23,9 @@ Relevant ADRs: [ADR-001](../adr/001-modular-monolith.md),
 [ADR-010](../adr/010-transactional-public-outbox.md),
 [ADR-011](../adr/011-kafka-domain-events.md),
 [ADR-014](../adr/014-local-kubernetes-process-orchestration.md).
-Next-session starting point: not applicable once hosted CI closes this phase.
-Phase 19 remains gated. The final kind cluster was deleted after its live
-proof, and the ordinary Compose stack was restored and verified healthy.
+Next-session starting point: [latest handoff](../handoffs/latest.md) for
+Phase 19, only after an explicit request. The final kind cluster was deleted
+after its live proof, and the ordinary Compose stack was restored healthy.
 
 ## Decisions
 
@@ -89,4 +89,4 @@ progress contracts must be checked with job/offset/outbox evidence.
 | Full backend/frontend/static/security | `scripts/check`, bundler-audit, syntax/config checks | 450 RSpec/0 failures/3 pending; 74 Vitest; lint, format, types, build, RuboCop, Brakeman, Zeitwerk, audit PASS | [Final review](../kubernetes/phase-18-final.md) |
 | Manifest and image validation | client/server dry-run, Job server dry-run under validation name; fresh apply/build plus uncached builds | PASS; unique API/web images, no Secret in image config or `.env`/master key in filesystems | [Final review](../kubernetes/phase-18-final.md) |
 | Compose regression | `docker compose up --build --wait`, HTTP probes/auction read | all running services healthy; API/web/auction checks PASS | [Final review](../kubernetes/phase-18-final.md) |
-| Hosted CI | Pending final push | PENDING | Record after run |
+| Hosted CI | [run 37066291721](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37066291721) on `0c01c1a7b4679131cb317e9c52208ba4484d1cb6` | API, web and Compose jobs PASS | Hosted run |
