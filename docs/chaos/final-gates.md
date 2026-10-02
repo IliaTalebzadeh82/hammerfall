@@ -18,7 +18,7 @@ passed. The earlier Session 2 one-shot marker was erased by recreation.
 | Compose runtime | API `/up`, web redirect, Redis PONG, Kafka topic (3 partitions), scheduler and both publisher one-shots, Kafka end-to-end (3 events), sequential auction API lifecycle, independent closer one-shot, concurrent HTTP bids, proxy bidding and idempotency prune (0 expired) passed. |
 | Broad backend after hook hardening | `RAILS_ENV=test bundle exec rspec` with isolated Redis DB 15: 449 examples/0 failures/3 expected pending. |
 | Fresh Compose after hook hardening | Rebuilt and force-recreated all services from final source: required services healthy/running; no API `/tmp/hammerfall-chaos-*` marker, no `HAMMERFALL_CHAOS_*` variable in application services, no `chaos_crash` log. A new Kafka end-to-end smoke passed (auction 566, revision 3, 3 events). |
-| Hosted CI | Pending closure push and required API, web and Compose jobs. |
+| Hosted CI | [Run 36976775937](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36976775937) on verification SHA `179e5189c2e68e0890a0c1f433cb2125d11e6ea9`: required `api`, `web` and `compose` jobs all completed `success`. |
 
 The first focused invocation omitted the local PostgreSQL credentials and
 failed before loading examples. Re-running with the repository's `.env` and

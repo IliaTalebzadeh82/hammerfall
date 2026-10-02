@@ -1,6 +1,6 @@
 # Phase 16 — Chaos Testing ExecPlan
 
-Status: final local gates passed; hosted CI and closure remain. Phase 17 is excluded.
+Status: complete. Local and hosted gates passed. Phase 17 is excluded.
 
 Current milestone: browser/worker recovery, broad regression, runtime and final
 adversarial review retained. See the [final report](../chaos/phase-16-final.md)
@@ -20,8 +20,8 @@ derived comparison. Session 2's relevant RSpec files passed 46 examples,
 0 failures, 1 gated live-Kafka pending. Focused static/privacy checks are
 indexed below.
 
-Remaining: hosted CI, closure status and handoff.
-Phase 17 requires a separate request. Reconciliation crash is supported by
+Remaining: no Phase 16 implementation or verification work. The limits below
+remain explicit; Phase 17 requires a separate request. Reconciliation crash is supported by
 Phase 12 lease/fencing tests and Session 1 repair; no redundant campaign was
 run. Browser Cable receipt and REST recovery are now directly observed.
 
@@ -43,9 +43,10 @@ idempotency executor.
 Relevant ADRs: ADR-010 (outbox), ADR-011 (Kafka), ADR-012 (projection),
 ADR-013 (reconciliation).
 
-Final-session next action: push coherent
-closure commit, observe hosted API/web/Compose jobs, record the run and mark
-Phase 16 complete only if required jobs pass. Do not start Phase 17.
+Closure decision: direct retained campaign checkers, browser/worker recovery,
+full local gates, fresh Compose, adversarial review and hosted API/web/Compose
+jobs passed. No known serious correctness bug remains in Phase 16 scope.
+Do not start Phase 17 without a separate request.
 
 ## Decisions
 
@@ -97,7 +98,7 @@ Phase 16 complete only if required jobs pass. Do not start Phase 17.
 | Focused hook and failure semantics | RSpec three files, targeted RuboCop/Ruby syntax | 46 examples, 0 failures, 1 pending; static passed | [final gates](../chaos/final-gates.md) |
 | Rebuilt Compose/runtime | Force recreation and established CI smokes | Initial rebuild healthy; Kafka, API lifecycle, closer, concurrent/proxy and scheduler/publisher smokes passed | [final gates](../chaos/final-gates.md) |
 | Clean final recreation | `docker compose up -d --build --force-recreate --wait`; marker/env/log check; Kafka smoke | Healthy; no chaos marker/env/log; post-rebuild Kafka path passed | [final gates](../chaos/final-gates.md) |
-| Hosted CI | GitHub Actions API, web, Compose | Pending | [final gates](../chaos/final-gates.md) |
+| Hosted CI | GitHub Actions [run 36976775937](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36976775937) on `179e5189c2e68e0890a0c1f433cb2125d11e6ea9` | API, web, Compose: success | [final gates](../chaos/final-gates.md) |
 
 ## Campaign record
 

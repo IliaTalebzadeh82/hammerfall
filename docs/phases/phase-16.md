@@ -1,6 +1,6 @@
 # Phase 16 — Chaos Testing
 
-Status: Active; local closure gates passed, hosted CI pending
+Status: Complete; local and hosted closure gates passed
 
 ## Goal
 

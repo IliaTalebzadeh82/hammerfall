@@ -2065,3 +2065,14 @@ chaos marker, environment or log and a new Kafka smoke passed. The retained
 Session 2 test log's local Redis URL was redacted. Exact commands, browser
 fixtures and limits are in the [final gate record](chaos/final-gates.md).
 Hosted CI and phase closure remain pending. Phase 17 has not started.
+
+### Phase 16 complete — 2026-10-02
+
+Verification SHA `179e5189c2e68e0890a0c1f433cb2125d11e6ea9` passed
+hosted [GitHub Actions run 36976775937](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36976775937): required API, web and Compose jobs all succeeded.
+The [final report](chaos/phase-16-final.md) distinguishes at-least-once
+Kafka delivery from duplicate-safe durable effects, committed HTTP ambiguity
+from pre-commit rollback, and Cable hints from PostgreSQL-backed REST recovery.
+The local one-instance limits and operator-review projection cases remain
+explicit. No known serious correctness bug remains in Phase 16 scope. Phase 17
+has not started.

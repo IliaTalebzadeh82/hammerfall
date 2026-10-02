@@ -1,8 +1,8 @@
 # Phase 16 — final chaos review
 
-Status: final local verification passed; hosted CI is the closure gate. Phase 17
-has not started. Evidence: [Session 1](session-1.md), [Session 2](session-2.md),
-and [final gates](final-gates.md). All faults used one local Compose API instance,
+Status: **complete**. Phase 17 has not started. Evidence:
+[Session 1](session-1.md), [Session 2](session-2.md), and
+[final gates](final-gates.md). All faults used one local Compose API instance,
 PostgreSQL, Redis and a single-node Kafka broker. No observed duration is an SLA.
 
 ## Correctness model
