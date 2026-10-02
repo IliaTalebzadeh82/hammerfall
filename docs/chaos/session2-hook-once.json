@@ -1,0 +1,10 @@
+[
+  {
+    "exit_code": 137,
+    "marker_seen": true
+  },
+  {
+    "exit_code": 0,
+    "marker_seen": false
+  }
+]

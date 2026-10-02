@@ -1,0 +1,198 @@
+{
+  "at_utc": "2026-10-02T01:08:13.565717+00:00",
+  "postgresql": {
+    "auction_id": 545,
+    "public_revision": 4,
+    "public_data": {
+      "title": "p16-20261002T010710Z-6549301c",
+      "description": "Phase 16 isolated chaos fixture",
+      "status": "active",
+      "starting_price": 10000,
+      "minimum_increment": 100,
+      "starts_at": "2026-10-02T01:05:10.618141Z",
+      "original_ends_at": "2026-10-02T01:27:10.618141Z",
+      "current_price": 10200,
+      "current_leader_id": 3916,
+      "ends_at": "2026-10-02T01:27:10.618141Z",
+      "closed_at": null,
+      "winner_id": null
+    },
+    "bid_count": 2,
+    "last_bid_sequence": 2,
+    "outbox_count": 4,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "kafka_retry_count": 0,
+    "sidekiq_retry_count": 0,
+    "audit_receipts": 4,
+    "audit_effects": 4,
+    "outbox_event_ids": [
+      "2c4dcacb-5a42-4fa1-b58d-091840678bdc",
+      "75b7afb1-4184-4f04-b57d-654549274aeb",
+      "32110b04-1e23-4f52-8304-1463bf08fb9a",
+      "0cabd195-7bdb-4be6-b4e5-22250f33aab7"
+    ],
+    "latest_event_id": "0cabd195-7bdb-4be6-b4e5-22250f33aab7",
+    "event_delivery": [
+      {
+        "event_id": "2c4dcacb-5a42-4fa1-b58d-091840678bdc",
+        "payload_sha256": "876eac9e6720916832db6271c8f153fe206d8702d99108cfad19e77c767eebb5",
+        "kafka_acknowledged": true,
+        "kafka_attempts": 1,
+        "audit_receipts": 1,
+        "audit_effects": 1
+      },
+      {
+        "event_id": "75b7afb1-4184-4f04-b57d-654549274aeb",
+        "payload_sha256": "53880ad626bb8b8cc5bf8a52302ce5529aba4bde01087688f5ffe1d07fa28fd6",
+        "kafka_acknowledged": true,
+        "kafka_attempts": 1,
+        "audit_receipts": 1,
+        "audit_effects": 1
+      },
+      {
+        "event_id": "32110b04-1e23-4f52-8304-1463bf08fb9a",
+        "payload_sha256": "7152f8c6f43e2c09047bf1ab6654c9d4653bddd4e9117272135b7652c3edb595",
+        "kafka_acknowledged": true,
+        "kafka_attempts": 1,
+        "audit_receipts": 1,
+        "audit_effects": 1
+      },
+      {
+        "event_id": "0cabd195-7bdb-4be6-b4e5-22250f33aab7",
+        "payload_sha256": "e7b8d020f35ac9ee5d7da181674926acd3db9c88d9c539eb015e92d187d63000",
+        "kafka_acknowledged": true,
+        "kafka_attempts": 1,
+        "audit_receipts": 1,
+        "audit_effects": 1
+      }
+    ],
+    "failures": []
+  },
+  "ordinary_get": {
+    "data": {
+      "id": 545,
+      "public_revision": 4,
+      "title": "p16-20261002T010710Z-6549301c",
+      "description": "Phase 16 isolated chaos fixture",
+      "status": "active",
+      "currency": "EUR",
+      "starting_price": 10000,
+      "current_price": 10200,
+      "minimum_increment": 100,
+      "starts_at": "2026-10-02T01:05:10.618141Z",
+      "ends_at": "2026-10-02T01:27:10.618141Z",
+      "original_ends_at": "2026-10-02T01:27:10.618141Z",
+      "closed_at": null,
+      "current_leader_id": 3916,
+      "winner_id": null,
+      "created_at": "2026-10-02T01:07:10.619734Z",
+      "updated_at": "2026-10-02T01:07:18.461939Z"
+    }
+  },
+  "eventual_get": {
+    "data": {
+      "original_ends_at": "2026-10-02T01:27:10.618141Z",
+      "current_price": 10200,
+      "description": "Phase 16 isolated chaos fixture",
+      "winner_id": null,
+      "starts_at": "2026-10-02T01:05:10.618141Z",
+      "ends_at": "2026-10-02T01:27:10.618141Z",
+      "title": "p16-20261002T010710Z-6549301c",
+      "minimum_increment": 100,
+      "status": "active",
+      "starting_price": 10000,
+      "current_leader_id": 3916,
+      "closed_at": null,
+      "id": 545,
+      "public_revision": 4,
+      "currency": "EUR"
+    },
+    "meta": {
+      "source": "redis",
+      "event_occurred_at": "2026-10-02T01:07:18.463612Z",
+      "projected_at": "2026-10-02T01:07:19.302Z",
+      "age_seconds": 55
+    }
+  },
+  "telemetry": {
+    "outbox_pending": [
+      {
+        "channel": "kafka",
+        "consumer_group": null,
+        "partition": null,
+        "sampled_at": 1790903294.254,
+        "value": "0"
+      },
+      {
+        "channel": "sidekiq",
+        "consumer_group": null,
+        "partition": null,
+        "sampled_at": 1790903294.254,
+        "value": "0"
+      }
+    ],
+    "outbox_failures": [
+      {
+        "channel": "sidekiq",
+        "consumer_group": null,
+        "partition": null,
+        "sampled_at": 1790903294.356,
+        "value": "1"
+      }
+    ],
+    "projection_drift": [
+      {
+        "channel": null,
+        "consumer_group": null,
+        "partition": null,
+        "sampled_at": 1790903294.458,
+        "value": "1"
+      }
+    ],
+    "kafka_lag": [
+      {
+        "channel": null,
+        "consumer_group": "hammerfall.audit.v1",
+        "partition": "2",
+        "sampled_at": 1790903294.566,
+        "value": "2"
+      },
+      {
+        "channel": null,
+        "consumer_group": "hammerfall.projection.v1",
+        "partition": "2",
+        "sampled_at": 1790903294.566,
+        "value": "1"
+      },
+      {
+        "channel": null,
+        "consumer_group": "hammerfall.audit.v1",
+        "partition": "0",
+        "sampled_at": 1790903294.566,
+        "value": "2"
+      },
+      {
+        "channel": null,
+        "consumer_group": "hammerfall.projection.v1",
+        "partition": "0",
+        "sampled_at": 1790903294.566,
+        "value": "1"
+      },
+      {
+        "channel": null,
+        "consumer_group": "hammerfall.audit.v1",
+        "partition": "1",
+        "sampled_at": 1790903294.566,
+        "value": "1"
+      },
+      {
+        "channel": null,
+        "consumer_group": "hammerfall.projection.v1",
+        "partition": "1",
+        "sampled_at": 1790903294.566,
+        "value": "1"
+      }
+    ]
+  }
+}

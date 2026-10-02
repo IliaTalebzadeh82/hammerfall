@@ -1,0 +1,109 @@
+[
+  {
+    "at_utc": "2026-10-02T01:12:03.989290+00:00",
+    "action": "start",
+    "scenario": "session2-api",
+    "git_sha": "e45987e03c6b40f1612c406cb771435ee8e17276"
+  },
+  {
+    "at_utc": "2026-10-02T01:12:04.054871+00:00",
+    "action": "fixture",
+    "auction_id": 546,
+    "user_id": 3917
+  },
+  {
+    "at_utc": "2026-10-02T01:12:04.087766+00:00",
+    "action": "bid_accepted",
+    "amount": 10100,
+    "bid_id": 8160
+  },
+  {
+    "at_utc": "2026-10-02T01:12:05.216138+00:00",
+    "action": "snapshot",
+    "stage": "before_restart",
+    "revision": 4,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 4,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:12:05.216346+00:00",
+    "action": "converged",
+    "stage": "before_restart",
+    "elapsed_seconds": 1.09
+  },
+  {
+    "at_utc": "2026-10-02T01:12:05.572339+00:00",
+    "action": "service_stopped",
+    "service": "api"
+  },
+  {
+    "at_utc": "2026-10-02T01:12:06.261852+00:00",
+    "action": "api_status",
+    "stage": "stopped",
+    "state": [
+      {
+        "state": "exited",
+        "exit_code": 1
+      }
+    ]
+  },
+  {
+    "at_utc": "2026-10-02T01:12:07.021580+00:00",
+    "action": "service_started",
+    "service": "api"
+  },
+  {
+    "at_utc": "2026-10-02T01:12:10.230220+00:00",
+    "action": "snapshot",
+    "stage": "after_restart",
+    "revision": 4,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 4,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:12:11.346465+00:00",
+    "action": "snapshot",
+    "stage": "tie_after_restart",
+    "revision": 5,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 5,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:12:11.346623+00:00",
+    "action": "converged",
+    "stage": "tie_after_restart",
+    "elapsed_seconds": 1.06
+  },
+  {
+    "at_utc": "2026-10-02T01:12:12.384621+00:00",
+    "action": "snapshot",
+    "stage": "before_committed_crash",
+    "revision": 5,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 5,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:12:13.051137+00:00",
+    "action": "api_fault_armed",
+    "boundary": "command_committed"
+  },
+  {
+    "at_utc": "2026-10-02T01:12:15.300019+00:00",
+    "action": "fail",
+    "error_type": "RuntimeError",
+    "detail": "faulted API unexpectedly returned a response"
+  },
+  {
+    "at_utc": "2026-10-02T01:12:18.285321+00:00",
+    "action": "api_restored",
+    "elapsed_seconds": 2.21
+  }
+]

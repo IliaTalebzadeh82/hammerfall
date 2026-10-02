@@ -649,3 +649,15 @@ decisive evidence. The same session proved that deleting a derived Redis key
 can be repaired by the existing reconciler, while shared Sidekiq Redis data
 should not be flushed just to simulate projection loss. See the
 [Session 1 chaos report](chaos/session-1.md).
+
+## 2026-10-02 — Crash evidence needs both sides of the boundary
+
+The publisher's broker receipt alone was insufficient until PostgreSQL still
+showed a pending row after process death and a restarted publisher caused
+both Kafka groups to log the same event ID as duplicate. For the audit
+consumer, receipt/effect counts and Kafka committed offsets supplied the
+complementary proof. A self-sent `SIGKILL` from a Puma request logged the
+intended command boundary but still let a 201 response complete; synchronous
+`Process.exit!` produced the actual lost connection. These invalid harness
+runs were retained, not promoted to correctness evidence. See the
+[Session 2 report](chaos/session-2.md).

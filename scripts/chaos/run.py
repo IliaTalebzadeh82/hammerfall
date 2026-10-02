@@ -92,6 +92,7 @@ class Run:
 
     def probe(self):
         output = compose("exec", "-T", "-e", f"CHAOS_AUCTION_ID={self.auction_id}",
+            "-e", f"CHAOS_USER_ID={self.user_id}",
             "api", "bin/rails", "runner", "script/chaos_probe.rb", timeout=45)
         return json.loads(output.splitlines()[-1])
 

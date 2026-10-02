@@ -42,6 +42,43 @@ RSpec.describe "Idempotent bidding API", type: :request do
     expect(json.dig("data", "sequence")).to eq(1)
   end
 
+  it "rolls back the whole command at the chaos boundary before commit" do
+    auction
+    baseline = OutboxEvent.where(auction_id: auction.id).count
+    baseline_revision = auction.public_revision
+    allow(ChaosCrash).to receive(:at_command!) do |boundary, auction_id|
+      expect(auction_id).to eq(auction.id)
+      raise Interrupt, "simulated process death" if boundary == "command_before_commit"
+    end
+    expect { IdempotentBidding.call(key: key, actor_id: alice.id, auction_id: auction.id,
+      operation: "place_bid", amount: 10_000) }.to raise_error(Interrupt, "simulated process death")
+    expect(auction.reload.bids.count).to eq(0)
+    expect(auction.public_revision).to eq(baseline_revision)
+    expect(OutboxEvent.where(auction_id: auction.id).count).to eq(baseline)
+    expect(IdempotencyRecord.count).to eq(0)
+    allow(ChaosCrash).to receive(:at_command!).and_call_original
+    expect(IdempotentBidding.call(key: key, actor_id: alice.id, auction_id: auction.id,
+      operation: "place_bid", amount: 10_000).replayed).to be(false)
+    expect(auction.reload.bids.count).to eq(1)
+  end
+
+  it "keeps the committed outcome when the chaos boundary drops the response" do
+    auction
+    allow(ChaosCrash).to receive(:at_command!) do |boundary, auction_id|
+      expect(auction_id).to eq(auction.id)
+      raise Interrupt, "simulated process death" if boundary == "command_committed"
+    end
+    expect { IdempotentBidding.call(key: key, actor_id: alice.id, auction_id: auction.id,
+      operation: "place_bid", amount: 10_000) }.to raise_error(Interrupt, "simulated process death")
+    expect(auction.reload.bids.count).to eq(1)
+    expect(IdempotencyRecord.where(actor_id: alice.id, status: "completed").count).to eq(1)
+    allow(ChaosCrash).to receive(:at_command!).and_call_original
+    outcome = IdempotentBidding.call(key: key, actor_id: alice.id, auction_id: auction.id,
+      operation: "place_bid", amount: 10_000)
+    expect(outcome.replayed).to be(true)
+    expect(auction.reload.bids.count).to eq(1)
+  end
+
   it "canonicalizes semantic input independently of JSON order, whitespace, and unrelated headers" do
     bid
     original = response.body

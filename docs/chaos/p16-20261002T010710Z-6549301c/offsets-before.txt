@@ -1,0 +1,5 @@
+
+GROUP               TOPIC                        PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+hammerfall.audit.v1 hammerfall.auction-events.v1 0          2274            2275            1               -               -               -
+hammerfall.audit.v1 hammerfall.auction-events.v1 2          2620            2620            0               -               -               -
+hammerfall.audit.v1 hammerfall.auction-events.v1 1          2545            2545            0               -               -               -

@@ -20,6 +20,7 @@ class IdempotentBidding
         [ 200, { data: { auction_id: auction.id, bidder_id: actor.id, accepted: true } } ]
       end
     end
+    ChaosCrash.at_command!("command_committed", auction_id) unless outcome.replayed
     Observability.counter("hammerfall_auction_extensions") if extended && !outcome.replayed && outcome.status < 400
     outcome
   end

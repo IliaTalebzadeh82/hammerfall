@@ -1,0 +1,112 @@
+[
+  {
+    "at_utc": "2026-10-02T01:17:54.892870+00:00",
+    "action": "start",
+    "scenario": "session2-api-only-direct",
+    "git_sha": "e45987e03c6b40f1612c406cb771435ee8e17276"
+  },
+  {
+    "at_utc": "2026-10-02T01:17:55.021627+00:00",
+    "action": "fixture",
+    "auction_id": 549,
+    "user_id": 3924
+  },
+  {
+    "at_utc": "2026-10-02T01:17:55.056392+00:00",
+    "action": "bid_accepted",
+    "amount": 10100,
+    "bid_id": 8177
+  },
+  {
+    "at_utc": "2026-10-02T01:17:56.095718+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 3,
+    "audit_effects": 0,
+    "eventual_source": "postgresql"
+  },
+  {
+    "at_utc": "2026-10-02T01:18:02.118919+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:18:02.119103+00:00",
+    "action": "converged",
+    "stage": "baseline",
+    "elapsed_seconds": 7.06
+  },
+  {
+    "at_utc": "2026-10-02T01:18:03.341896+00:00",
+    "action": "service_stopped",
+    "service": "kafka-outbox-publisher"
+  },
+  {
+    "at_utc": "2026-10-02T01:18:03.631368+00:00",
+    "action": "service_stopped",
+    "service": "outbox-publisher"
+  },
+  {
+    "at_utc": "2026-10-02T01:18:03.649974+00:00",
+    "action": "bid_accepted",
+    "amount": 10200,
+    "bid_id": 8178
+  },
+  {
+    "at_utc": "2026-10-02T01:18:04.865659+00:00",
+    "action": "snapshot",
+    "stage": "before_api_stop",
+    "revision": 4,
+    "sidekiq_pending": 1,
+    "kafka_pending": 1,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:18:05.259652+00:00",
+    "action": "service_stopped",
+    "service": "api"
+  },
+  {
+    "at_utc": "2026-10-02T01:18:12.902637+00:00",
+    "action": "derived_work_continued_without_api",
+    "elapsed_seconds": 6.99
+  },
+  {
+    "at_utc": "2026-10-02T01:18:13.686815+00:00",
+    "action": "service_started",
+    "service": "api"
+  },
+  {
+    "at_utc": "2026-10-02T01:18:17.017585+00:00",
+    "action": "snapshot",
+    "stage": "recovered",
+    "revision": 4,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 4,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:18:17.017823+00:00",
+    "action": "converged",
+    "stage": "recovered",
+    "elapsed_seconds": 1.18
+  },
+  {
+    "at_utc": "2026-10-02T01:18:17.751412+00:00",
+    "action": "postgresql_verified",
+    "bid_count": 2
+  },
+  {
+    "at_utc": "2026-10-02T01:18:17.751591+00:00",
+    "action": "pass"
+  }
+]

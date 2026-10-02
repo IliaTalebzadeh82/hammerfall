@@ -1,29 +1,32 @@
-# Current handoff — Phase 16 active, Session 1 checkpoint
+# Current handoff — Phase 16 active, Session 2 checkpoint
 
-Updated: 2026-10-02. Phase 16 Chaos Testing was explicitly authorized and
-started from `2b9fb2fe2d7031c5a5b543afd48cf94e86ee540a`. The
-[active ExecPlan](../plans/phase-16-execplan.md) and
-[Session 1 report](../chaos/session-1.md) index retained local evidence.
-Resume in a **fresh conversation**. Do not begin Phase 17.
+Updated: 2026-10-02. Phase 16 is active; Phase 17 has not started. Resume in a
+fresh Codex conversation from the [ExecPlan](../plans/phase-16-execplan.md)
+and [Session 2 report](../chaos/session-2.md). Session 1's already completed
+outage campaigns are indexed in its [report](../chaos/session-1.md); do not
+rerun them without a concrete gap.
 
-Session 1 added a small Compose chaos harness and a direct PostgreSQL probe.
-Baseline, Redis stop plus fixture projection-key loss and targeted repair,
-Kafka outage, Sidekiq/publisher stop, Kafka publisher SIGKILL with pending
-backlog, and live duplicate Kafka delivery all passed their direct checker and
-final derived comparison. Expected temporary fallback/backlog was observed.
-Both Kafka consumers explicitly logged duplicate treatment for one replayed
-event; audit receipt/effect counts remained one per event. Three harness
-preflight failures were fixed and retained in the report.
+Session 2 passed deterministic publisher death after Kafka acceptance/before
+SQL acknowledgment and audit consumer death after DB effect/before offset.
+The publisher retry actually duplicated broker delivery; both consumers
+logged duplicate treatment, while durable audit effect stayed exactly once
+and Redis did not regress. The consumer's receipt/effect committed while its
+offset stayed behind; redelivery was deduplicated and advanced the offset.
 
-Next work: deterministic publisher post-broker/pre-ack and audit consumer
-post-DB/pre-offset crash windows; API restart/ambiguous command retry and
-API-only outage; worker/Cable and reconciliation failure integration. Later
-fresh context owns broad regression, browser/runtime/CI gates, adversarial
-review and phase completion. Do not infer the dangerous crash windows from
-Session 1's generic SIGKILL; it occurred while Kafka was unavailable.
+API restart preserved auction and idempotency state, including maximum
+priority behavior. A committed command with a lost response replayed its
+original result after later state changes. An uncommitted command left no
+partial state and executed once on same-key retry. With only the API stopped,
+independent publishers and consumers drained backlogs and Redis converged.
+Direct PostgreSQL checkers passed all retained campaigns. Local/test-only,
+scoped crash hooks and bounded harnesses remain in source; production is
+inert. Replay-short-circuit sabotage failed the expected test and was fully
+removed. Relevant RSpec files passed 46 examples, 0 failures, 1 gated pending.
 
-No authoritative correctness failure was observed. The stopped Sidekiq run
-did not directly count WebSocket hints. Prometheus scrape samples missed some
-short-lived fixture backlog, so direct SQL remains the recovery proof. Local
-times are observations, not guarantees. Focused Ruby/Python checks and the
-privacy scan passed; full phase completion gates remain outstanding.
+Four invalid Session 2 harness attempts are retained and explained in the
+report. No Hammerfall correctness failure was observed. Browser WebSocket
+receipt/REST recovery remains unobserved in this phase; Sidekiq job execution
+and reconciliation scan progress during API outage were not counted. Full
+regression, browser/runtime and hosted CI gates, final adversarial review,
+documentation reconciliation and Phase 16 closure remain. Phase 17 requires
+an explicit request. Do not infer any SLA from local recovery times.

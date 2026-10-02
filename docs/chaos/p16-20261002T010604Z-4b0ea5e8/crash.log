@@ -1,0 +1,4 @@
+{"timestamp":"2026-10-02T01:06:10.020221Z","level":"info","service":"hammerfall-api","component":"kafka_outbox_publisher","operation":"publish","result":"succeeded","event_type":"auction.price_changed.v1","event_id":"fbde8cef-bc9a-4153-afd8-06fb7239812f","retry_count":1,"public_revision":4}
+ Container hammerfall-kafka-outbox-publisher-run-ee94b9a6170a Creating
+ Container hammerfall-kafka-outbox-publisher-run-ee94b9a6170a Created
+chaos_crash boundary=kafka_delivered event_id=fbde8cef-bc9a-4153-afd8-06fb7239812f

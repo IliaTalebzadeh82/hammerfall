@@ -1,0 +1,152 @@
+[
+  {
+    "at_utc": "2026-10-02T01:07:10.599421+00:00",
+    "action": "start",
+    "scenario": "session2-consumer",
+    "git_sha": "e45987e03c6b40f1612c406cb771435ee8e17276"
+  },
+  {
+    "at_utc": "2026-10-02T01:07:10.641889+00:00",
+    "action": "fixture",
+    "auction_id": 545,
+    "user_id": 3916
+  },
+  {
+    "at_utc": "2026-10-02T01:07:10.655473+00:00",
+    "action": "bid_accepted",
+    "amount": 10100,
+    "bid_id": 8158
+  },
+  {
+    "at_utc": "2026-10-02T01:07:11.688000+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 2,
+    "audit_effects": 0,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:07:17.730313+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:07:17.730500+00:00",
+    "action": "converged",
+    "stage": "baseline",
+    "elapsed_seconds": 7.07
+  },
+  {
+    "at_utc": "2026-10-02T01:07:18.448740+00:00",
+    "action": "service_stopped",
+    "service": "kafka-audit-consumer"
+  },
+  {
+    "at_utc": "2026-10-02T01:07:18.469642+00:00",
+    "action": "bid_accepted",
+    "amount": 10200,
+    "bid_id": 8159
+  },
+  {
+    "at_utc": "2026-10-02T01:07:19.483995+00:00",
+    "action": "snapshot",
+    "stage": "before_crash",
+    "revision": 4,
+    "sidekiq_pending": 0,
+    "kafka_pending": 1,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:07:20.101271+00:00",
+    "action": "broker_acknowledged",
+    "elapsed_seconds": 0.62
+  },
+  {
+    "at_utc": "2026-10-02T01:07:23.035136+00:00",
+    "action": "offsets_captured",
+    "stage": "before"
+  },
+  {
+    "at_utc": "2026-10-02T01:07:24.085890+00:00",
+    "action": "injected_process_exited",
+    "service": "kafka-audit-consumer",
+    "boundary": "audit_effect_committed",
+    "event_id": "0cabd195-7bdb-4be6-b4e5-22250f33aab7",
+    "exit_code": 137
+  },
+  {
+    "at_utc": "2026-10-02T01:07:25.681502+00:00",
+    "action": "snapshot",
+    "stage": "after_crash",
+    "revision": 4,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 4,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:07:28.934114+00:00",
+    "action": "offsets_captured",
+    "stage": "after_crash"
+  },
+  {
+    "at_utc": "2026-10-02T01:07:32.748650+00:00",
+    "action": "service_started",
+    "service": "kafka-audit-consumer"
+  },
+  {
+    "at_utc": "2026-10-02T01:08:09.926295+00:00",
+    "action": "consumer_result",
+    "service": "kafka-audit-consumer",
+    "result": "duplicate",
+    "event_id": "0cabd195-7bdb-4be6-b4e5-22250f33aab7"
+  },
+  {
+    "at_utc": "2026-10-02T01:08:10.918668+00:00",
+    "action": "snapshot",
+    "stage": "recovered",
+    "revision": 4,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 4,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:08:10.918944+00:00",
+    "action": "converged",
+    "stage": "recovered",
+    "elapsed_seconds": 0.99
+  },
+  {
+    "at_utc": "2026-10-02T01:08:12.413236+00:00",
+    "action": "offsets_captured",
+    "stage": "recovered"
+  },
+  {
+    "at_utc": "2026-10-02T01:08:13.565579+00:00",
+    "action": "postgresql_verified",
+    "bid_count": 2
+  },
+  {
+    "at_utc": "2026-10-02T01:08:14.571565+00:00",
+    "action": "snapshot",
+    "stage": "final",
+    "revision": 4,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 4,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:08:14.571818+00:00",
+    "action": "pass"
+  }
+]

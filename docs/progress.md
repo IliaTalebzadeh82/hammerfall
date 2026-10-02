@@ -2025,3 +2025,19 @@ hosted [GitHub Actions run 36941725862](https://github.com/IliaTalebzadeh82/hamm
 remaining limits are exact per-request pre-Rack time, long-term memory,
 larger WebSocket fanout and production worker/thread/pool sizing. The phase
 has no known serious correctness defect. Phase 16 has not started.
+
+### Phase 16 active — Session 2 checkpoint, 2026-10-02
+
+Phase 16 started at `e45987e03c6b40f1612c406cb771435ee8e17276` after
+Phase 15 completion. [Session 1](chaos/session-1.md) proved bounded Redis,
+Kafka, worker and publisher backlog recovery and live duplicate delivery.
+[Session 2](chaos/session-2.md) proved the deterministic publisher
+post-broker/pre-SQL-ack and audit consumer post-DB/pre-offset crash windows,
+API restart and committed/uncommitted same-key ambiguity, and independent
+derived work during API outage. Direct PostgreSQL checkers and final Redis
+comparisons passed every retained campaign. Replay-short-circuit sabotage
+failed the expected test and was restored. Relevant RSpec files passed 46
+examples, zero failures, one gated live-Kafka pending example. Four invalid
+Session 2 harness attempts remain documented. Full regression, browser and
+CI gates plus final review remain; the phase is not complete and Phase 17 has
+not started.

@@ -919,3 +919,23 @@ increasing the connection pool removed a measured queue without improving
 the whole HTTP path. A queue can migrate to a new resource when concurrency
 is raised; compare accepted work, latency and resource cost before retaining
 a configuration change.
+
+## Phase 16 crash-window lesson (active)
+
+**Question:** what happens when an external effect succeeds but the local
+acknowledgment, consumer offset or HTTP response is lost?
+
+**Failure mode:** retrying can deliver the same immutable Kafka event twice;
+redelivery can revisit a committed audit effect; a client cannot infer whether
+its command committed from a disconnected response.
+
+**Chosen protocol:** PostgreSQL keeps the authoritative command and outbox;
+Kafka delivery is at least once; consumers deduplicate durable effects by
+event ID and projections by revision; a client retries the same semantic
+command with the same key and obtains its historical result. A fresh GET
+supplies current state.
+
+**Evidence and limit:** [Session 2](chaos/session-2.md) observed each ambiguous
+boundary with targeted local process death, direct state and offset checks.
+Local recovery timing is not an SLA, and browser Cable receipt remains for
+the final Phase 16 session.

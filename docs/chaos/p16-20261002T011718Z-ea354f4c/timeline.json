@@ -1,0 +1,88 @@
+[
+  {
+    "at_utc": "2026-10-02T01:17:18.520409+00:00",
+    "action": "start",
+    "scenario": "session2-api-only-direct",
+    "git_sha": "e45987e03c6b40f1612c406cb771435ee8e17276"
+  },
+  {
+    "at_utc": "2026-10-02T01:17:18.613194+00:00",
+    "action": "fixture",
+    "auction_id": 548,
+    "user_id": 3923
+  },
+  {
+    "at_utc": "2026-10-02T01:17:18.669827+00:00",
+    "action": "bid_accepted",
+    "amount": 10100,
+    "bid_id": 8175
+  },
+  {
+    "at_utc": "2026-10-02T01:17:19.680284+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 3,
+    "kafka_pending": 3,
+    "audit_effects": 0,
+    "eventual_source": "postgresql"
+  },
+  {
+    "at_utc": "2026-10-02T01:17:25.719127+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:17:25.719322+00:00",
+    "action": "converged",
+    "stage": "baseline",
+    "elapsed_seconds": 7.05
+  },
+  {
+    "at_utc": "2026-10-02T01:17:26.780944+00:00",
+    "action": "service_stopped",
+    "service": "kafka-outbox-publisher"
+  },
+  {
+    "at_utc": "2026-10-02T01:17:27.070993+00:00",
+    "action": "service_stopped",
+    "service": "outbox-publisher"
+  },
+  {
+    "at_utc": "2026-10-02T01:17:27.086828+00:00",
+    "action": "bid_accepted",
+    "amount": 10200,
+    "bid_id": 8176
+  },
+  {
+    "at_utc": "2026-10-02T01:17:28.060928+00:00",
+    "action": "snapshot",
+    "stage": "before_api_stop",
+    "revision": 4,
+    "sidekiq_pending": 1,
+    "kafka_pending": 1,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:17:28.342836+00:00",
+    "action": "service_stopped",
+    "service": "api"
+  },
+  {
+    "at_utc": "2026-10-02T01:17:35.667044+00:00",
+    "action": "fail",
+    "error_type": "RuntimeError",
+    "detail": "Redis public projection differs from PostgreSQL"
+  },
+  {
+    "at_utc": "2026-10-02T01:17:36.524961+00:00",
+    "action": "cleanup_started",
+    "service": "api"
+  }
+]

@@ -1,0 +1,5 @@
+
+GROUP               TOPIC                        PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                  HOST            CLIENT-ID
+hammerfall.audit.v1 hammerfall.auction-events.v1 0          2274            2275            1               rdkafka-d36c65a5-6f28-4708-a162-c44ef38c60c4 /172.18.0.6     rdkafka
+hammerfall.audit.v1 hammerfall.auction-events.v1 2          2620            2620            0               rdkafka-d36c65a5-6f28-4708-a162-c44ef38c60c4 /172.18.0.6     rdkafka
+hammerfall.audit.v1 hammerfall.auction-events.v1 1          2545            2545            0               rdkafka-d36c65a5-6f28-4708-a162-c44ef38c60c4 /172.18.0.6     rdkafka

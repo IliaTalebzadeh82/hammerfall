@@ -61,6 +61,7 @@ module Idempotency
             code = { "Auction" => "auction_not_found", "User" => "user_not_found" }.fetch(error.model, "resource_not_found")
             [ 404, { error: { code: code, message: "Requested resource was not found.", details: {} } } ]
           end
+          ChaosCrash.at_command!("command_before_commit", auction_id)
           record.update!(status: "completed", response_status: status, response_body: body)
           # Use the same JSONB-normalized snapshot for original and replay responses.
           record.reload

@@ -1,5 +1,26 @@
 # Failure model
 
+## Phase 16 crash-window taxonomy
+
+These boundaries have different recovery behavior. The [Session 2 evidence](chaos/session-2.md)
+tests the ambiguous ones with scoped local process death.
+
+| Window | Durable result | Safe recovery |
+| --- | --- | --- |
+| A. Before authoritative transaction commit | No partial auction, outbox or terminal command outcome survives | Retry the same command key and payload |
+| B. After authoritative commit, before client response | Auction mutation and completed outcome survive, but the client cannot know that from the connection | Retry the same key and payload; completed replay returns the historical outcome, then GET current state |
+| C. Before external delivery | Outbox remains pending | Publisher retries the immutable event |
+| D. After broker acceptance, before local delivery acknowledgment | Broker has the event while SQL may still say pending | Retry can deliver a duplicate; consumers deduplicate by event ID and projection revision |
+| E. Before consumer durable effect | Offset remains uncommitted | Redelivery performs the effect once |
+| F. After consumer durable effect, before transport acknowledgment | Effect exists while offset remains behind | Redelivery is a duplicate no-op, then offset advances |
+
+Temporary failed requests, stale eventual reads, pending rows, lag and missing
+WebSocket hints are availability or freshness degradation. An accepted bid lost,
+a second durable audit effect, a regressed Redis revision, or a completed
+command re-executed would be correctness failures. Metrics explain symptoms;
+direct PostgreSQL state, effect counts, offsets and Redis comparison decide each
+campaign. Local recovery durations are observations, not service guarantees.
+
 ## Current foundation
 
 | Failure | Current effect | Recovery |

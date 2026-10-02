@@ -1,0 +1,27 @@
+Run options: include {locations: {"./spec/requests/idempotency_spec.rb" => [114]}}
+
+Randomized with seed 10797
+{"timestamp":"2026-10-02T01:15:44.780868Z","level":"info","service":"hammerfall-api","operation":"place_bid","component":"http","result":"accepted","trace_id":"b2213e7e63cb8acba9aea1af47c18fa8","span_id":"68f014b85010cc2b"}
+{"timestamp":"2026-10-02T01:15:44.797333Z","level":"info","service":"hammerfall-api","operation":"place_bid","component":"http","result":"accepted","trace_id":"7e228217fa57710e25b084115189f136","span_id":"03f025450a896912"}
+{"timestamp":"2026-10-02T01:15:44.805405Z","level":"info","service":"hammerfall-api","operation":"place_bid","component":"http","result":"rejected","error_class":"DomainError","trace_id":"276eac0d461043209cd905c9a91fff31","span_id":"19490885c296617c"}
+F
+
+Failures:
+
+  1) Idempotent bidding API replays a lost successful bid after price/leader changes and then closure
+     Failure/Error: expect(response.body).to eq(lost_response)
+
+       expected: "{\"data\":{\"id\":1258,\"amount\":10000,\"currency\":\"EUR\",\"sequence\":1,\"bidder_id\":1550,\"auction_id\":2433,\"created_at\":\"2026-10-02T01:15:44.776151Z\"}}"
+            got: "{\"error\":{\"code\":\"bid_too_low\",\"message\":\"Bid must be at least 51000 cents.\",\"details\":{\"minimum_bid\":51000,\"current_price\":50000}}}"
+
+       (compared using ==)
+     # ./spec/requests/idempotency_spec.rb:120:in 'block (2 levels) in <top (required)>'
+
+Finished in 0.095 seconds (files took 0.42396 seconds to load)
+1 example, 1 failure
+
+Failed examples:
+
+rspec ./spec/requests/idempotency_spec.rb:114 # Idempotent bidding API replays a lost successful bid after price/leader changes and then closure
+
+Randomized with seed 10797

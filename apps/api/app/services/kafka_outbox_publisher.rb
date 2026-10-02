@@ -41,6 +41,7 @@ class KafkaOutboxPublisher
               end
             end
             raise DeliveryFailed, "missing delivery report" unless receipt
+            ChaosCrash.at!("kafka_delivered", event.event_id)
           rescue StandardError => error
             Observability.counter("hammerfall_outbox_publish_failures", attributes: { channel: "kafka" })
             attempts = event.kafka_attempts + 1

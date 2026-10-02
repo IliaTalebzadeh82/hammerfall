@@ -205,6 +205,28 @@ RSpec.describe "Kafka domain outbox", type: :model do
     expect(event.reload.kafka_published_at).to be_nil
   end
 
+  it "places the chaos boundary after delivery confirmation and before Kafka SQL acknowledgment" do
+    auction = active_auction
+    acknowledge_setup_events(auction)
+    auction.place_bid!(bidder: @bidder, amount: 10_000)
+    event = event_for(auction)
+    delivered = false
+    producer = double("producer")
+    allow(producer).to receive(:produce) do
+      double(wait: nil).tap do |handle|
+        allow(handle).to receive(:wait) { delivered = true; Object.new }
+      end
+    end
+    allow(ChaosCrash).to receive(:at!) do |boundary, event_id|
+      expect([ boundary, event_id, delivered ]).to eq([ "kafka_delivered", event.event_id, true ])
+      expect(event.reload.kafka_published_at).to be_nil
+      raise Interrupt, "simulated process death"
+    end
+    expect { KafkaOutboxPublisher.new(producer: producer, batch_size: 1).run_once }
+      .to raise_error(Interrupt, "simulated process death")
+    expect(event.reload.kafka_published_at).to be_nil
+  end
+
   it "retries after a delivery/ack crash and sends the same event ID twice" do
     auction = active_auction
     acknowledge_setup_events(auction)
@@ -252,6 +274,29 @@ RSpec.describe "Kafka domain outbox", type: :model do
     expect(KafkaAuditEntry.where(auction_id: auction.id).pluck(:arrival_order)).to contain_exactly("first", "stale")
     expect(ConsumedKafkaEvent.where(auction_id: auction.id).count).to eq(2)
     expect(broker).to have_received(:commit).exactly(3).times
+  end
+
+  it "places the audit chaos boundary after durable effect and before offset commit" do
+    auction = active_auction
+    event = event_for(auction)
+    broker = double("consumer", store_offset: nil, commit: nil)
+    message = Struct.new(:payload, :key, :partition, :offset).new(
+      JSON.generate(event.kafka_envelope), auction.id.to_s, 0, 1)
+    allow(ChaosCrash).to receive(:at!) do |boundary, event_id|
+      expect([ boundary, event_id ]).to eq([ "audit_effect_committed", event.event_id ])
+      expect(ConsumedKafkaEvent.where(event_id: event.event_id).count).to eq(1)
+      expect(KafkaAuditEntry.where(event_id: event.event_id).count).to eq(1)
+      raise IOError, "simulated process death"
+    end
+    consumer = KafkaAuditConsumer.new(consumer: broker)
+    expect { consumer.process(message) }.to raise_error(IOError, "simulated process death")
+    expect(broker).not_to have_received(:store_offset)
+    expect(broker).not_to have_received(:commit)
+    allow(ChaosCrash).to receive(:at!).and_call_original
+    expect(consumer.process(message)).to eq(:duplicate)
+    expect(ConsumedKafkaEvent.where(event_id: event.event_id).count).to eq(1)
+    expect(KafkaAuditEntry.where(event_id: event.event_id).count).to eq(1)
+    expect(broker).to have_received(:commit).once
   end
 
   it "does not store an offset if the database side effect rolls back" do

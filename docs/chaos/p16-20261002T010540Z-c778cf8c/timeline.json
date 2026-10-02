@@ -1,0 +1,86 @@
+[
+  {
+    "at_utc": "2026-10-02T01:05:40.448470+00:00",
+    "action": "start",
+    "scenario": "session2-publisher",
+    "git_sha": "e45987e03c6b40f1612c406cb771435ee8e17276"
+  },
+  {
+    "at_utc": "2026-10-02T01:05:40.527128+00:00",
+    "action": "fixture",
+    "auction_id": 542,
+    "user_id": 3913
+  },
+  {
+    "at_utc": "2026-10-02T01:05:40.552146+00:00",
+    "action": "bid_accepted",
+    "amount": 10100,
+    "bid_id": 8152
+  },
+  {
+    "at_utc": "2026-10-02T01:05:41.577924+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 3,
+    "kafka_pending": 3,
+    "audit_effects": 0,
+    "eventual_source": "postgresql"
+  },
+  {
+    "at_utc": "2026-10-02T01:05:47.583749+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:05:47.583968+00:00",
+    "action": "converged",
+    "stage": "baseline",
+    "elapsed_seconds": 7.03
+  },
+  {
+    "at_utc": "2026-10-02T01:05:48.553132+00:00",
+    "action": "service_stopped",
+    "service": "kafka-outbox-publisher"
+  },
+  {
+    "at_utc": "2026-10-02T01:05:48.569717+00:00",
+    "action": "bid_accepted",
+    "amount": 10200,
+    "bid_id": 8153
+  },
+  {
+    "at_utc": "2026-10-02T01:05:49.580797+00:00",
+    "action": "snapshot",
+    "stage": "before_crash",
+    "revision": 4,
+    "sidekiq_pending": 1,
+    "kafka_pending": 1,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T01:05:50.237746+00:00",
+    "action": "injected_process_exited",
+    "service": "kafka-outbox-publisher",
+    "boundary": "kafka_delivered",
+    "event_id": "119ecef3-3825-4166-b0a7-cf6b0d9bfe4b",
+    "exit_code": 1
+  },
+  {
+    "at_utc": "2026-10-02T01:05:50.237896+00:00",
+    "action": "fail",
+    "error_type": "RuntimeError",
+    "detail": "target process did not die at kafka_delivered; exit=1"
+  },
+  {
+    "at_utc": "2026-10-02T01:05:52.650266+00:00",
+    "action": "cleanup_started",
+    "service": "kafka-outbox-publisher"
+  }
+]

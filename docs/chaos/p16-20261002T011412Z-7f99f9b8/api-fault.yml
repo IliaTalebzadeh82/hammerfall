@@ -1,0 +1,6 @@
+services:
+  api:
+    environment:
+      HAMMERFALL_CHAOS_CONFIRM: phase-16-local-crash
+      HAMMERFALL_CHAOS_CRASH_BOUNDARY: command_before_commit
+      HAMMERFALL_CHAOS_AUCTION_ID: '547'

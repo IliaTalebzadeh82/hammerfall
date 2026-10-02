@@ -36,6 +36,7 @@ class KafkaAuditConsumer
           ConsumedKafkaEvent.record!(consumer_name: GROUP, event: event,
             payload_digest: Digest::SHA256.hexdigest(message.payload))
         end
+        ChaosCrash.at!("audit_effect_committed", event.fetch("event_id"))
         # Offset follows the committed PostgreSQL side effect and receipt.
         Observability.trace("hammerfall.kafka.commit") do
           consumer.store_offset(message)
