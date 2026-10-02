@@ -61,6 +61,17 @@ kubectl --context kind-hammerfall -n hammerfall scale deployment/api --replicas=
 kubectl --context kind-hammerfall -n hammerfall scale deployment/api --replicas=2
 ```
 
+The local Cable replacement harness requires a web Service port-forward and
+Chrome or Playwright Chromium. From the repository root, for example:
+
+```sh
+PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/google-chrome node apps/web/scripts/phase18_k8s_cable.mjs
+```
+
+It creates a test auction, deletes API pods to observe socket recovery, then
+checks a new Cable hint and REST-rendered price. Run it only against the local
+kind cluster.
+
 All Deployments restart exited processes. Only API and web have HTTP traffic to
 gate with readiness probes. Background process progress must be checked using
 outbox, job, offset, projection and lease evidence; `Running` alone does not

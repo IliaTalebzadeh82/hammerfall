@@ -1,31 +1,36 @@
 # Phase 18 — Kubernetes ExecPlan
 
-Status: In progress; Session 1 milestone complete and checkpoint ready.
-Current milestone: start a fresh Session 2 for active lifecycle/failure proof.
+Status: In progress; Session 2 live-failure milestone complete and checkpoint ready.
+Current milestone: start a fresh final session for completion gates and review.
 Completed: local kind strategy; ADR-014; immutable API/web images; API
 readiness; namespace, config, Secret generation, external dependency Services,
 all application Deployments, web runtime proxy and repeatable local setup.
-Verified: [Session 1 report](../kubernetes/session-1.md) documents two ready API
-pods, all background roles, lifecycle smoke, direct SQL, pod replacement, 80/80
-served requests, 2→3 API scaling and all-three-pod routing. Focused checks pass.
-Remaining: Session 2 active termination/retry, Sidekiq/publisher/consumer
-shutdown, closer/scheduler replacement, rollout, scale-down, Cable and
-resource behavior; then a fresh final session for remaining fixes, optional
-bounded load, full regression, browser, fresh cluster, docs and hosted CI.
+Verified: [Session 1](../kubernetes/session-1.md) proves startup, lifecycle,
+replacement and initial scaling. [Session 2](../kubernetes/session-2.md)
+proves bounded active API termination/retry, post-commit lost response,
+API/web rollouts, scale-down, async pod replacement and durable catch-up,
+Kafka rebalance, closer/scheduler replacement, browser Cable recovery and
+cgroup resource snapshot.
+Remaining: final adversarial review and any repairs; optional bounded load;
+full regression, lint/security/build gates, fresh cluster setup, final
+browser/runtime verification, documentation and hosted CI.
 Known failures/limitations: kubectl 1.35 versus kind server 1.37 warns of
 unsupported two-minor skew; no metrics-server, so `kubectl top` unavailable.
-No serious correctness failure is currently known. Local values are not
+No serious correctness failure is currently known. Long active worker
+interruption and production capacity are unproven. Local values are not
 production sizing. Startup probes were unnecessary in observed boots.
 Relevant files: `k8s/`, `infrastructure/*-k8s.Dockerfile`, API health
-controller/route/spec, frontend Cable fallback, ADR-014 and Session 1 report.
+controller/route/spec, frontend Cable fallback and browser harness, ADR-014,
+and Session 1/2 reports.
 Relevant ADRs: [ADR-001](../adr/001-modular-monolith.md),
 [ADR-010](../adr/010-transactional-public-outbox.md),
 [ADR-011](../adr/011-kafka-domain-events.md),
 [ADR-014](../adr/014-local-kubernetes-process-orchestration.md).
 Next-session starting point: fresh Codex conversation; read AGENTS, handoff,
-this plan, Phase 18 spec and [Session 1 report](../kubernetes/session-1.md).
-Keep Compose application containers stopped and external dependencies running;
-start with active API SIGTERM and same-key ambiguity through the web proxy.
+this plan, Phase 18 spec and [Session 2 report](../kubernetes/session-2.md).
+Keep Phase 19 gated. Inspect the current diff and finish final verification.
+The kind cluster is running with desired replicas restored. The web
+port-forward is an ephemeral terminal session and may need restarting.
 
 ## Decisions
 
@@ -57,15 +62,15 @@ progress contracts must be checked with job/offset/outbox evidence.
 
 | Workload | Primitive / replicas | Readiness | Liveness | Request / limit (CPU, memory) | Shutdown | Shared dependencies / scaling | Failure or restart result / decision / limitation |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| API | Deployment + Service / 2 | DB query; no Redis/Kafka check | Rails `/up` | 250m, 384Mi / 1, 1Gi | Puma TERM, 45s grace | PG, Redis for Cable; manual 2→3 | Replacement PASS; active SIGTERM INCONCLUSIVE / no capacity claim |
-| Web | Deployment + Service / 2 | local HTTP | local HTTP | 100m, 128Mi / 500m, 512Mi | Node and proxy TERM, 30s | API Service; stateless | Startup PASS; replacement INCONCLUSIVE / local proxy only |
-| Sidekiq | Deployment / 1 | running; no traffic gate | process exit | 100m, 256Mi / 500m, 768Mi | Sidekiq TERM, 30s | PG, Redis; bounded concurrency 2 | Startup PASS; active restart INCONCLUSIVE / at-least-once jobs |
-| Sidekiq publisher | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM trap, 30s | PG, Redis; row claims permit N | Startup PASS; active restart INCONCLUSIVE / duplicate enqueue possible |
-| Kafka publisher | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM trap, 30s | PG, Kafka; row claims permit N | Startup PASS; active restart INCONCLUSIVE / duplicate publish possible |
-| Kafka audit consumer | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM, close consumer, 30s | PG, Kafka; group partitions bound N | Consumption PASS; rebalance INCONCLUSIVE / replay expected |
-| Kafka projection consumer | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM, close consumer, 30s | Redis, Kafka; revision guard permits N | Consumption PASS; rebalance INCONCLUSIVE / replay expected |
-| Auction closer | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM trap, 30s | PG; multiple safe under lock but not needed | Startup PASS; replacement INCONCLUSIVE / polling lag |
-| Reconciliation scheduler | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM trap, 30s | PG, Redis; lease permits overlap | Enqueue PASS; replacement INCONCLUSIVE / lease expiry delay |
+| API | Deployment + Service / 2 | DB query; no Redis/Kafka check | Rails `/up` | 250m, 384Mi / 1, 1Gi | Puma TERM, 45s grace | PG, Redis for Cable; manual 2→3 | Active bounded SIGTERM, lost-response replay, rollout, scale-down PASS / no capacity claim |
+| Web | Deployment + Service / 2 | local HTTP | local HTTP | 100m, 128Mi / 500m, 512Mi | Node and proxy TERM, 30s | API Service; stateless | Rolling restart 100/100 reads PASS / local proxy only |
+| Sidekiq | Deployment / 1 | running; no traffic gate | process exit | 100m, 256Mi / 500m, 768Mi | Sidekiq TERM, 30s | PG, Redis; bounded concurrency 2 | Replacement/catch-up PASS; in-flight job death untested / at-least-once jobs |
+| Sidekiq publisher | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM trap, 30s | PG, Redis; row claims permit N | Replacement/catch-up PASS; in-flight death untested / duplicate enqueue possible |
+| Kafka publisher | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM trap, 30s | PG, Kafka; row claims permit N | Replacement/catch-up PASS; in-flight death untested / duplicate publish possible |
+| Kafka audit consumer | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM, close consumer, 30s | PG, Kafka; group partitions bound N | Replacement and 1→2→1 rebalance PASS / replay expected |
+| Kafka projection consumer | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM, close consumer, 30s | Redis, Kafka; revision guard permits N | Replacement and 1→2→1 rebalance PASS / replay expected |
+| Auction closer | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM trap, 30s | PG; multiple safe under lock but not needed | Replacement closed two due auctions PASS / polling lag |
+| Reconciliation scheduler | Deployment / 1 | running | process exit | 50m, 128Mi / 500m, 512Mi | TERM trap, 30s | PG, Redis; lease permits overlap | Replacement enqueued/completed scans PASS / forced lease-holder death untested |
 
 ## Evidence Index
 
@@ -80,5 +85,6 @@ progress contracts must be checked with job/offset/outbox evidence.
 | API manual scale | `kubectl scale` 2→3, 60 GETs and logs | PASS; 26/13/21 requests across three pods | [Session 1](../kubernetes/session-1.md) |
 | Setup rerun | Full unique-tag build/rollout, `--no-build`, final corrected-Secret rollout | PASS; latest tag on all Deployments, Job complete, all Ready | [Session 1](../kubernetes/session-1.md) |
 | Secret byte audit | Compare Compose env bytes to Kubernetes Secret without printing value | PASS after newline correction | [Session 1](../kubernetes/session-1.md) |
-| Lifecycle/failure campaign | Pending | INCONCLUSIVE | Session 2 |
+| Lifecycle/failure campaign | Active API TERM/crash, rollouts, worker replacement, rebalance, Cable, resources | PASS within stated limits | [Session 2](../kubernetes/session-2.md) |
+| Cable harness lint and syntax | Biome check, `node --check` | PASS | Session 2 |
 | Final regression and security | Pending | INCONCLUSIVE | Final session |
