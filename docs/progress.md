@@ -2076,3 +2076,19 @@ from pre-commit rollback, and Cable hints from PostgreSQL-backed REST recovery.
 The local one-instance limits and operator-review projection cases remain
 explicit. No known serious correctness bug remains in Phase 16 scope. Phase 17
 has not started.
+
+### Phase 17 Session 1 — 2026-10-02
+
+Starting commit `44eb6cef8a941faa1d77da61130666b11b0d11dd`.
+Local Compose now routes localhost:3001 through one nginx proxy to two distinct
+API containers; six sampled GETs alternated replicas. Three retained
+cross-replica command runs passed sequential lifecycle/bidding, a ten-request
+hot-auction race, an equal-maximum tie and concurrent same-key ownership with
+replay on another process. Direct PostgreSQL checks confirmed sequence, price,
+leader, priority, revision and effect count. Focused backend tests passed 80
+examples, zero failures (seed 41872); targeted RuboCop, nginx/Compose syntax
+and the existing sequential API smoke via proxy passed. See the
+[active plan](plans/phase-17-execplan.md) and
+[Session 1 report](multi-instance/session-1.md) for failures corrected and
+limits. Realtime, process failure, deadlines, full/browser/hosted CI remain;
+Phase 17 is not complete.

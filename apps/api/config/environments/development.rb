@@ -1,8 +1,10 @@
 require "active_support/core_ext/integer/time"
 
 Rails.application.configure do
-  # Same-origin Next.js development rewrite targets the Compose API service.
+  # The same-origin Next.js rewrite uses the Compose proxy; direct API hosts remain useful for diagnosis.
   config.hosts << "api"
+  config.hosts << "api-proxy"
+  config.hosts << "api-replica-b"
   # Settings specified here will take precedence over those in config/application.rb.
 
   # Keep normal development reloading; isolate its cost in local performance

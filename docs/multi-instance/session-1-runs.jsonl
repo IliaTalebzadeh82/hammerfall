@@ -1,0 +1,15 @@
+{"scenario":"sequential","instances":["b","a","b","a","b","a","b"],"sql":{"auction_id":584,"price":11500,"leader":4002,"revision":5,"history":[[1,10000,4002],[2,11000,4003],[3,11500,4002]]}}
+{"scenario":"concurrent","instances":["b","a","b","b","a","a","b","a","b","a"],"accepted":3,"rejected":7,"auction_id":585,"sql":{"price":14500,"leader":4011,"revision":5,"history":[[8267,1,12500,4007],[8268,2,13500,4009],[8269,3,14500,4011]]}}
+{"scenario":"proxy-tie","instances":["a","b"],"sql":{"auction_id":586,"price":30000,"leader":4002,"revision":4,"history":[[1,10000,4002],[2,30000,4003],[3,30000,4002]]},"private_priority_order":[1,2],"public_private_leak":false}
+{"scenario":"idempotency","instances":["a","b"],"replay_instance":"b","auction_id":587,"sql":{"auction_id":587,"price":10000,"leader":4002,"revision":3,"history":[[1,10000,4002]]},"effect_count":1}
+{"result":"PASS","run_id":"d2626aa2"}
+{"scenario":"sequential","instances":["a","b","a","b","a","b","a"],"sql":{"auction_id":588,"price":11500,"leader":4014,"revision":5,"history":[[1,10000,4014],[2,11000,4015],[3,11500,4014]]}}
+{"scenario":"concurrent","instances":["a","b","a","b","a","b","a","b","a","b"],"accepted":6,"rejected":4,"auction_id":589,"sql":{"price":14500,"leader":4023,"revision":8,"history":[[8277,1,10000,4014],[8278,2,10500,4015],[8279,3,11500,4017],[8280,4,12000,4018],[8281,5,13500,4021],[8282,6,14500,4023]]}}
+{"scenario":"proxy-tie","instances":["b","a"],"sql":{"auction_id":590,"price":30000,"leader":4014,"revision":4,"history":[[1,10000,4014],[2,30000,4015],[3,30000,4014]]},"private_priority_order":[1,2],"public_private_leak":false}
+{"scenario":"idempotency","instances":["b","a"],"replay_instance":"a","auction_id":591,"sql":{"auction_id":591,"price":10000,"leader":4014,"revision":3,"history":[[1,10000,4014]]},"effect_count":1}
+{"result":"PASS","run_id":"198a1b7a"}
+{"scenario":"sequential","instances":["b","a","b","a","b","a","b"],"sql":{"auction_id":592,"price":11500,"leader":4026,"revision":5,"history":[[1,10000,4026],[2,11000,4027],[3,11500,4026]]}}
+{"scenario":"concurrent","instances":["b","a","b","a","b","b","a","a","b","a"],"accepted":6,"rejected":4,"auction_id":593,"sql":{"price":14500,"leader":4035,"revision":8,"history":[[8290,1,11000,4028],[8291,2,12000,4030],[8292,3,13000,4032],[8293,4,13500,4033],[8294,5,14000,4034],[8295,6,14500,4035]]}}
+{"scenario":"proxy-tie","instances":["a","b"],"sql":{"auction_id":594,"price":30000,"leader":4026,"revision":4,"history":[[1,10000,4026],[2,30000,4027],[3,30000,4026]]},"private_priority_order":[1,2],"public_private_leak":false}
+{"scenario":"idempotency","instances":["a","b"],"replay_instance":"b","auction_id":595,"sql":{"auction_id":595,"price":10000,"leader":4026,"revision":3,"history":[[1,10000,4026]]},"effect_count":1}
+{"result":"PASS","run_id":"2db9d8b5"}

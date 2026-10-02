@@ -12,6 +12,15 @@ docker compose up --build --wait
 ```
 
 Frontend: http://localhost:3000. API liveness: http://localhost:3001/up.
+Port 3001 is the stable local proxy for two Rails API containers (`api` and
+`api-replica-b`). Ordinary frontend and client traffic uses this proxy; the
+`X-Hammerfall-Instance` response header reports `a` or `b` only in development.
+To rerun the first cross-replica command and PostgreSQL proof:
+
+```sh
+docker compose exec -T api bin/rails runner script/phase17_session1.rb
+```
+
 PostgreSQL: localhost:5432; Kafka: localhost:29092. Ports bind only to loopback. Change `WEB_PORT`,
 `API_PORT`, `PGPORT`, or `KAFKA_PORT` in `.env` if occupied. API containers always connect to
 `db:5432`; the published PGPORT is only for native clients.
@@ -306,11 +315,11 @@ invalidations. Initial load, subscription confirmation/reconfirmation, visible-t
 return, command completion, explicit refresh and countdown expiry request REST state.
 
 All browser API calls use `/api/v1`. `next.config.ts` transparently rewrites to
-API_ORIGIN: native default http://127.0.0.1:3001; Compose sets http://api:3000.
+API_ORIGIN: native default http://127.0.0.1:3001; Compose sets http://api-proxy:3000.
 For another native API port export API_ORIGIN before starting Next. Restart after
 changes; production builds capture rewrite configuration. Only loopback is added
 to Next's allowed development origins, and Rails development allows the Compose
-`api` host. No credentials belong in this URL or NEXT_PUBLIC variables.
+proxy and direct API hosts. No credentials belong in this URL or NEXT_PUBLIC variables.
 
 The existing small development seed remains unchanged: three demo users and
 scheduled/active/closed examples are sufficient to start browsing. It skips an
@@ -361,27 +370,13 @@ to ws://localhost:3001/cable); production needs WSS and a proxy supporting WebSo
 upgrade, or the client's default same-origin `/cable` route. Rebuild after changing
 NEXT_PUBLIC variables. Never put credentials in the URL.
 
-For a cross-process proof, keep Compose API A on 3001 and start an independent B:
-
-```sh
-# Repository root; load local PG environment without printing credentials.
-set -a
-. .env
-set +a
-(cd apps/api && bin/rails server -b 127.0.0.1 -p 3002 -P /tmp/hammerfall-cable-b.pid)
-# In another shell, from repository root:
-API_BASE_URLS=http://127.0.0.1:3001,http://127.0.0.1:3002 \
-  PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/google/chrome/chrome \
-  node apps/web/scripts/verify-realtime.mjs
-```
-
-The script writes through A, subscribes through B, compares the exact notification
-and REST revision, tests stream isolation, malformed IDs and rejected origins.
-It retains labelled demo fixtures. Browser tests additionally cover two users,
+The earlier `verify-realtime.mjs` script accepts two direct Rails origins and
+tests a socket on one process after a mutation on another. Phase 17 Session 2
+will adapt and rerun that proof against the current Compose replicas. The
+[Session 1 report](multi-instance/session-1.md) covers command distribution;
+cross-instance Cable delivery is not yet claimed. Browser tests additionally cover two users,
 proxy contests, 90-second extension, ordinary closer publication and missed-message
 reconnect recovery. The closure scenario intentionally waits for a real deadline.
-For full browser tests routed through B, build/start a frontend with
-NEXT_PUBLIC_CABLE_URL=ws://127.0.0.1:3002/cable and an allowed frontend origin.
 Cable defaults to two workers; each Rails listener also uses a dedicated PostgreSQL
 connection outside the ordinary pool. Size total connection capacity across API and
 closer processes before increasing workers. This is not a production sizing result.

@@ -5,7 +5,8 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Completed scope: Phase 14 — Load Testing.** Browse real auctions, inspect public bid
+**Completed scope: Phase 16 — Chaos Testing; Phase 17 multi-instance work is in progress.**
+Browse real auctions, inspect public bid
 history, select an explicit demo bidder, and submit manual or private maximum bids.
 The responsive Next.js interface preserves stable client intentions for safe retry
 after lost responses, including tab reload. Rails/PostgreSQL still owns price,
@@ -49,6 +50,7 @@ docker compose up --build --wait
 
 Open [the frontend](http://localhost:3000). Rails liveness is at
 [localhost:3001/up](http://localhost:3001/up). First startup downloads dependencies.
+Port 3001 reaches a local proxy that balances two Rails API containers.
 See [running locally](docs/running-locally.md) for native development, verification,
 port overrides, dependency updates, and shutdown.
 
@@ -56,8 +58,8 @@ port overrides, dependency updates, and shutdown.
 
 - `apps/api`: Rails API, ActiveRecord/PostgreSQL, RSpec, RuboCop, Brakeman.
 - `apps/web`: Next.js App Router, TypeScript, Tailwind, shadcn/ui, Vitest.
-- `infrastructure`: development Dockerfiles; root Compose coordinates PostgreSQL,
-  Redis, Kafka, API, web, Sidekiq, two outbox publishers, Kafka audit and projection consumers,
+- `infrastructure`: development Dockerfiles and local API proxy; root Compose coordinates PostgreSQL,
+  Redis, Kafka, two API instances, web, Sidekiq, two outbox publishers, Kafka audit and projection consumers,
   reconciliation scheduler and auction closer.
 - `scripts`: shared local verification.
 - `docs`: architecture, decisions, learning notes, and progress.

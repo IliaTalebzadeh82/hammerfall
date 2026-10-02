@@ -942,3 +942,18 @@ adds the six-window timing taxonomy. A real browser observed explicit REST
 recovery while notification workers were stopped and later hint-driven REST
 convergence after restoration. Local recovery timing is not an SLA; a silently
 missed hint can leave an open page stale until a recovery trigger.
+
+## Phase 17 local multi-instance lesson
+
+**Question:** do two running API containers prove command independence from
+process memory? No. A local nginx proxy initially sent all six sampled GETs
+to the same API because many nginx workers each began round-robin at the first
+upstream. A single proxy worker made the distribution observable. The verifier
+records the handling replica for each relevant request and checks PostgreSQL
+rows directly, including a same-key race on distinct processes.
+
+**Checker detail:** a Rails runner may retain query-cache entries while another
+process writes through HTTP. Uncached SQL reads are necessary when using that
+runner as a direct-state oracle. [Session 1 evidence](multi-instance/session-1.md)
+shows both the corrected topology and the direct results; realtime and
+process-failure proofs remain in later sessions.

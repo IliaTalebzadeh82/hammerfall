@@ -4,6 +4,7 @@ module Api
       wrap_parameters false
       # Presentation calibration only; bidding still uses post-lock PostgreSQL time.
       after_action :set_presentation_time
+      after_action :set_local_instance
 
       rescue_from Idempotency::Executor::InvalidKey do |error|
         render_error(error.code, error.message, :bad_request)
@@ -34,6 +35,11 @@ module Api
 
       def set_presentation_time
         response.set_header("X-Server-Time", Time.current.iso8601(3))
+      end
+
+      def set_local_instance
+        instance = ENV["HAMMERFALL_INSTANCE"]
+        response.set_header("X-Hammerfall-Instance", instance) if Rails.env.development? && %w[a b].include?(instance)
       end
 
       def render_error(code, message, status, details = {})

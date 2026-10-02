@@ -106,6 +106,8 @@ jobs:
         run: docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-concurrent-bids
       - name: Proxy bidding API smoke
         run: docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-proxy-bidding
+      - name: Cross-replica auction correctness
+        run: docker compose exec -T api bin/rails runner script/phase17_session1.rb
       - name: Bounded idempotency pruning task
         run: docker compose exec -T api bin/rails idempotency:prune
       - name: Seed real browser verification

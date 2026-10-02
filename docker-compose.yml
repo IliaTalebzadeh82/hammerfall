@@ -81,6 +81,7 @@ services:
       PERFORMANCE_DIAGNOSTICS: ${PERFORMANCE_DIAGNOSTICS:-false}
       PERFORMANCE_CPU_PROFILE: ${PERFORMANCE_CPU_PROFILE:-false}
       PERFORMANCE_DISABLE_RELOADING: ${PERFORMANCE_DISABLE_RELOADING:-false}
+      HAMMERFALL_INSTANCE: a
       RAILS_ENV: development
       CABLE_WORKER_THREADS: ${CABLE_WORKER_THREADS:-2}
       CABLE_ALLOWED_ORIGINS: ${CABLE_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
@@ -91,8 +92,6 @@ services:
       PGUSER: ${PGUSER:-hammerfall}
       PGPASSWORD: ${PGPASSWORD:?Copy .env.example to .env before starting Compose}
       REDIS_URL: redis://redis:6379/0
-    ports:
-      - "127.0.0.1:${API_PORT:-3001}:3000"
     volumes:
       - ./apps/api:/app
       - api_bundle:/usr/local/bundle
@@ -107,6 +106,56 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+
+  api-replica-b:
+    image: hammerfall-api
+    environment:
+      <<: *telemetry-env
+      PERFORMANCE_DIAGNOSTICS: ${PERFORMANCE_DIAGNOSTICS:-false}
+      PERFORMANCE_CPU_PROFILE: ${PERFORMANCE_CPU_PROFILE:-false}
+      PERFORMANCE_DISABLE_RELOADING: ${PERFORMANCE_DISABLE_RELOADING:-false}
+      HAMMERFALL_INSTANCE: b
+      RAILS_ENV: development
+      CABLE_WORKER_THREADS: ${CABLE_WORKER_THREADS:-2}
+      CABLE_ALLOWED_ORIGINS: ${CABLE_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      IDEMPOTENCY_RETENTION_DAYS: ${IDEMPOTENCY_RETENTION_DAYS:-7}
+      IDEMPOTENCY_PRUNE_BATCH_SIZE: ${IDEMPOTENCY_PRUNE_BATCH_SIZE:-1000}
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${PGUSER:-hammerfall}
+      PGPASSWORD: ${PGPASSWORD:?Copy .env.example to .env before starting Compose}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./apps/api:/app
+      - api_bundle:/usr/local/bundle
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["bin/rails", "server", "-b", "0.0.0.0", "-P", "/tmp/hammerfall-puma.pid"]
+    healthcheck:
+      test: ["CMD", "ruby", "-rnet/http", "-e", "exit(Net::HTTP.get_response(URI('http://127.0.0.1:3000/up')).code == '200' ? 0 : 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  api-proxy:
+    image: nginx:1.29-alpine
+    ports:
+      - "127.0.0.1:${API_PORT:-3001}:3000"
+    volumes:
+      - ./infrastructure/nginx-local.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/api-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      api-replica-b:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
 
   auction-closer:
     image: hammerfall-api
@@ -275,7 +324,7 @@ services:
         LOCAL_GID: ${LOCAL_GID:-1000}
     environment:
       NEXT_TELEMETRY_DISABLED: "1"
-      API_ORIGIN: http://api:3000
+      API_ORIGIN: http://api-proxy:3000
       NEXT_PUBLIC_CABLE_URL: ${NEXT_PUBLIC_CABLE_URL:-ws://localhost:3001/cable}
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"

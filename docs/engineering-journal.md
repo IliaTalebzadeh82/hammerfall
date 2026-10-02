@@ -1,5 +1,17 @@
 # Engineering journal
 
+## 2026-10-02 — Phase 17 routing needed an explicit distribution proof
+
+Two healthy Rails containers behind nginx did not initially mean two Rails
+processes received requests: auto-sized nginx workers each favored the first
+upstream at low request volume. A one-worker local proxy then alternated six
+GETs and delivered the command races to both replicas. Rails host authorization
+also needed the internal proxy host for the verifier. The first verifier had
+two incorrect assumptions about initial revision and private-key matching;
+its direct SQL count later needed an uncached read because the runner's query
+cache does not see writes from other HTTP processes. The retained runs and
+limits are in [Session 1](multi-instance/session-1.md).
+
 ## 2026-09-23 — Keep foundation capabilities honest
 
 The master plan specifies RSpec, while Rails' default testing scaffold uses

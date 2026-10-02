@@ -491,5 +491,17 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
 - [Session 1](chaos/session-1.md), [Session 2](chaos/session-2.md), the
   [final review](chaos/phase-16-final.md) and
   [ExecPlan](plans/phase-16-execplan.md) index direct local evidence.
+
+## Phase 17 local multi-instance map
+
+- `docker-compose.yml` keeps `api` and adds `api-replica-b`; `api-proxy` owns
+  localhost:3001. `infrastructure/api-proxy.conf` routes HTTP and WebSocket
+  upgrades without affinity; `infrastructure/nginx-local.conf` fixes one local
+  nginx worker for observable round-robin distribution.
+- `apps/api/app/controllers/api/v1/base_controller.rb` emits the bounded
+  development-only diagnostic instance header. `script/phase17_session1.rb`
+  sends commands through the stable proxy and verifies uncached PostgreSQL
+  results. [Session 1](multi-instance/session-1.md) and the
+  [active ExecPlan](plans/phase-17-execplan.md) index current evidence.
   The [final review](benchmarks/phase-15-final.md) classifies retained
   diagnostics, rejected tuning and the remaining measurement boundaries.
