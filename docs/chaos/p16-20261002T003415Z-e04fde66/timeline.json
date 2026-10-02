@@ -1,0 +1,26 @@
+[
+  {
+    "at_utc": "2026-10-02T00:34:15.359902+00:00",
+    "action": "start",
+    "scenario": "baseline",
+    "git_sha": "2b9fb2fe2d7031c5a5b543afd48cf94e86ee540a"
+  },
+  {
+    "at_utc": "2026-10-02T00:34:15.513720+00:00",
+    "action": "fixture",
+    "auction_id": 532,
+    "user_id": 3903
+  },
+  {
+    "at_utc": "2026-10-02T00:34:15.563812+00:00",
+    "action": "bid_accepted",
+    "amount": 10100,
+    "bid_id": 8132
+  },
+  {
+    "at_utc": "2026-10-02T00:34:16.731541+00:00",
+    "action": "fail",
+    "error_type": "RuntimeError",
+    "detail": "docker compose exec -T: exit 1: "
+  }
+]

@@ -1,0 +1,78 @@
+{
+  "at_utc": "2026-10-02T00:35:59.605164+00:00",
+  "postgresql": {
+    "auction_id": 534,
+    "public_revision": 3,
+    "public_data": {
+      "title": "p16-20261002T003553Z-784dea9d",
+      "description": "Phase 16 isolated chaos fixture",
+      "status": "active",
+      "starting_price": 10000,
+      "minimum_increment": 100,
+      "starts_at": "2026-10-02T00:33:53.987756Z",
+      "original_ends_at": "2026-10-02T00:55:53.987756Z",
+      "current_price": 10100,
+      "current_leader_id": 3905,
+      "ends_at": "2026-10-02T00:55:53.987756Z",
+      "closed_at": null,
+      "winner_id": null
+    },
+    "bid_count": 1,
+    "last_bid_sequence": 1,
+    "outbox_count": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "kafka_retry_count": 0,
+    "sidekiq_retry_count": 0,
+    "audit_receipts": 3,
+    "audit_effects": 3,
+    "latest_event_id": "830619e9-1259-4564-9cab-a0b6ce24e13d",
+    "failures": []
+  },
+  "ordinary_get": {
+    "data": {
+      "id": 534,
+      "public_revision": 3,
+      "title": "p16-20261002T003553Z-784dea9d",
+      "description": "Phase 16 isolated chaos fixture",
+      "status": "active",
+      "currency": "EUR",
+      "starting_price": 10000,
+      "current_price": 10100,
+      "minimum_increment": 100,
+      "starts_at": "2026-10-02T00:33:53.987756Z",
+      "ends_at": "2026-10-02T00:55:53.987756Z",
+      "original_ends_at": "2026-10-02T00:55:53.987756Z",
+      "closed_at": null,
+      "current_leader_id": 3905,
+      "winner_id": null,
+      "created_at": "2026-10-02T00:35:53.990139Z",
+      "updated_at": "2026-10-02T00:35:54.028348Z"
+    }
+  },
+  "eventual_get": {
+    "data": {
+      "original_ends_at": "2026-10-02T00:55:53.987756Z",
+      "current_price": 10100,
+      "description": "Phase 16 isolated chaos fixture",
+      "winner_id": null,
+      "starts_at": "2026-10-02T00:33:53.987756Z",
+      "ends_at": "2026-10-02T00:55:53.987756Z",
+      "title": "p16-20261002T003553Z-784dea9d",
+      "minimum_increment": 100,
+      "status": "active",
+      "starting_price": 10000,
+      "current_leader_id": 3905,
+      "closed_at": null,
+      "id": 534,
+      "public_revision": 3,
+      "currency": "EUR"
+    },
+    "meta": {
+      "source": "redis",
+      "event_occurred_at": "2026-10-02T00:35:54.029352Z",
+      "projected_at": "2026-10-02T00:35:54.716Z",
+      "age_seconds": 6
+    }
+  }
+}

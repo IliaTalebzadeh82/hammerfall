@@ -1,0 +1,133 @@
+[
+  {
+    "at_utc": "2026-10-02T00:37:14.098240+00:00",
+    "action": "start",
+    "scenario": "kafka",
+    "git_sha": "2b9fb2fe2d7031c5a5b543afd48cf94e86ee540a"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:14.143521+00:00",
+    "action": "fixture",
+    "auction_id": 536,
+    "user_id": 3907
+  },
+  {
+    "at_utc": "2026-10-02T00:37:14.155809+00:00",
+    "action": "bid_accepted",
+    "amount": 10100,
+    "bid_id": 8137
+  },
+  {
+    "at_utc": "2026-10-02T00:37:14.729628+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:14.729906+00:00",
+    "action": "converged",
+    "stage": "baseline",
+    "elapsed_seconds": 0.57
+  },
+  {
+    "at_utc": "2026-10-02T00:37:15.886698+00:00",
+    "action": "service_stopped",
+    "service": "kafka"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:15.908196+00:00",
+    "action": "bid_accepted",
+    "amount": 10200,
+    "bid_id": 8138
+  },
+  {
+    "at_utc": "2026-10-02T00:37:15.920284+00:00",
+    "action": "bid_accepted",
+    "amount": 10300,
+    "bid_id": 8139
+  },
+  {
+    "at_utc": "2026-10-02T00:37:24.482582+00:00",
+    "action": "snapshot",
+    "stage": "during",
+    "revision": 5,
+    "sidekiq_pending": 0,
+    "kafka_pending": 2,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:24.774768+00:00",
+    "action": "service_started",
+    "service": "kafka"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:25.401874+00:00",
+    "action": "snapshot",
+    "stage": "recovered",
+    "revision": 5,
+    "sidekiq_pending": 0,
+    "kafka_pending": 2,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:30.987587+00:00",
+    "action": "snapshot",
+    "stage": "recovered",
+    "revision": 5,
+    "sidekiq_pending": 0,
+    "kafka_pending": 2,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:36.585437+00:00",
+    "action": "snapshot",
+    "stage": "recovered",
+    "revision": 5,
+    "sidekiq_pending": 0,
+    "kafka_pending": 1,
+    "audit_effects": 4,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:42.153408+00:00",
+    "action": "snapshot",
+    "stage": "recovered",
+    "revision": 5,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 5,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:42.153622+00:00",
+    "action": "converged",
+    "stage": "recovered",
+    "elapsed_seconds": 17.38
+  },
+  {
+    "at_utc": "2026-10-02T00:37:42.710583+00:00",
+    "action": "postgresql_verified",
+    "bid_count": 3
+  },
+  {
+    "at_utc": "2026-10-02T00:37:43.291541+00:00",
+    "action": "snapshot",
+    "stage": "final",
+    "revision": 5,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 5,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:43.291808+00:00",
+    "action": "pass"
+  }
+]

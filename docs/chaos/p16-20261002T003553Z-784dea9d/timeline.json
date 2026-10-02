@@ -1,0 +1,65 @@
+[
+  {
+    "at_utc": "2026-10-02T00:35:53.970146+00:00",
+    "action": "start",
+    "scenario": "baseline",
+    "git_sha": "2b9fb2fe2d7031c5a5b543afd48cf94e86ee540a"
+  },
+  {
+    "at_utc": "2026-10-02T00:35:54.021912+00:00",
+    "action": "fixture",
+    "auction_id": 534,
+    "user_id": 3905
+  },
+  {
+    "at_utc": "2026-10-02T00:35:54.033631+00:00",
+    "action": "bid_accepted",
+    "amount": 10100,
+    "bid_id": 8134
+  },
+  {
+    "at_utc": "2026-10-02T00:35:54.604821+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 3,
+    "kafka_pending": 3,
+    "audit_effects": 0,
+    "eventual_source": "postgresql"
+  },
+  {
+    "at_utc": "2026-10-02T00:36:00.167907+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:36:00.168088+00:00",
+    "action": "converged",
+    "stage": "baseline",
+    "elapsed_seconds": 6.13
+  },
+  {
+    "at_utc": "2026-10-02T00:36:00.708929+00:00",
+    "action": "postgresql_verified",
+    "bid_count": 1
+  },
+  {
+    "at_utc": "2026-10-02T00:36:01.288191+00:00",
+    "action": "snapshot",
+    "stage": "final",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:36:01.288344+00:00",
+    "action": "pass"
+  }
+]

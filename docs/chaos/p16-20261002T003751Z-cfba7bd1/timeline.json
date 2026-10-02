@@ -1,0 +1,123 @@
+[
+  {
+    "at_utc": "2026-10-02T00:37:51.258611+00:00",
+    "action": "start",
+    "scenario": "worker",
+    "git_sha": "2b9fb2fe2d7031c5a5b543afd48cf94e86ee540a"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:51.306777+00:00",
+    "action": "fixture",
+    "auction_id": 537,
+    "user_id": 3908
+  },
+  {
+    "at_utc": "2026-10-02T00:37:51.318374+00:00",
+    "action": "bid_accepted",
+    "amount": 10100,
+    "bid_id": 8140
+  },
+  {
+    "at_utc": "2026-10-02T00:37:51.895923+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 1,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:57.475360+00:00",
+    "action": "snapshot",
+    "stage": "baseline",
+    "revision": 3,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:37:57.475583+00:00",
+    "action": "converged",
+    "stage": "baseline",
+    "elapsed_seconds": 6.16
+  },
+  {
+    "at_utc": "2026-10-02T00:37:57.765455+00:00",
+    "action": "service_stopped",
+    "service": "outbox-publisher"
+  },
+  {
+    "at_utc": "2026-10-02T00:38:00.060116+00:00",
+    "action": "service_stopped",
+    "service": "sidekiq"
+  },
+  {
+    "at_utc": "2026-10-02T00:38:00.076528+00:00",
+    "action": "bid_accepted",
+    "amount": 10200,
+    "bid_id": 8141
+  },
+  {
+    "at_utc": "2026-10-02T00:38:00.090259+00:00",
+    "action": "bid_accepted",
+    "amount": 10300,
+    "bid_id": 8142
+  },
+  {
+    "at_utc": "2026-10-02T00:38:00.671105+00:00",
+    "action": "snapshot",
+    "stage": "during",
+    "revision": 5,
+    "sidekiq_pending": 2,
+    "kafka_pending": 2,
+    "audit_effects": 3,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:38:01.939158+00:00",
+    "action": "service_started",
+    "service": "sidekiq"
+  },
+  {
+    "at_utc": "2026-10-02T00:38:03.203298+00:00",
+    "action": "service_started",
+    "service": "outbox-publisher"
+  },
+  {
+    "at_utc": "2026-10-02T00:38:03.810832+00:00",
+    "action": "snapshot",
+    "stage": "recovered",
+    "revision": 5,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 5,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:38:03.811048+00:00",
+    "action": "converged",
+    "stage": "recovered",
+    "elapsed_seconds": 0.61
+  },
+  {
+    "at_utc": "2026-10-02T00:38:04.374364+00:00",
+    "action": "postgresql_verified",
+    "bid_count": 3
+  },
+  {
+    "at_utc": "2026-10-02T00:38:04.940826+00:00",
+    "action": "snapshot",
+    "stage": "final",
+    "revision": 5,
+    "sidekiq_pending": 0,
+    "kafka_pending": 0,
+    "audit_effects": 5,
+    "eventual_source": "redis"
+  },
+  {
+    "at_utc": "2026-10-02T00:38:04.941036+00:00",
+    "action": "pass"
+  }
+]

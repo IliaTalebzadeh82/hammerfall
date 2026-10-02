@@ -1,0 +1,22 @@
+{
+  "run_id": "p16-20261002T004508Z-299539fa",
+  "checked_at": "2026-10-02T00:45:34.637655Z",
+  "auctions": [
+    {
+      "auction_id": 540,
+      "status": "active",
+      "bids": 3,
+      "manual_bids": 3,
+      "maximum_bids": 0,
+      "current_price": 10300,
+      "leader_id": 3911,
+      "winner_id": null,
+      "public_revision": 5,
+      "ends_at": "2026-10-02T01:05:08.776329Z",
+      "outbox_pending": 0,
+      "kafka_pending": 0,
+      "closing": null
+    }
+  ],
+  "failures": []
+}

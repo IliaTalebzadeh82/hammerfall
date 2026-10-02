@@ -638,3 +638,14 @@ targets repaired the contract. Focused and full gates passed afterward. This
 is a reminder to run eager-load checks on opt-in instrumentation even when
 default runtime smoke looks healthy. The [final gate index](benchmarks/phase-15-final-gates/README.md)
 records the failure and recheck.
+
+## 2026-10-02 — Short chaos faults can outrun scraped metrics
+
+Phase 16's Redis, broker and publisher outages produced fixture-specific
+PostgreSQL outbox backlogs that bounded Prometheus snapshots sometimes missed
+because the global gauge's last scrape still reported zero. Direct outbox
+queries, consumer duplicate logs and public endpoint comparisons gave the
+decisive evidence. The same session proved that deleting a derived Redis key
+can be repaired by the existing reconciler, while shared Sidekiq Redis data
+should not be flushed just to simulate projection loss. See the
+[Session 1 chaos report](chaos/session-1.md).
