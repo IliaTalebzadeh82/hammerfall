@@ -4,6 +4,7 @@ import {
   notificationRevision,
   subscribeAuction,
 } from "./auction-subscription";
+
 const mock = vi.hoisted(() => ({
   create: vi.fn(),
   disconnect: vi.fn(),
@@ -18,6 +19,7 @@ vi.mock("@rails/actioncable", () => ({
 afterEach(() => {
   vi.clearAllMocks();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 it("validates public envelope and auction isolation without reading extra/private fields", () => {
   const event = { type: "auction.changed.v1", auction_id: 42, revision: 12 };
@@ -91,4 +93,14 @@ it("supports configured WSS without credentials", () => {
   expect(cableUrl()).toBe("wss://auctions.example/cable");
   vi.stubEnv("NEXT_PUBLIC_CABLE_URL", "ws://secret:password@example/cable");
   expect(cableUrl).toThrow();
+});
+it("uses the web origin for local Kubernetes Cable while preserving Compose routing", () => {
+  vi.stubGlobal("window", {
+    location: new URL("http://127.0.0.1:8080/auctions"),
+  });
+  expect(cableUrl()).toBe("ws://127.0.0.1:8080/cable");
+  vi.stubGlobal("window", {
+    location: new URL("http://localhost:3000/auctions"),
+  });
+  expect(cableUrl()).toBe("ws://localhost:3001/cable");
 });

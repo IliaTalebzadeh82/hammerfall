@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auction-closer
+  namespace: hammerfall
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: auction-closer
+  template:
+    metadata:
+      labels:
+        app: auction-closer
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: auction-closer
+        image: hammerfall-api:phase18
+        imagePullPolicy: IfNotPresent
+        command:
+        - bin/auction_closer
+        envFrom:
+        - configMapRef:
+            name: hammerfall-config
+        - secretRef:
+            name: hammerfall-local-db
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

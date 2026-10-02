@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-prepare
+  namespace: hammerfall
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: db-prepare
+          image: hammerfall-api:phase18
+          imagePullPolicy: IfNotPresent
+          command: ["bin/rails", "db:prepare"]
+          envFrom:
+            - configMapRef:
+                name: hammerfall-config
+            - secretRef:
+                name: hammerfall-local-db
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi

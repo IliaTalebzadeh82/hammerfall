@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-outbox-publisher
+  namespace: hammerfall
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: kafka-outbox-publisher
+  template:
+    metadata:
+      labels:
+        app: kafka-outbox-publisher
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: kafka-outbox-publisher
+        image: hammerfall-api:phase18
+        imagePullPolicy: IfNotPresent
+        command:
+        - bin/kafka_outbox_publisher
+        envFrom:
+        - configMapRef:
+            name: hammerfall-config
+        - secretRef:
+            name: hammerfall-local-db
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

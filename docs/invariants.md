@@ -240,3 +240,13 @@ job retries can still lose a hint. A connected browser still needs REST recovery
 | Kafka ack follows broker confirmation | Delivery handle `wait` precedes PostgreSQL `kafka_published_at`; retry persists failure | Delivery-failure spec, live publisher SIGKILL and sabotage B |
 | Duplicate/replayed event has one audit side effect | Unique receipt/event and audit rows in one transaction; offset follows commit | Consumer specs, live duplicate/replay and sabotage C/D |
 | Stale, gap and poison events cannot change auction truth | Audit-only effect; strict envelope validation; poison offset remains uncommitted | Consumer specs and live poison/reset/replay evidence |
+
+## Phase 18 local orchestration boundary (in progress)
+
+Kubernetes pod identity, Service routing, readiness and replica count have no
+role in auction ordering, deadline, winner, idempotency or outbox identity.
+The local API Deployment uses PostgreSQL readiness and process liveness;
+replacement and 2→3 scaling read the same durable state. This is an observed
+Session 1 process-placement result, not yet an active SIGTERM or production
+availability guarantee. See [ADR-014](adr/014-local-kubernetes-process-orchestration.md)
+and the [Session 1 evidence](kubernetes/session-1.md).

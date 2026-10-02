@@ -1,5 +1,10 @@
 # Running locally
 
+The in-progress Phase 18 kind setup runs application processes in Kubernetes
+and keeps PostgreSQL, Redis and Kafka in Compose. Use the separate
+[local Kubernetes guide](../k8s/README.md) for that exercise. The instructions
+below run the ordinary all-Compose development stack.
+
 ## Container development
 
 Requirements: Docker Engine with Compose v2+ (verified with Engine 29.8.1 and

@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reconciliation-scheduler
+  namespace: hammerfall
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: reconciliation-scheduler
+  template:
+    metadata:
+      labels:
+        app: reconciliation-scheduler
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: reconciliation-scheduler
+        image: hammerfall-api:phase18
+        imagePullPolicy: IfNotPresent
+        command:
+        - bin/reconciliation_scheduler
+        envFrom:
+        - configMapRef:
+            name: hammerfall-config
+        - secretRef:
+            name: hammerfall-local-db
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

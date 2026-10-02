@@ -34,7 +34,16 @@ extend measured latency and projection recovery.
 
 Use RSpec, Vitest/Testing Library, Playwright and later k6. Critical concurrency/distributed tests should exercise actual PostgreSQL and relevant Redis/Kafka, multiple Rails instances, failure injection and invariant/property sequences where feasible. Record benchmark environment, git commit, configuration, setup, p50/p95/p99, accepted/rejected/error counts, contention and interpretation in `docs/benchmarks/`; never invent numbers. Compare pessimistic versus optimistic/CAS approaches only with equivalent correctness and realistic load, then decide on more than speed. Profile DB locks/queries, CPU, memory, concurrency and pools before optimizing.
 
-Kubernetes waits for local correctness, Compose, multi-instance evidence, metrics and readiness checks; eventual manifests need API/web/workers, probes, resources, graceful shutdown, config/secrets and justified scaling. Terraform/GCP architecture may include GKE, Cloud SQL, Redis, a justified Kafka option, networking, identities, secrets and observability, with estimated costs. Do not create paid resources without explicit authorization. Normal CI must not need deploy credentials. The final review should categorize critical/high/medium/low/future findings and fix reasonably fixable critical/high issues.
+Phase 18 now uses local kind manifests for API/web/workers, probes, resources,
+configuration and justified manual scaling; active graceful-shutdown and
+failure evidence remains in progress. PostgreSQL, Redis and Kafka remain
+external Compose dependencies. See [ADR-014](../adr/014-local-kubernetes-process-orchestration.md)
+and the [ExecPlan](../plans/phase-18-execplan.md). Terraform/GCP architecture
+may later include GKE, Cloud SQL, Redis, a justified Kafka option, networking,
+identities, secrets and observability, with estimated costs. Do not create
+paid resources without explicit authorization. Normal CI must not need deploy
+credentials. The final review should categorize critical/high/medium/low/future
+findings and fix reasonably fixable critical/high issues.
 
 ## Specific verification and learning deliverables
 

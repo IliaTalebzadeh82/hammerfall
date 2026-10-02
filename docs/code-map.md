@@ -471,6 +471,8 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   fixture command keys and digests, while `report.py` tolerates observations
   above finite histogram buckets. The [Session 2 report](benchmarks/phase-15-session-2.md)
   records the rejected Puma/pool experiments and runtime limits.
+The [final review](benchmarks/phase-15-final.md) classifies retained
+diagnostics, rejected tuning and the remaining measurement boundaries.
 
 ## Phase 16 chaos map
 
@@ -514,5 +516,20 @@ and [Kafka runbook](runbooks/kafka.md) define the wire and recovery contract.
   real PostgreSQL lock chains for soft close, deadline and closer races. See
   [Session 2](multi-instance/session-2.md) for the live campaign and the
   [final review](multi-instance/phase-17-final.md) for closure and limits.
-  The [final review](benchmarks/phase-15-final.md) classifies retained
-  diagnostics, rejected tuning and the remaining measurement boundaries.
+## Phase 18 local Kubernetes map (Session 1)
+
+- `infrastructure/api-k8s.Dockerfile` and `web-k8s.Dockerfile` bake source
+  into images; the web image runs the Next.js production build/server.
+  `apps/web/src/lib/realtime/auction-subscription.ts` uses the web origin for
+  Cable when the local port is 8080.
+- `apps/api/app/controllers/health_controller.rb` and `config/routes.rb`
+  expose `/ready` for a PostgreSQL query; Rails `/up` remains liveness.
+  `spec/requests/health_spec.rb` proves their separate dependency behavior.
+- `k8s/base/` declares the namespace, ConfigMaps, selectorless external
+  dependency Services, API/web Services and nine application Deployments.
+  `k8s/base/web-proxy.yaml` routes browser `/api` and `/cable` at runtime.
+  `k8s/local/up.sh` joins kind to the Compose network, creates the local
+  Secret/EndpointSlices, loads images and runs `db-prepare.yaml` before
+  deployment. See [local setup](../k8s/README.md),
+  [ADR-014](adr/014-local-kubernetes-process-orchestration.md) and the
+  [Session 1 evidence](kubernetes/session-1.md).

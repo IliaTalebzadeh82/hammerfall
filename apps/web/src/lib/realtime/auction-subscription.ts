@@ -25,6 +25,7 @@ export function cableUrl() {
   const fallback = new URL("/cable", window.location.origin);
   fallback.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   if (
+    window.location.port === "3000" &&
     window.location.protocol === "http:" &&
     ["localhost", "127.0.0.1"].includes(window.location.hostname)
   )

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sidekiq
+  namespace: hammerfall
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: sidekiq
+  template:
+    metadata:
+      labels:
+        app: sidekiq
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: sidekiq
+        image: hammerfall-api:phase18
+        imagePullPolicy: IfNotPresent
+        command:
+        - bundle
+        - exec
+        - sidekiq
+        - -r
+        - ./config/environment.rb
+        - -C
+        - config/sidekiq.yml
+        envFrom:
+        - configMapRef:
+            name: hammerfall-config
+        - secretRef:
+            name: hammerfall-local-db
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 768Mi

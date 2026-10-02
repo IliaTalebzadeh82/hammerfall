@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: hammerfall
+spec:
+  selector:
+    app: web
+  ports:
+    - name: http
+      port: 8080
+      targetPort: proxy
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: hammerfall
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: web
+          image: hammerfall-web:phase18
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: next
+              containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: next
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: next
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        - name: proxy
+          image: nginx:1.29-alpine
+          ports:
+            - name: proxy
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: proxy
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /proxy-health
+              port: proxy
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: web-proxy

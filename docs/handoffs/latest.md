@@ -1,48 +1,45 @@
-# Current handoff — Phase 17 complete
+# Current handoff — Phase 18 Session 1 checkpoint
 
-Updated: 2026-10-02. Phase 17 is complete. Phase 18 — Kubernetes has not
-started; begin it only on an explicit request. Read its
-[specification](../phases/phase-18.md) and use the
-[context map](../context-map.md) for targeted architecture when that work
-begins. The [Phase 17 final report](../multi-instance/phase-17-final.md) is
-the concise authority; its [ExecPlan](../plans/phase-17-execplan.md) indexes
-the two detailed sessions and verification evidence.
+Updated: 2026-10-02. Phase 18 — Kubernetes is in progress, explicitly
+authorized. Session 1 implementation and basic local proof are complete;
+begin a fresh Codex conversation for Session 2. Do not start Phase 19. Read
+the [Phase 18 ExecPlan](../plans/phase-18-execplan.md),
+[specification](../phases/phase-18.md) and
+[Session 1 report](../kubernetes/session-1.md); use the
+[context map](../context-map.md) for targeted source. Phase 17's
+[final report](../multi-instance/phase-17-final.md) remains the multi-instance
+correctness baseline.
 
-Two local Rails/Puma API containers run behind nginx without sticky routing.
-Proxy GETs and command responses reached both; sequential/concurrent bidding,
-proxy/max bids, same-key replay and ambiguous committed/uncommitted retries
-remained correct across replicas. PostgreSQL row locks, SQL uniqueness,
-post-lock DB time, transactions, idempotency rows, outbox rows and public
-revision remain authoritative. The API processes are replaceable executors.
-Redis, Kafka, Sidekiq and Cable remain downstream delivery/derived state.
+Local kind v0.33.0 runs one Kubernetes v1.37 node and namespace `hammerfall`.
+Two API pods behind a Service, two production-built web pods behind a web
+Service/Nginx sidecar, and one each of seven background roles run in
+Deployments. A `db-prepare` Job completed. PostgreSQL, Redis and Kafka stay in
+Compose; the kind node joins the Compose network and selectorless Services with
+generated EndpointSlices point to the external containers. The database
+username/password are generated into a local Kubernetes Secret, never
+committed. [ADR-014](../adr/014-local-kubernetes-process-orchestration.md)
+records this boundary; [local setup](../../k8s/README.md) documents the
+commands. Rails uses frozen local development configuration; no production
+Rails or cloud deployment is claimed.
 
-PostgreSQL Action Cable pub/sub carried public revision hints across API
-processes. The browser used each hint to fetch authoritative REST state.
-Stopping the socket-owning replica disconnected Cable but left the surviving
-replica able to serve bids and reads. CDP showed Action Cable's monitor
-created a reconnect attempt; nginx's five-second Cable upstream connect
-timeout let it retry the survivor. A confirmed resubscription and REST
-recovery followed in retained local runs. Visibility REST recovery still
-matters for missed hints. Rejoining the stopped API immediately read current
-PostgreSQL state without reconstruction. No uninterrupted delivery or
-reconnect-latency promise exists.
+API `/ready` queries PostgreSQL and gates Service membership; `/up` remains
+process liveness independent of Redis/Kafka. Both API pods became Ready after
+initial boot-time probe failures. All 11 application pods were Ready with zero
+restarts. Focused health RSpec (2 examples), frontend Vitest (4 tests),
+RuboCop, Biome/TypeScript, image builds, YAML server dry-run and repeated local
+setup passed. A lifecycle smoke through the web proxy created and closed
+auction 646; direct SQL confirmed its price, winner, revision and two bids.
+Deleting one API pod during 80 requests yielded 80 HTTP 200s; its replacement
+immediately read the current auction. Manual API scale 2→3 made the new pod
+Ready, and 60 requests reached all three (26/13/21). Desired replicas returned
+to two. Exact observations and invalid setup attempts are in Session 1.
 
-One closer and one reconciliation scheduler are operational roles. Closure
-uses auction row locking and DB-time recheck; scheduled reconciliation uses
-durable PostgreSQL leases. Replica-local diagnostics do not decide outcomes.
-Each additional API may add concurrent PostgreSQL work and connections: the
-two API pools are configured for three each, plus Cable/background services.
-One snapshot found 13 development connections including the sampler against
-`max_connections=100`; this is not a capacity finding.
-
-Final local gates: 449 backend examples, zero failures, three opt-in pending;
-73 frontend tests; seven normal Chrome scenarios; rebuilt Compose and
-runtime/Kafka/Redis/background smokes; static/security/config checks. Hosted
-[GitHub Actions run 36999538692](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/36999538692)
-passed API, web and Compose, including cross-replica correctness and browser
-steps, on verification SHA `d36d05d831ed8d01376903dffbb39e27620c5199`.
-
-The proof covers two local API processes only. It does not establish linear
-throughput, production capacity, Kubernetes/autoscaling, PostgreSQL failover,
-large replica counts, cloud load balancing or regional failover. Phase 18 has
-not started.
+Next: prove active API SIGTERM and ambiguous same-key retry; rolling update,
+graceful scale-down and Cable socket replacement; Sidekiq and publisher
+termination; Kafka consumer rebalance; closer and scheduler replacement; and
+resource behavior. Then checkpoint. A later fresh final session owns remaining
+repairs, optional bounded load, full regression, browser and fresh-cluster
+checks, documentation/security review and hosted CI. Kubectl 1.35.9 versus
+server 1.37.0 warns of unsupported version skew, and no metrics-server is
+installed; `kubectl top` is unavailable. No serious correctness failure is
+currently known, but active lifecycle semantics remain unverified.

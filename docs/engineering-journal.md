@@ -716,3 +716,25 @@ the harness initially called the successful `b,a` route `b`. Parsing its last
 address and excluding Next HMR sockets made the evidence accurate. No second
 client reconnect system was needed. The [final review](multi-instance/phase-17-final.md)
 records the local repeat and remaining interruption limit.
+
+## 2026-10-02 — Kubernetes readiness and local broker naming
+
+The first kind API pods failed readiness with connection refused during boot,
+then became Service endpoints only after Rails answered a PostgreSQL query.
+Deletion removed one endpoint and added a replacement without moving auction
+state; a third API handled requests after manual scale. This is the useful
+orchestration boundary: Service membership and pod identity alter execution
+placement, while PostgreSQL retains ordering and outcome. Kafka's advertised
+`kafka:9092` needed a matching Kubernetes Service name even though the broker
+remained in Compose; the generated EndpointSlice routes it to the external
+container. The [Session 1 report](kubernetes/session-1.md) retains evidence.
+
+The cached multi-platform Nginx image could not be imported by `kind load`
+because an archive digest was absent; letting the node pull Nginx worked.
+Recursively changing ownership of the full web dependency tree also made the
+first image build unreasonably slow; ownership of copied source and `.next`
+was sufficient for the subsequent build. Neither issue changed auction logic.
+The first Secret generator piped `printenv`, which appended a newline to the
+password bytes. A byte comparison caught the mismatch even though local
+database queries succeeded. Printing with `printf %s` inside the Compose
+container preserved the actual environment value without exposing it in logs.

@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-projection-consumer
+  namespace: hammerfall
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: kafka-projection-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-projection-consumer
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: kafka-projection-consumer
+        image: hammerfall-api:phase18
+        imagePullPolicy: IfNotPresent
+        command:
+        - bin/kafka_projection_consumer
+        envFrom:
+        - configMapRef:
+            name: hammerfall-config
+        - secretRef:
+            name: hammerfall-local-db
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

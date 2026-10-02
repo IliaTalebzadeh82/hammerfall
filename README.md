@@ -5,7 +5,9 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Completed scope: Phase 16 — Chaos Testing; Phase 17 multi-instance work is in progress.**
+**Completed through Phase 17 — Multi-Instance Deployment; Phase 18 local
+Kubernetes proof is in progress.** See [local Kubernetes setup](k8s/README.md)
+for its current scope and limits.
 Browse real auctions, inspect public bid
 history, select an explicit demo bidder, and submit manual or private maximum bids.
 The responsive Next.js interface preserves stable client intentions for safe retry

@@ -975,3 +975,20 @@ soft-close extension and post-lock DB-clock deadline rejection. See
 observation, not a capacity estimate.
 The [final review](multi-instance/phase-17-final.md) combines command,
 realtime, replica-loss and closure evidence with the local scaling limits.
+
+## Phase 18 local Kubernetes lesson (Session 1)
+
+Kubernetes starts and routes executors; it does not serialize bids. The
+initial kind proof ran two API pods behind a Service, deleted one while 80
+requests succeeded, and scaled to three with all three handling traffic.
+The replacement and third pod read the same PostgreSQL auction immediately.
+The Service EndpointSlice and API logs showed when a pod actually joined
+routing. See the [Session 1 report](kubernetes/session-1.md).
+
+Readiness asks whether a new API pod can query PostgreSQL before it receives
+traffic. Liveness asks whether Rails is running; it must not restart a healthy
+process merely because Redis or Kafka is unavailable. Worker pods have no
+HTTP Service to gate, so a green `Running` state does not prove offset, outbox,
+job or lease progress. The Phase 18 failure campaign still has to test active
+SIGTERM, same-key ambiguity and worker recovery. No production capacity or
+availability follows from the local resource values or one-node cluster.

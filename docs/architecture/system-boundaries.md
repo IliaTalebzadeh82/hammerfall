@@ -17,11 +17,10 @@ Rails/ActiveRecord is the modular monolith and sole business authority. PostgreS
 
 ## Technology and documentation contracts
 
-The stack includes Ruby/Rails API, ActiveRecord, PostgreSQL, RSpec; TypeScript, React, Next.js, Tailwind and shadcn/ui; Action Cable/WebSockets; Redis, Sidekiq and Kafka. Later phases plan OpenTelemetry/Collector, Prometheus, Grafana, Tempo, k6, Kubernetes, Terraform and GCP. A change needs a reason and ADR. Docker Compose is the local foundation; GitHub Actions runs ordinary checks without deployment credentials. [README](../../README.md), [tooling](../tooling.md), [running locally](../running-locally.md) and [production readiness](../production-readiness.md) distinguish installed from future tools.
+The stack includes Ruby/Rails API, ActiveRecord, PostgreSQL, RSpec; TypeScript, React, Next.js, Tailwind and shadcn/ui; Action Cable/WebSockets; Redis, Sidekiq and Kafka. Phase 18 is proving local Kubernetes orchestration of application processes under [ADR-014](../adr/014-local-kubernetes-process-orchestration.md); Terraform and GCP remain future work. A change needs a reason and ADR. Docker Compose remains the local stateful dependency foundation; GitHub Actions runs ordinary checks without deployment credentials. [README](../../README.md), [tooling](../tooling.md), [running locally](../running-locally.md) and [production readiness](../production-readiness.md) distinguish installed from future tools.
 
 Maintain ADRs with Context, Decision, Alternatives Considered, Consequences, Risks and Revisit When. The learning guide, workflow code map, substantive engineering journal, candid production readiness and final interview/review documents serve the owner's study goal. Do not exaggerate completion in README or operational claims.
 
-Potential future ADRs should cover Redis projection, reconciliation and Kubernetes when those
-decisions become concrete. The current numbered ADRs already cover modularity,
-locking, proxy bidding, deadline/soft close, idempotency, browser intentions and
-realtime invalidation.
+The numbered ADRs cover Redis projection, reconciliation, local Kubernetes
+process orchestration, modularity, locking, proxy bidding, deadline/soft close,
+idempotency, browser intentions and realtime invalidation.

@@ -2144,3 +2144,18 @@ command, failure, realtime, deadline and reconnect evidence and explicit
 local-only limits. The last closure commit updates documentation only. No
 known serious correctness bug remains in Phase 17 scope. Phase 18 has not
 started.
+
+### Phase 18 Session 1 checkpoint — 2026-10-02
+
+Started Phase 18 on commit `54e5ef3ec2a2a8e01f32e8a02b22c6ebec6aa734`.
+The [Session 1 report](kubernetes/session-1.md) and
+[ExecPlan](plans/phase-18-execplan.md) retain the local kind topology and
+evidence. Two API pods, two web pods and seven background roles ran in one
+namespace against Compose PostgreSQL/Redis/Kafka. The database preparation
+Job completed. Focused health RSpec, frontend tests/typecheck, RuboCop,
+manifest dry-runs and images passed. A full lifecycle smoke persisted an
+auction, verified in direct SQL. Deleting one API pod during 80 GETs kept all
+responses at 200 and the replacement read current SQL state. Manual 2→3 scale
+made the third pod Ready; 60 GETs reached all three. The cluster returned to
+two API replicas. Active termination, worker recovery, rollout, browser,
+fresh-cluster and final regression work remain; Phase 18 is not complete.
