@@ -73,6 +73,7 @@ RSpec.describe "Auction API", :domain, type: :request do
 
   it "cancels a draft and rejects later activation" do
     auction = create_auction
+    expect(SecurityEvents).to receive(:emit).with(category: "privileged_action", outcome: "succeeded", reason: "lifecycle").and_call_original
     post "#{path}/#{auction.id}/cancel", headers: auth_headers, as: :json
     expect(json.dig("data", "status")).to eq("cancelled")
     post "#{path}/#{auction.id}/activate", headers: auth_headers, as: :json

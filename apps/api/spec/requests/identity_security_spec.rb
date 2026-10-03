@@ -38,6 +38,30 @@ RSpec.describe "Identity and auction authorization", type: :request do
     expect(response).to have_http_status(:unauthorized)
   end
 
+  it "never authenticates an uncredentialed legacy user against the dummy bcrypt digest" do
+    legacy = User.create!(name: "Legacy without credentials")
+    allow(User).to receive(:find_by).and_return(legacy)
+    post "/api/v1/session", params: { session: { login: "legacy-dummy", password: "no-such-user" } },
+      headers: { "X-Hammerfall-Login" => "1" }, as: :json
+    expect(response).to have_http_status(:unauthorized)
+    expect(json.dig("error", "code")).to eq("invalid_credentials")
+    expect(UserSession.where(user: legacy)).to be_empty
+  end
+
+  it "replaces the existing session credential on login and revokes its old row" do
+    sign_in(buyer, "buyer-password")
+    first_cookie = response.headers.fetch("Set-Cookie")
+    first_session_id = UserSession.find_by!(user: buyer).id
+
+    sign_in(buyer, "buyer-password")
+    expect(response.headers.fetch("Set-Cookie")).not_to eq(first_cookie)
+    expect(UserSession.where(id: first_session_id)).to be_empty
+    expect(UserSession.where(user: buyer).count).to eq(1)
+    get "/api/v1/session"
+    expect(response).to have_http_status(:ok)
+    expect(json.dig("data", "id")).to eq(buyer.id)
+  end
+
   it "derives bid ownership from session, rejects impersonation and preserves same-actor replay" do
     auction = create_auction(state: "active", seller: seller)
     path = "/api/v1/auctions/#{auction.id}/bids"

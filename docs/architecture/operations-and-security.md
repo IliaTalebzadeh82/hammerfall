@@ -2,11 +2,11 @@
 
 ## Current limit
 
-Phase 20 Session 1 uses authenticated HTTP identity, owner/operator policy and a post-lock seller self-bid guard. Auction correctness remains in PostgreSQL. Rate limiting, ingress byte bounds and HMAC key migration are still in progress; this is not a public real-money service. Local Compose credentials and named volumes are development conveniences, not backups. [Security](../security.md) and [production readiness](../production-readiness.md) state current risks.
+Phase 20 Sessions 1–2 use authenticated HTTP identity, owner/operator policy, a post-lock seller self-bid guard, shared Redis rate limits, early Rails and local nginx body limits, and versioned HMAC command-key digests. Auction correctness remains in PostgreSQL. Final Phase 20 regression and production ingress proof are still outstanding; this is not a public real-money service. Local Compose credentials and named volumes are development conveniences, not backups. [Security](../security.md) and [production readiness](../production-readiness.md) state current risks.
 
 ## Security and data handling
 
-Phase 20 Session 1 implements first-party authentication and initial authorization; request-body protection, secret management review and bounded bid rate limits by actor/IP remain. Rate limiting failure policy must not become auction authority. Do not commit credentials or log tokens, raw idempotency keys, passwords, private maxima or unnecessary personal data. Metrics must avoid unbounded user, auction, bid or email labels. Review production origin/WSS/proxy settings and connection budgets before deployment.
+Phase 20 Sessions 1–2 implement first-party authentication and authorization, bounded command/login/Cable admission and a per-endpoint Redis failure policy. Rate limiting is not auction authority. The HMAC keyring must be distributed to all Rails replicas and kept through physical pruning; production boot rejects a missing keyring. Do not commit credentials or log tokens, raw idempotency keys, passwords, private maxima or unnecessary personal data. Metrics avoid unbounded user, auction, bid, IP or login labels. Review production origin/WSS/proxy settings, cloud edge body enforcement and connection budgets before deployment.
 
 ## Observability and failure response
 

@@ -229,6 +229,16 @@ resource "google_secret_manager_secret" "secret_key_base" {
   }
 }
 
+resource "google_secret_manager_secret" "idempotency_hmac_keyring" {
+  secret_id = "${local.name}-idempotency-hmac-keyring"
+  labels    = local.labels
+  replication {
+    user_managed {
+      replicas { location = var.region }
+    }
+  }
+}
+
 resource "google_secret_manager_secret" "cloud_sql_ca_bundle" {
   secret_id = "${local.name}-cloud-sql-ca-bundle"
   labels    = local.labels
@@ -285,6 +295,14 @@ resource "google_secret_manager_secret_iam_member" "secret_key_read" {
   for_each  = local.workload_principals
   project   = var.project_id
   secret_id = google_secret_manager_secret.secret_key_base.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = each.value
+}
+
+resource "google_secret_manager_secret_iam_member" "idempotency_hmac_keyring_read" {
+  for_each  = local.workload_principals
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.idempotency_hmac_keyring.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = each.value
 }

@@ -10,8 +10,13 @@ module Api
       rescue_from Idempotency::Executor::InvalidKey do |error|
         render_error(error.code, error.message, :bad_request)
       end
+      rescue_from RateLimitStore::BackendUnavailable do
+        response.set_header("Retry-After", "5")
+        render_error("limiter_unavailable", "Please try again shortly.", :service_unavailable)
+      end
 
       rescue_from DomainError do |error|
+        SecurityEvents.emit(category: "authorization", outcome: "rejected", reason: "self_bid") if error.code == "seller_self_bid"
         render_error(error.code, error.message, :unprocessable_content, error.details)
       end
       rescue_from ActiveRecord::RecordInvalid do |error|
@@ -41,13 +46,22 @@ module Api
 
       def require_actor!
         return if current_actor
+        SecurityEvents.emit(category: "authentication", outcome: "rejected", reason: "invalid_session")
         render_error("authentication_required", "Sign in to continue.", :unauthorized)
       end
 
       def require_capability!(allowed)
         return true if allowed
+        SecurityEvents.emit(category: "authorization", outcome: "rejected", reason: "forbidden")
         render_error("forbidden", "This action is not permitted.", :forbidden)
         false
+      end
+
+      def rate_limit_rejected(operation, retry_after:)
+        Observability.counter("hammerfall_security_rate_limits", attributes: { operation: operation, result: "rejected" })
+        SecurityEvents.emit(category: "rate_limit", outcome: "rejected", reason: "quota")
+        response.set_header("Retry-After", retry_after.to_s)
+        render_error("rate_limited", "Too many requests. Try again later.", :too_many_requests)
       end
 
       def unsafe_request?
@@ -63,6 +77,7 @@ module Api
       def render_idempotent(outcome)
         @observability_replayed = outcome.replayed
         @observability_reason = outcome.body.dig("error", "code") if outcome.status >= 400
+        SecurityEvents.emit(category: "authorization", outcome: "rejected", reason: "self_bid") if @observability_reason == "seller_self_bid"
         response.set_header("Idempotency-Replayed", "true") if outcome.replayed
         render json: outcome.body, status: outcome.status
       end

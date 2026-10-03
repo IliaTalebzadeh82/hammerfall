@@ -790,3 +790,23 @@ the unchanged command. This avoids turning authentication expiry into an
 irrecoverable ambiguous bid. The trade-off is a PostgreSQL lookup per request
 and a remaining post-handshake Cable expiry window. See ADR-016 and
 `spec/requests/identity_security_spec.rb`.
+
+## 2026-10-03 — Session 2 transport and key migration
+
+The first real Next/browser pass exposed different generated Rails secrets on
+the two development API replicas. Login succeeded, then cross-replica session
+resolution failed. Sharing the local `api_tmp` volume made the same encrypted
+cookie usable on both; the direct A/B script then proved revocation and bid
+replay across replicas. This was a transport configuration defect, not a reason
+to add sticky sessions.
+
+The idempotency migration needed a lock on the logical raw-key scope before
+checking HMAC and legacy SHA representations. Otherwise two versions could
+both miss and claim different digest rows. The lock is transaction-scoped in
+PostgreSQL, and old executors must be drained before deployment. During the
+backend gate, the first run used the default three-connection pool against a
+ten-worker concurrency spec and timed out at checkout; rerunning with pool 15
+passed the focused concurrency spec and the full suite. The frontend recovery
+test also raced session loading; waiting for the signed-in state removed the
+flaky click without changing retry behavior. The [Session 2 report](security/phase-20-session-2.md)
+records the control behavior and proof limits.

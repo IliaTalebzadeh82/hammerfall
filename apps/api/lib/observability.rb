@@ -53,10 +53,12 @@ module Observability
     "hammerfall_projection_scan_duration" => [ :histogram, [] ],
     "hammerfall_projection_stale_age" => [ :histogram, %w[source] ],
     "hammerfall_websocket_broadcasts" => [ :counter, %w[result] ],
-    "hammerfall_websocket_server_broadcast_lag" => [ :histogram, [] ]
+    "hammerfall_websocket_server_broadcast_lag" => [ :histogram, [] ],
+    "hammerfall_security_rate_limits" => [ :counter, %w[operation result] ],
+    "hammerfall_security_events" => [ :counter, %w[category outcome security_reason] ]
   }.freeze
-  OPERATIONS = %w[place_bid set_maximum_bid close edit schedule activate cancel].freeze
-  RESULTS = %w[accepted rejected replayed error first next gap stale duplicate applied conflict redis_failure succeeded failed].freeze
+  OPERATIONS = %w[place_bid set_maximum_bid close edit schedule activate cancel auth bid privileged cable].freeze
+  RESULTS = %w[accepted rejected replayed error first next gap stale duplicate applied conflict redis_failure succeeded failed degraded].freeze
   CHANNELS = %w[sidekiq kafka].freeze
   QUEUES = %w[notifications maintenance default].freeze
   CONSUMER_GROUPS = %w[hammerfall.audit.v1 hammerfall.projection.v1].freeze
@@ -73,7 +75,7 @@ module Observability
     /api/v1/auctions/:id/bids /api/v1/auctions/:id/schedule
     /api/v1/auctions/:id/activate /api/v1/auctions/:id/close
     /api/v1/auctions/:id/cancel /cable other].freeze
-  LOG_FIELDS = %w[operation component result error_class auction_status event_type
+  LOG_FIELDS = %w[operation component result security_reason error_class auction_status event_type
     consumer_group partition offset retry_count public_revision auction_id event_id].freeze
   SPAN_FIELDS = %w[hammerfall.operation hammerfall.event_type http.request.method http.route].freeze
 
@@ -365,6 +367,9 @@ module Observability
       when "kind" then DRIFT_KINDS
       when "partition" then (0..31).map(&:to_s)
       when "queue" then QUEUES
+      when "category" then SecurityEvents::CATEGORIES
+      when "outcome" then SecurityEvents::OUTCOMES
+      when "security_reason" then SecurityEvents::REASONS
       when "source" then PROJECTION_SOURCES
       end
       allowed.include?(text) ? text : "other"

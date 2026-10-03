@@ -123,7 +123,7 @@ RSpec.describe "PostgreSQL idempotency concurrency", type: :model do
     end
   end
 
-  it "waits on uncommitted key ownership, not auction evaluation, and replays after owner commit" do
+  it "waits on uncommitted logical-key ownership, not auction evaluation, and replays after owner commit" do
     auction = active_auction
     ready = Queue.new
     waiting = nil
@@ -137,7 +137,7 @@ RSpec.describe "PostgreSQL idempotency concurrency", type: :model do
       pid = take(ready)
       wait_for_lock(pid)
       query = ApplicationRecord.connection.select_value("SELECT query FROM pg_stat_activity WHERE pid = #{pid.to_i}")
-      expect(query).to include('INSERT INTO "idempotency_records"')
+      expect(query).to include("pg_advisory_xact_lock")
     end
     expect(result(waiting)).to have_attributes(body: first.body, status: 201, replayed: true)
     expect(auction.bids.count).to eq(1)

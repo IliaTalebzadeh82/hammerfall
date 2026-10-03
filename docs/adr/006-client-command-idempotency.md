@@ -17,23 +17,22 @@ characters (no spaces/control characters); UUID format is not required. Missing
 header is 400 idempotency_key_required; malformed/blank is 400
 invalid_idempotency_key. Lifecycle endpoints and the internal closer are unchanged.
 
-Logical scope is **(actor_id, operation, client key)**. Store the SHA-256 key digest
-instead of the raw key. PostgreSQL uniquely indexes (actor_id,operation,key_digest).
-Phase 12.5 reviewed the privacy limit of this unkeyed digest: a stolen table
-allows cheap offline guessing of low-entropy client keys. Keyed HMAC would
-improve that property, but retained 64-character unversioned digests and
-multi-instance secret rotation require a replay-preserving migration. The
-change is deferred to the security phase; callers should use unpredictable
-keys, and no existing digest or replay contract has been changed.
+Logical scope is **(actor_id, operation, client key)**. PostgreSQL uniquely indexes
+(actor_id,operation,key_digest). The original Phase 5 representation was SHA-256 of
+the raw key. Phase 20 Session 2 adopted [ADR-017](017-versioned-keyed-idempotency-digests.md):
+new rows use versioned HMAC-SHA256, while retained SHA rows remain replayable until
+physical pruning. The remainder of this ADR records the unchanged logical command
+and response protocol; ADR-017 owns digest representation, locking and rotation.
 Operations are constrained to place_bid / set_maximum_bid. The same key under a
 different actor or operation is independent. Same actor/operation but another
 auction or payload conflicts. Guarantees assume standard cryptographic collision
 resistance; never deduplicate by equal bidder/amount values.
 
-The actor is still the supplied user ID, **not an authentication boundary**.
-Identify the existing User before key ownership; do not read Auction first. The
-actor foreign key preserves that identity while records are retained. Future
-authentication must review scope and migration, not silently reinterpret old keys.
+At Phase 5 the actor was a supplied user ID and was **not an authentication
+boundary**. Phase 20 [ADR-016](016-first-party-identity-and-sessions.md) now derives
+the same actor ID from a live authenticated session before key ownership; it
+does not reinterpret retained rows. The actor foreign key preserves identity
+while records are retained. Do not read Auction before resolving the command key.
 
 ## Fingerprinting
 

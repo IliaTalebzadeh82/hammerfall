@@ -2,6 +2,9 @@ module Api
   module V1
     class AuctionsController < BaseController
       before_action :require_actor!, only: %i[create update schedule activate close cancel]
+      rate_limit to: 10, within: 1.minute, by: -> { current_actor.id },
+        store: RateLimitStore.for(:privileged), name: "actor-lifecycle", only: %i[create update schedule activate close cancel],
+        with: -> { rate_limit_rejected("privileged", retry_after: 60) }
       def index
         render_collection(Auction.all) { |auction| AuctionPresenter.new(auction).as_json }
       end
@@ -41,33 +44,39 @@ module Api
         return unless require_capability!(AuctionPolicy.new(current_actor).create?)
         auction = Auction.create_draft!(auction_params.merge(seller: current_actor))
         render_auction(auction, status: :created)
+        SecurityEvents.emit(category: "privileged_action", outcome: "succeeded", reason: "lifecycle")
       end
 
       def update
         auction = find_auction
         return unless require_capability!(AuctionPolicy.new(current_actor, auction).manage?)
         render_auction(auction.edit_draft!(auction_params))
+        SecurityEvents.emit(category: "privileged_action", outcome: "succeeded", reason: "lifecycle")
       end
 
       def schedule
         return unless require_capability!(AuctionPolicy.new(current_actor).transition?)
         render_auction(find_auction.schedule!)
+        SecurityEvents.emit(category: "privileged_action", outcome: "succeeded", reason: "lifecycle")
       end
 
       def activate
         return unless require_capability!(AuctionPolicy.new(current_actor).transition?)
         render_auction(find_auction.activate!)
+        SecurityEvents.emit(category: "privileged_action", outcome: "succeeded", reason: "lifecycle")
       end
 
       def close
         return unless require_capability!(AuctionPolicy.new(current_actor).transition?)
         render_auction(find_auction.close!)
+        SecurityEvents.emit(category: "privileged_action", outcome: "succeeded", reason: "lifecycle")
       end
 
       def cancel
         auction = find_auction
         return unless require_capability!(AuctionPolicy.new(current_actor, auction).manage?)
         render_auction(auction.cancel!)
+        SecurityEvents.emit(category: "privileged_action", outcome: "succeeded", reason: "lifecycle")
       end
 
       private

@@ -198,6 +198,7 @@ it("recovers exact maximum request after reload without displaying its amount pu
   await screen.findByText(
     "We couldn’t confirm whether this attempt was processed.",
   );
+  await screen.findByText("Signed in: Alice · #1");
   expect(document.body.textContent).not.toMatch(/987654|9,876\.54/);
   fireEvent.click(screen.getByRole("button", { name: "Retry safely" }));
   await screen.findByText(/Previous result recovered safely/);

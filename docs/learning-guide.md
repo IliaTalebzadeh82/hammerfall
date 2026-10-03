@@ -1060,3 +1060,21 @@ PostgreSQL transaction that decides an auction. Show the cost gates and the
 managed Kafka line in the [cost model](cloud/cost-estimate.md), then distinguish
 static infrastructure correctness from measured application behavior and
 live-cloud proof.
+
+## Phase 20 Session 2 security lesson
+
+A browser session can appear healthy on one development replica and fail on
+another when Rails generates a different `secret_key_base` per process. The
+Next rewrite and alternating A/B proof exposed that mismatch; sharing the
+development secret fixed it. Production must distribute one real secret.
+Authentication is resolved from PostgreSQL on every request, so logout through
+B invalidates A without sticky routing.
+
+Shared Redis counters bound ordinary abuse across replicas, but Redis cannot
+authorize bids. During Redis loss, login and Cable admission close while bids
+and lifecycle calls use a conservative process-local quota before PostgreSQL
+decides correctness. HMAC protects stored client-key digests while legacy SHA
+rows and previous HMAC keys remain readable. A PostgreSQL advisory lock
+coordinates logical-key claims across digest versions before auction locking.
+See [ADR-017](adr/017-versioned-keyed-idempotency-digests.md) and the
+[Session 2 evidence](security/phase-20-session-2.md).

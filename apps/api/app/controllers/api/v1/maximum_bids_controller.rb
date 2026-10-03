@@ -2,6 +2,12 @@ module Api
   module V1
     class MaximumBidsController < BaseController
       before_action :require_actor!
+      rate_limit to: 20, within: 10.seconds, by: -> { current_actor.id },
+        store: RateLimitStore.for(:bid), name: "actor-maximum", only: :update,
+        with: -> { rate_limit_rejected("bid", retry_after: 10) }
+      rate_limit to: 60, within: 10.seconds, by: -> { request.remote_ip },
+        store: RateLimitStore.for(:bid), name: "ip-maximum", only: :update,
+        with: -> { rate_limit_rejected("bid", retry_after: 10) }
       around_action only: :update do |_controller, action|
         observe_bid_command("set_maximum_bid", &action)
       end

@@ -41,6 +41,18 @@ it.each([200, 201, 500, 502])(
     await expect(sendCommand(command, "csrf-token")).rejects.toThrow();
   },
 );
+it("treats a structured pre-command 429 as a definite rejection", async () => {
+  const body = {
+    error: { code: "rate_limited", message: "Too many requests.", details: {} },
+  };
+  const fetcher = vi
+    .fn()
+    .mockResolvedValue(json(body, 429, { "Retry-After": "10" }));
+  vi.stubGlobal("fetch", fetcher);
+  const result = await sendCommand(command, "csrf-token");
+  expect(result).toMatchObject({ status: 429, success: false });
+  expect(result.headers.get("Retry-After")).toBe("10");
+});
 it("rejects non-JSON without logging payloads", async () => {
   vi.stubGlobal(
     "fetch",

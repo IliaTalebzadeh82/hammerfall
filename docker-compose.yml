@@ -128,6 +128,8 @@ services:
     volumes:
       - ./apps/api:/app
       - api_bundle:/usr/local/bundle
+      # Both development Rails replicas must encrypt/decrypt the same session cookie.
+      - api_tmp:/app/tmp
     depends_on:
       api:
         condition: service_healthy

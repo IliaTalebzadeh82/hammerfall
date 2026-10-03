@@ -234,7 +234,7 @@ export async function sendCommand(intention: Intention, csrfToken: string) {
       data.bidder_id === intention.actorId &&
       data.amount === intention.amount;
   const rejected =
-    [400, 404, 409, 422].includes(response.status) && isError(body);
+    [400, 404, 409, 413, 422, 429].includes(response.status) && isError(body);
   if (!success && !rejected) throw new ApiFailure(response.status); // Conservatively ambiguous, including malformed 2xx/5xx.
   return {
     ...response,
@@ -268,6 +268,10 @@ export function errorMessage(body?: ApiErrorBody): string {
       "The request was missing its retry key. Please start a new attempt.",
     invalid_idempotency_key:
       "The request’s retry key was invalid. Please start a new attempt.",
+    rate_limited:
+      "Too many attempts. This request did not enter bidding. Wait a moment before trying again.",
+    request_too_large:
+      "The request is too large. Review your entry before trying again.",
     invalid_request:
       "The request was invalid. Review the bidder and amount, then try again.",
     validation_failed:

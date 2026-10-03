@@ -2286,3 +2286,27 @@ Rate limiting, body bounds, HMAC idempotency digests, full security events and
 multi-instance verification remain. Phase 20 is not complete; Phase 21 has not
 started. See the [ExecPlan](plans/phase-20-execplan.md) and
 [Session 1 report](security/phase-20-session-1.md).
+
+### Phase 20 Session 2 — security controls and focused live proof (2026-10-03)
+
+The Next rewrite browser proof established cookie, CSRF, bid and Cable behavior;
+an initial cross-replica failure exposed separate generated development Rails
+secrets. Sharing the development secret volume repaired it. Direct A/B proofs
+then passed login/session, logout/revocation, same-key bid replay and shared
+Redis login quota. A deliberate Redis failure returned 503 for login while
+existing sessions and locally limited bids remained available. Local Nginx,
+Next rewrite and direct chunked Rails rejected oversized bodies with 413 JSON.
+The app now uses endpoint-class rate limits, a 32 KiB pre-parse Rack guard,
+versioned HMAC idempotency digests with legacy and rotation lookup, bounded
+security events and a documented public-hint Cable revocation policy.
+
+The final Session 2 backend suite passed 493 examples, zero failures, four
+pending (three existing broker-gated and one disabled telemetry case), seed
+4494, with isolated Redis DB 15 and a 15-connection pool. Frontend passed
+76 tests, lint, format, types and production build; RuboCop inspected 159
+files with no offenses, Zeitwerk passed, Brakeman reported zero warnings and
+bundler-audit found no known vulnerabilities. The [Session 2 report](security/phase-20-session-2.md)
+and [ExecPlan](plans/phase-20-execplan.md) retain detailed methods and limits.
+Full legacy smoke/Playwright/hosted CI adaptation and the Phase 20 final gate
+remain for Session 3. No GCP apply or paid resource occurred. Phase 20 remains
+active; Phase 21 has not started.

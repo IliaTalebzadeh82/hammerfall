@@ -2,6 +2,12 @@ module Api
   module V1
     class BidsController < BaseController
       before_action :require_actor!, only: :create
+      rate_limit to: 20, within: 10.seconds, by: -> { current_actor.id },
+        store: RateLimitStore.for(:bid), name: "actor-place-bid", only: :create,
+        with: -> { rate_limit_rejected("bid", retry_after: 10) }
+      rate_limit to: 60, within: 10.seconds, by: -> { request.remote_ip },
+        store: RateLimitStore.for(:bid), name: "ip-place-bid", only: :create,
+        with: -> { rate_limit_rejected("bid", retry_after: 10) }
       around_action only: :create do |_controller, action|
         observe_bid_command("place_bid", &action)
       end

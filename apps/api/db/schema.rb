@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_03_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_03_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -85,6 +85,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_03_000000) do
   create_table "idempotency_records", force: :cascade do |t|
     t.bigint "actor_id", null: false
     t.datetime "created_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.string "digest_key_id", limit: 32
+    t.integer "digest_version", default: 1, null: false
     t.datetime "expires_at", null: false
     t.string "key_digest", limit: 64, null: false
     t.string "operation", null: false
@@ -94,7 +96,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_03_000000) do
     t.string "status", default: "processing", null: false
     t.datetime "updated_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
     t.index ["actor_id", "operation", "key_digest"], name: "index_idempotency_records_on_scope", unique: true
+    t.index ["digest_version", "digest_key_id"], name: "index_idempotency_records_on_digest_key"
     t.index ["expires_at", "id"], name: "index_idempotency_records_for_pruning", where: "((status)::text = 'completed'::text)"
+    t.check_constraint "digest_version = 1 AND digest_key_id IS NULL OR digest_version = 2 AND digest_key_id::text ~ '^[a-z0-9][a-z0-9_-]{0,31}$'::text", name: "idempotency_digest_version"
     t.check_constraint "expires_at > created_at", name: "idempotency_retention"
     t.check_constraint "key_digest::text ~ '^[0-9a-f]{64}$'::text AND request_fingerprint::text ~ '^[0-9a-f]{64}$'::text", name: "idempotency_digests"
     t.check_constraint "operation::text = ANY (ARRAY['place_bid'::character varying, 'set_maximum_bid'::character varying]::text[])", name: "idempotency_operation"

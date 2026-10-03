@@ -16,6 +16,15 @@ fail "KSA names changed" unless accounts.keys.sort == expected_accounts.sort
 terraform_main = File.read(File.expand_path("../../../infra/terraform/modules/reference/main.tf", overlay))
 secret_reader_list = terraform_main.match(/secret_readers\s*=\s*toset\(\[([^\]]+)\]\)/)&.captures&.first.to_s.scan(/"([^"]+)"/).flatten
 fail "Terraform secret readers differ from runtime KSAs" unless secret_reader_list.sort == (expected_accounts - ["web"]).sort
+fail "HMAC keyring IAM missing" unless terraform_main.include?('resource "google_secret_manager_secret" "idempotency_hmac_keyring"') &&
+  terraform_main.include?('resource "google_secret_manager_secret_iam_member" "idempotency_hmac_keyring_read"')
+config = by_kind.fetch("ConfigMap").find { |item| item.dig("metadata", "name") == "hammerfall-config" }
+fail "HMAC keyring file not configured" unless config.dig("data", "IDEMPOTENCY_HMAC_KEYRING_FILE") == "/var/run/hammerfall-secrets/idempotency-hmac-keyring.json"
+by_kind.fetch("SecretProviderClass").each do |secret_class|
+  mounted = YAML.safe_load(secret_class.dig("spec", "parameters", "secrets"))
+  expected = "projects/PROJECT_ID/secrets/hammerfall-reference-idempotency-hmac-keyring/versions/1"
+  fail "HMAC keyring mount missing" unless mounted.any? { |entry| entry["resourceName"] == expected && entry["path"] == "idempotency-hmac-keyring.json" }
+end
 redis_reader_list = terraform_main.match(/redis_readers\s*=\s*toset\(\[([^\]]+)\]\)/)&.captures&.first.to_s.scan(/"([^"]+)"/).flatten
 fail "Terraform Redis CA readers changed" unless redis_reader_list.sort == %w[api worker kafka-projection].sort
 %w[kafka-publisher kafka-audit kafka-projection].each do |role|

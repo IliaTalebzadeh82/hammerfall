@@ -14,6 +14,7 @@ require "action_view/railtie"
 require "action_cable/engine"
 require_relative "../lib/observability"
 require_relative "../lib/observability/http_middleware"
+require_relative "../lib/request_body_limit"
 # require "rails/test_unit/railtie"
 
 # Require the gems listed in Gemfile, including any gems
@@ -43,6 +44,7 @@ module Hammerfall
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
     config.middleware.use ActionDispatch::Cookies
+    config.middleware.insert_before ActionDispatch::Executor, RequestBodyLimit
     config.time_zone = "UTC"
     config.action_cable.mount_path = "/cable"
     config.action_cable.allow_same_origin_as_host = false

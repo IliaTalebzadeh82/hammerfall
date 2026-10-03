@@ -1,6 +1,6 @@
 # Phase 20 — Identity & Security
 
-Status: Planned; begin only on explicit request
+Status: Active after explicit request; Sessions 1–2 checkpointed, final gate pending
 
 ## Goal
 

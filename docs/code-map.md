@@ -1,5 +1,19 @@
 # Code map
 
+## Phase 20 Session 2 security path
+
+`apps/api/lib/request_body_limit.rb` bounds API input before Rails parameter
+parsing. `app/services/rate_limit_store.rb` supplies shared Redis counters to
+session, bid, maximum, lifecycle and Cable admission; its failure policy is
+endpoint-specific. `app/services/security_events.rb` emits bounded taxonomy
+through the existing observability allowlists. `app/services/idempotency/keyring.rb`
+loads the shared HMAC keyring; `app/services/idempotency/executor.rb` takes a
+PostgreSQL advisory lock before legacy/current/previous digest lookup and claim.
+`20261003010000_version_idempotency_digests.rb` versions retained rows. The
+browser client in `apps/web/src/lib/api/client.ts` treats 413/429 as definite
+pre-command rejection. See [ADR-017](adr/017-versioned-keyed-idempotency-digests.md)
+and the [Session 2 report](security/phase-20-session-2.md).
+
 ## Phase 20 Session 1 identity path
 
 `POST /api/v1/session` verifies a bcrypt password, creates a PostgreSQL
@@ -202,7 +216,8 @@ public error. No duplicated winner logic or exception-after-commit protocol exis
   User, selects typed amount argument and calls Executor before Auction lookup.
 - Canonical fingerprint, ownership and transaction:
   `apps/api/app/services/idempotency/executor.rb.call`. Fixed v1 semantic JSON is
-  SHA-256 hashed; raw client key is represented by SHA-256 key_digest.
+  SHA-256 hashed; new raw client keys use a versioned HMAC digest. Retained
+  legacy SHA-256 key digests remain readable for same-key replay.
 - Claim: IdempotencyRecord.insert_all with unique_by index_idempotency_records_on_scope
   emits INSERT ON CONFLICT DO NOTHING RETURNING id. New processing ownership and
   terminal response share the outer transaction with all domain writes.

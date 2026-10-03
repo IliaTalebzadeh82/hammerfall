@@ -26,27 +26,38 @@ module Idempotency
       days = Integer(ENV.fetch("IDEMPOTENCY_RETENTION_DAYS", "7"))
       raise ArgumentError, "retention days must be between 1 and 365" unless (1..365).cover?(days)
       expiry = Arel.sql(IdempotencyRecord.sanitize_sql_array([ "CURRENT_TIMESTAMP + (? * INTERVAL '1 day')", days ]))
-      scope = { actor_id: actor_id, operation: operation, key_digest: Digest::SHA256.hexdigest(key) }
+      keyring = Keyring.current
+      current_scope = { actor_id: actor_id, operation: operation,
+        key_digest: keyring.digest(key, keyring.current_id) }
+      lookup_scopes = keyring.lookup_scopes(actor_id: actor_id, operation: operation, key: key)
+      lookup_scopes << { actor_id: actor_id, operation: operation, key_digest: Digest::SHA256.hexdigest(key) }
       canonical = JSON.generate(api_version: "v1", operation: operation, auction_id: auction_id,
         actor_id: actor_id, arguments: arguments.sort.to_h)
       fingerprint = Digest::SHA256.hexdigest(canonical)
 
       IdempotencyRecord.transaction(requires_new: true) do
+        # A single logical command can have several digest representations.
+        # Coordinate them before the unique digest claim, then lock Auction.
+        advisory_key = Digest::SHA256.digest("#{actor_id}\0#{operation}\0#{key}").unpack1("q>")
+        IdempotencyRecord.connection.select_value(
+          IdempotencyRecord.sanitize_sql_array([ "SELECT 1 FROM pg_advisory_xact_lock(?)", advisory_key ])
+        )
+        keyring.validate_retained_keys!
         loop do
-          inserted = IdempotencyRecord.insert_all([ scope.merge(request_fingerprint: fingerprint,
-            expires_at: expiry) ],
+          existing = lookup_scopes.lazy.map { |scope| IdempotencyRecord.lock("FOR KEY SHARE").find_by(scope) }.find(&:itself)
+          if existing
+            break existing_outcome(existing, fingerprint)
+          end
+
+          inserted = IdempotencyRecord.insert_all([ current_scope.merge(digest_version: 2,
+            digest_key_id: keyring.current_id, request_fingerprint: fingerprint, expires_at: expiry) ],
             unique_by: :index_idempotency_records_on_scope, returning: %w[id], record_timestamps: false)
-          record = IdempotencyRecord.find_by(scope)
+          record = IdempotencyRecord.find_by(current_scope)
           # A prune can delete an expired conflict between INSERT and SELECT.
           # Physical removal permits reuse; try claiming again in that case only.
           next unless record
           if inserted.empty?
-            if record.request_fingerprint != fingerprint
-              break Outcome.new(status: 409, body: { "error" => { "code" => "idempotency_key_conflict",
-                "message" => "This idempotency key was already used with a different request.", "details" => {} } }, replayed: false)
-            end
-            raise "Unexpected committed processing idempotency record" unless record.status == "completed"
-            break Outcome.new(status: record.response_status, body: record.response_body, replayed: true)
+            break existing_outcome(record, fingerprint)
           end
 
           # Auction commands use requires_new savepoints. Expected rejection rolls
@@ -68,6 +79,15 @@ module Idempotency
           break Outcome.new(status: record.response_status, body: record.response_body, replayed: false)
         end
       end
+    end
+
+    def self.existing_outcome(record, fingerprint)
+      if record.request_fingerprint != fingerprint
+        return Outcome.new(status: 409, body: { "error" => { "code" => "idempotency_key_conflict",
+          "message" => "This idempotency key was already used with a different request.", "details" => {} } }, replayed: false)
+      end
+      raise "Unexpected committed processing idempotency record" unless record.status == "completed"
+      Outcome.new(status: record.response_status, body: record.response_body, replayed: true)
     end
   end
 end

@@ -12,4 +12,6 @@ RSpec.configure do |config|
   config.include DomainHelpers
   config.use_transactional_fixtures = true
   config.filter_rails_from_backtrace!
+  config.before(:each, type: :request) { RateLimitStore.reset_test! }
+  config.before(:each, type: :channel) { RateLimitStore.reset_test! }
 end

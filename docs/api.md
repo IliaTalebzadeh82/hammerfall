@@ -1,4 +1,4 @@
-# API — Phase 20 Session 1 identity foundation
+# API — Phase 20 identity and security controls
 
 Base path: `/api/v1`. This API remains for local development. Mutations require
 an authenticated session; public reads remain available without login.
@@ -9,7 +9,7 @@ Use JSON request bodies with Content-Type: application/json. See
 
 | Method | Path | Behavior |
 | --- | --- | --- |
-| GET | /users | List minimal user identities |
+| GET | /users | List ID/name of users with public bids only |
 | GET | /session | Current identity and CSRF token; 401 without a live session |
 | POST | /session | Login with JSON credentials and `X-Hammerfall-Login: 1` |
 | DELETE | /session | Revoke current session; `X-CSRF-Token` required |
@@ -47,7 +47,8 @@ retrieve that actor's saved outcome. 401 `authentication_required`, 403
 `invalid_csrf` and 403 `forbidden` are pre-command errors, not retained
 idempotency outcomes.
 
-Public list/detail/state/history/users return public fields. Any authenticated
+Public list/detail/state/history and bidder display names return public fields. `/users`
+omits accounts without public bids and never includes login, role or credentials. Any authenticated
 user may create a draft and becomes its seller. The seller or operator may edit
 a draft or cancel an eligible auction. Only an operator may schedule, activate
 or call the HTTP close endpoint; the autonomous closer calls the domain model
@@ -130,6 +131,9 @@ sequence. IDs/timestamps remain metadata.
 | 404 | auction_not_found | Auction ID does not exist |
 | 401 | authentication_required | Missing, revoked or expired session |
 | 403 | forbidden / invalid_csrf | Capability denied / missing or incorrect CSRF token |
+| 413 | request_too_large | API body exceeds 32 KiB before JSON parsing; no command entered |
+| 429 | rate_limited | Quota exhausted before the action; `Retry-After` gives a conservative wait in seconds |
+| 503 | limiter_unavailable | Login limiter unavailable; `Retry-After: 5`; no password check or session issuance |
 | 422 | validation_failed | Model fields are invalid; details maps field names to message arrays |
 | 422 | invalid_state_transition | Edge or transition precondition is invalid |
 | 422 | invalid_auction_state | Bid on non-active auction or edit outside draft |
@@ -141,6 +145,18 @@ sequence. IDs/timestamps remain metadata.
 These are expected-error mappings, not a catch-all that hides programming failures.
 No expected response includes exception class, SQL text, or a stack trace. Arbitrary
 unknown routes still follow Rails routing behavior. Matching retained keys replay; a fresh key is a new logical command.
+
+Authentication uses shared Redis quotas of 10 login attempts per IP and five per
+normalized login identifier per minute. Bid and maximum routes each allow 20
+requests per actor and 60 per IP per 10 seconds; lifecycle routes allow 10 per
+actor per minute. Replays count as requests. Cable allows 20 connections per IP
+and 40 subscriptions per session per minute. Login and Cable fail closed if
+Redis is unavailable; bid/maximum/lifecycle routes use half-size local fallback
+quotas per API process. This fallback loses a global quota across replicas but
+does not change PostgreSQL bid legality. A 429 or 413 is a definite pre-command
+rejection: the client may wait and submit the same unchanged intention/key; it
+must treat network/5xx failures as potentially ambiguous. The 32 KiB Rails guard
+also covers chunked bodies; local nginx applies the same bound.
 
 ## Live demonstration status
 
@@ -245,6 +261,9 @@ ASCII characters, without spaces or control characters. UUID is allowed, not req
 The scope is authenticated actor + operation + key; retained pre-Phase-20
 records with that same actor ID remain replayable by that user. An actor may use the same key independently for bid and max commands.
 Reusing it for another auction or amount within one operation is a conflict.
+New claims store only a versioned HMAC digest of the raw key. Retained legacy
+SHA-256 rows remain replayable until physical pruning. Key rotation does not
+change the client's key or command identity; see [ADR-017](adr/017-versioned-keyed-idempotency-digests.md).
 
 The server fingerprints canonical v1 operation/auction/actor/amount data, not raw
 HTTP bytes. JSON key order, whitespace and unrelated headers do not change identity.

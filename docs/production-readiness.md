@@ -6,20 +6,20 @@ auction can queue requests and exhaust connection capacity. Phase 14 measured
 short local Compose workloads, but established no production throughput or
 capacity target. Long outer transactions retain locks longer.
 
-Phase 20 Session 1 added first-party authentication and initial authorization;
-rate limiting and further security controls remain in [Phase 20](phases/phase-20.md). No production backup/restore procedure,
+Phase 20 Sessions 1–2 added first-party authentication, authorization, shared
+Redis rate limits, an early Rails request-body guard, local nginx limit,
+versioned HMAC idempotency digests and structured security events. Final
+Phase 20 regression and hosted verification remain. No production backup/restore procedure,
 production deployment or production-grade operating program exists; durability,
 release and operating policy are assigned to [Phase 22](phases/phase-22.md).
 Local runbooks cover specific failures.
 Production Rails boot requires an explicit `API_ALLOWED_HOSTS` allowlist, but
 host filtering and the initial identity controls do not make the API safe to expose.
-The API has no pre-parse request-body byte cap; its JSON parser can consume
-resources before controller validation. A future public ingress must enforce a
-streaming body-size limit and test chunked requests before accepting untrusted
-traffic. Phase 12.5 deferred this to Phase 20 because
-there is no production ingress or authenticated public deployment yet. The
-repository's Puma and Next rewrite configuration set no explicit request-body
-limit; no effective framework or proxy limit has been verified.
+The API limits `/api/v1` bodies to 32 KiB before Rails JSON parameter parsing,
+and local nginx enforces the same bound. Content-Length, chunked and Next rewrite
+paths were tested locally. Puma or Next may buffer bytes before this Rack guard;
+the static GKE Gateway reference has no separately verified edge body limit.
+Choose and prove a supported cloud enforcement point before public ingress.
 Reads spanning multiple queries are not snapshot-consistent.
 Local Compose credentials are disposable; services bind to loopback. Named volumes
 provide local persistence, not backups. The sequence migration requires stopping

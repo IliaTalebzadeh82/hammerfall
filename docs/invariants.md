@@ -164,7 +164,7 @@ multi-query snapshot consistency are outside the stronger workflow contract.
 
 | Invariant | Enforcement | Evidence under apps/api/spec |
 | --- | --- | --- |
-| One retained actor/operation/key identifies one semantic command | Composite SQL unique index on actor_id,operation,key_digest; canonical SHA-256 fingerprint | integration/idempotency_constraints_spec.rb; requests/idempotency_spec.rb |
+| One retained actor/operation/key identifies one semantic command | Transaction-scoped logical-key advisory lock across digest versions, composite SQL unique index on actor_id,operation,key_digest; canonical SHA-256 fingerprint | integration/concurrent_idempotency_spec.rb; integration/idempotency_key_rotation_spec.rb; requests/idempotency_spec.rb |
 | Conflicting fingerprint never executes Auction logic | Executor resolves existing ownership first and returns 409 | concurrent_idempotency_spec.rb bid/max conflicting races |
 | Matching replay cannot assign sequences, settle proxies, change max priority or extend | Return stored completed snapshot before Auction lookup | requests/idempotency_spec.rb; concurrent_idempotency_spec.rb ten-way duplicate cases |
 | Success mutation and terminal outcome commit atomically | One Executor outer transaction; Auction requires_new savepoints | real SQL failure when persisting terminal outcome; owner rollback and waiting duplicate takeover |
@@ -176,8 +176,9 @@ multi-query snapshot consistency are outside the stronger workflow contract.
 
 These guarantees apply to protected HTTP commands (and IdempotentBidding callers),
 not raw Auction method invocations without a client identity. They last while the
-record exists, assume cryptographic digest collision resistance, and do not create
-an authentication boundary. Processing rows are normally uncommitted; direct SQL
+record exists and assume cryptographic digest collision resistance. HTTP actor
+identity now comes from the authenticated session (ADR-016), while raw model
+calls are internal, not HTTP authentication boundaries. Processing rows are normally uncommitted; direct SQL
 can violate that workflow despite structural checks. No arbitrary 500 is cached.
 
 ## Phase 6 browser boundaries
