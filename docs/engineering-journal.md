@@ -769,3 +769,14 @@ assuming Java credentials work in Ruby. A final static pass also caught a
 Google service-account name length edge case, duplicate Cloud SQL TLS query
 keys, and Kafka API enablement outside the broker gate; all were corrected.
 [Session 2](cloud/session-2.md) holds the evidence and remaining live gaps.
+
+## 2026-10-03 — Cloud overlay isolation and least privilege
+
+The final base regression caught `k8s/local/up.sh` applying the new
+`kustomization.yaml` as if it were a Kubernetes object. Rendering the base
+worked, but the original direct-file apply path did not. Skipping that build
+instruction restored the fresh local kind rollout. Static cloud mount review
+also found the PostgreSQL-only auction closer sharing a Redis-capable KSA and
+CSI class with Sidekiq workers; a separate closer KSA and database-only mount
+now match its actual dependency. These are examples of why an overlay needs
+both static isolation checks and a real base deployment regression.

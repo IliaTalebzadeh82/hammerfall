@@ -1013,3 +1013,33 @@ Classic Memorystore's AUTH string would enter Terraform state if Terraform
 enabled it, so the gated reference keeps private TLS without AUTH and records
 that as a security limit. [Session 2](cloud/session-2.md) separates these
 implemented/static contracts from untested GCP behavior.
+
+**Problem and naive approach:** Copying Phase 18 manifests into GKE and
+replacing Compose hostnames would leave identity, TLS, secret delivery and
+public routing undefined. Placing passwords in Terraform or a service-account
+JSON key in pods would make credentials persist in state or images. Private
+networking alone would not authenticate Redis or Kafka clients.
+
+**Chosen split:** Terraform owns the GCP project graph, disabled cost gates,
+private services, IAM and Secret Manager metadata. Kubernetes owns the nine
+application workloads, KSAs, CSI mounts and Gateway routes. Workload Identity
+lets pods obtain short-lived Google credentials; Kafka still needs separate
+topic/group ACL authorization. Secret payload versions are bootstrapped
+outside Terraform. Redis's missing AUTH is a deployment blocker, not an
+implicit assurance from TLS and VPC placement.
+
+**Guarantees and missing evidence:** Static checks prove a zero-resource
+default, explicit image digests, matching KSA names and scoped mounts. Compose
+and kind prove that these changes did not break local command, outbox and
+orchestration paths. They cannot prove live GKE admission, WIF exchange,
+Cloud SQL certificate verification, managed Kafka ACL enforcement, Gateway
+HTTPS/WSS, HA, production capacity or a Netherlands bill. Read
+`infra/terraform/`, `k8s/overlays/gcp/`, the three client/secret classes above,
+their specs and the [final report](cloud/phase-19-final.md).
+
+**Interview explanation:** Infrastructure as code declares cloud resources;
+Kubernetes declares process placement and routing; neither can replace the
+PostgreSQL transaction that decides an auction. Show the cost gates and the
+managed Kafka line in the [cost model](cloud/cost-estimate.md), then distinguish
+static infrastructure correctness from measured application behavior and
+live-cloud proof.

@@ -250,7 +250,7 @@ resource "google_secret_manager_secret" "redis_ca_bundle" {
 }
 
 locals {
-  secret_readers = toset(["api", "worker", "db-prepare", "kafka-publisher", "kafka-audit", "kafka-projection"])
+  secret_readers = toset(["api", "worker", "closer", "db-prepare", "kafka-publisher", "kafka-audit", "kafka-projection"])
   redis_readers  = toset(["api", "worker", "kafka-projection"])
   workload_principals = {
     for sa in local.secret_readers : sa => "principal://iam.googleapis.com/projects/${data.google_project.current.number}/locations/global/workloadIdentityPools/${var.project_id}.svc.id.goog/subject/ns/hammerfall/sa/${sa}"

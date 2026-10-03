@@ -1,7 +1,7 @@
 # Phase 19 ExecPlan — Terraform and GCP architecture
 
-Status: **Active. Session 2 milestone complete 2026-10-03; hard checkpoint required.** Phase 19 is not complete; Phase 20 has not started. No cloud spend or resource mutation authorized.
-Current milestone: Application/managed-service integration and static GKE/Terraform contract. Next fresh session owns final regression, repair and phase completion.
+Status: **Active; final local/static verification complete 2026-10-03, hosted CI pending.** Phase 20 has not started. No cloud spend or resource mutation authorized.
+Current milestone: close hosted CI and phase documentation against the [final report](../cloud/phase-19-final.md).
 
 ## Completed
 
@@ -24,6 +24,8 @@ Current milestone: Application/managed-service integration and static GKE/Terraf
 
 ## Verified
 
+Session 3 final regression: 461 RSpec examples, 0 failures, 3 expected broker-gated pendings, seed 45789; Ruby lint/security/Zeitwerk/syntax passed; 74 Vitest tests and frontend lint/format/types/build passed. Compose rebuilt healthy and proved Kafka outbox/audit, Redis projection, Sidekiq enqueue and auction lifecycle. The initial kind base apply exposed the new Kustomization file being applied directly; `up.sh` was fixed, and a rerun proved two API/two web/seven background roles, lifecycle smoke and API replacement. Base render: 17 resources; cloud overlay: 29. Terraform 1.16.5 format, three official-archive provider validations, four root and three module mock tests passed. The official release ZIP was checked against the lock-file hash; registry discovery remained unavailable. No GCP credential, plan or apply. See [final report](../cloud/phase-19-final.md).
+
 | Check | Command / method | Result | Evidence / limit |
 | --- | --- | --- | --- |
 | Focused Compose integration | `docker compose exec -T -e RAILS_ENV=test api bundle exec rspec` with Kafka/Redis/secret config, Kafka outbox and Redis projection specs | **41 examples, 0 failures, 1 pre-existing live-broker pending**, seed 46442 | Local PostgreSQL, Redis, Kafka; no managed service. |
@@ -36,10 +38,8 @@ Current milestone: Application/managed-service integration and static GKE/Terraf
 
 ## Remaining
 
-1. Fresh Session 3: run broad backend/frontend regression, local Compose startup and relevant kind base regression; repair real failures. Do not redo successful focused suites without cause.
-2. Validate official Google provider in an accessible environment if possible; run final static/security/secret/link checks and hosted CI as feasible. No GCP login or provider-backed plan without separate authorization and accessible credentials.
-3. Reconcile remaining docs (`docs/code-map.md`, `docs/learning-guide.md`, journal, `docs/progress.md`), final adversarial review and handoff; mark Phase 19 complete only when phase gates truly pass.
-4. For any future authorized deployment: obtain a dated Netherlands quote and real plan; securely bootstrap SQL app role/password, key/CA secret versions; provide domain, cert map, static IP, images; prove GKE WIF/CSI, SQL TLS/DNS, Redis/Kafka connectivity/ACLs and Gateway/WSS. Redis no-AUTH requires a specific security decision before enabling it. Live paid proof is not required to complete Phase 19 under the phase spec, but must remain labeled unverified.
+1. Commit/push final code and documentation; inspect hosted API, web and Compose CI; record the workflow evidence, then mark Phase 19 complete and rewrite the Phase 20 handoff.
+2. For any future authorized deployment: obtain a dated Netherlands quote and real plan; securely bootstrap SQL app role/password, key/CA secret versions; provide domain, cert map, static IP, images; prove GKE WIF/CSI, SQL TLS/DNS, Redis/Kafka connectivity/ACLs and Gateway/WSS. Redis no-AUTH requires a specific security decision before enabling it. Live paid proof is not required to complete Phase 19 under the phase spec, but must remain labeled unverified.
 
 ## Known failures/limitations
 

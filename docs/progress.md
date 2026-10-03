@@ -2225,3 +2225,23 @@ module and bootstrap; mock tests passed 4 root and 2 module runs. Base and
 and the [ExecPlan](plans/phase-19-execplan.md) record decisions and limits.
 No GCP login, API mutation, paid resource or apply occurred. Phase 19 remains
 active; broad regression and final gates belong to a fresh Session 3.
+
+### Phase 19 final local/static verification — 2026-10-03
+
+Session 3 found and repaired the Phase 18 `k8s/local/up.sh` apply regression
+caused by the new base `kustomization.yaml`; its rerun brought two API, two web
+and all seven background roles ready. A closer-specific KSA/mount removed
+unneeded Redis CA access. The [final report](cloud/phase-19-final.md) records
+the full security and evidence boundary.
+
+The backend completed 461 examples, zero failures, three existing live-broker
+pendings (seed 45789); RuboCop 138 files/zero offenses, Brakeman zero warnings,
+bundler-audit zero vulnerabilities, Zeitwerk and Ruby syntax passed. Frontend
+lint/format/types/build and 74 Vitest tests passed. Compose rebuilt and reached
+health; Kafka outbox/audit smoke, Redis Kafka projection, Sidekiq enqueue,
+PostgreSQL auction lifecycle and local kind lifecycle/API replacement passed.
+The 17-resource base and 29-resource cloud overlay rendered. Terraform format,
+three official-provider archive schema validations, four root and three module
+mock tests passed with no GCP credentials. Tracked-file credential scan found
+no payloads or keys. Hosted CI and final verification commit are recorded
+below when available; no paid cloud proof is claimed.

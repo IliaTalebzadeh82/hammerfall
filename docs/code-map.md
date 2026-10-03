@@ -537,7 +537,7 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
   loss and REST recovery on API pod deletion. The local setup pins kind v0.33's
   Kubernetes 1.36.4 node digest to avoid a kubectl 1.35/1.37 version skew.
 
-## Phase 19 cloud integration map (Session 2 static)
+## Phase 19 cloud integration map
 
 - `apps/api/app/services/kafka_client_config.rb` supplies local or Managed Kafka
   OIDC/TLS settings to the existing publisher and two consumers; their event
@@ -548,11 +548,16 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
   uses PostgreSQL, not a Redis adapter. `apps/api/lib/secret_files.rb` loads
   mounted database URL/key files before Rails initialization and checks the
   Cloud SQL verified-TLS URL contract.
-- `infra/terraform/modules/reference/` owns Cloud SQL private DNS, Secret
-  Manager metadata/IAM, and separately gated Redis/Kafka resources. Root and
-  module mock tests prove the disabled/default shape.
+- `infra/terraform/bootstrap/` is the separately gated GCS state bootstrap;
+  `environments/reference/` owns the safe default and project API gates;
+  `modules/reference/` owns VPC, GKE, Cloud SQL private DNS, Artifact Registry,
+  Secret Manager metadata/IAM, and separately gated Redis/Kafka resources.
+  Root and module mock tests prove the disabled/default shape.
 - `k8s/base/kustomization.yaml` renders the unchanged Phase 18 local base.
   `k8s/overlays/gcp/` owns cloud KSAs, CSI mounts, Kafka auth sidecars,
   Gateway/HTTPRoutes, health policies, image-digest inputs and suspended
-  `db-prepare`. [Session 2](cloud/session-2.md) records static and live-proof
-  boundaries; no cloud resources have been created.
+  `db-prepare`. `render.py` requires concrete deployment inputs and
+  `validate.rb` checks workload identity, secret mounts, routing and health
+  against the rendered overlay and Terraform KSA lists. The
+  [final report](cloud/phase-19-final.md) separates local/static proof from
+  live-cloud prerequisites; no cloud resources have been created.

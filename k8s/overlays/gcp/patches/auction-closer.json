@@ -6,7 +6,7 @@
   {
     "op": "add",
     "path": "/spec/template/spec/serviceAccountName",
-    "value": "worker"
+    "value": "closer"
   },
   {
     "op": "add",
@@ -18,7 +18,7 @@
           "driver": "secrets-store-gke.csi.k8s.io",
           "readOnly": true,
           "volumeAttributes": {
-            "secretProviderClass": "hammerfall-db-redis-gke"
+            "secretProviderClass": "hammerfall-db-gke"
           }
         }
       }

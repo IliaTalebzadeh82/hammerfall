@@ -20,6 +20,26 @@ run "optional_services_absent" {
   }
 }
 
+run "redis_requires_separate_gate" {
+  command = plan
+  variables {
+    project_id            = "hammerfall-test-project"
+    region                = "europe-west4"
+    environment           = "reference"
+    admin_cidr            = "203.0.113.10/32"
+    sql_tier              = "db-custom-2-7680"
+    sql_availability_type = "ZONAL"
+    redis_tier            = "BASIC"
+    redis_memory_gb       = 1
+    enable_redis          = true
+    enable_kafka          = false
+  }
+  assert {
+    condition     = length(google_redis_instance.derived) == 1 && length(google_managed_kafka_cluster.events) == 0
+    error_message = "Redis's separate gate should model Redis without enabling Kafka."
+  }
+}
+
 run "kafka_models_topic_and_acl_boundary" {
   command = plan
   variables {

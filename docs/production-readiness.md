@@ -229,3 +229,22 @@ stateful dependencies, node failure, production TLS/secrets, autoscaling,
 capacity or long in-flight worker termination. Resource settings are local
 starting values. PostgreSQL transactions, idempotency and durable outbox
 protocols remain the correctness mechanisms during process loss.
+
+## Phase 19 cloud reference boundary
+
+The [Phase 19 final review](cloud/phase-19-final.md) adds a near-deployable,
+default-disabled Terraform/GCP reference and GKE overlay. Local Compose and
+kind regression, official-provider schema/mock validation, workload identity
+and mount checks, and static Gateway routing checks passed. No GCP project was
+authenticated, no resource was created and no managed-service connection was
+tested. PostgreSQL remains the only auction authority.
+
+This is not a proven production GCP deployment. Classic Redis has private TLS
+but no application AUTH and remains disabled; a separate security decision is
+required before enabling it. GKE admission/WIF/CSI, Cloud SQL verified TLS and
+failover, Redis TLS/failover, managed Kafka OAuth/ACLs, real Gateway HTTPS/WSS,
+multi-zone availability, DR/restore, production sizing, HPA capacity and an
+actual monthly bill remain unverified. The manifest-based ~70-connection
+planning budget is not measured Cloud SQL usage. A credentialed provider plan,
+secure bootstrap, real network/TLS tests and operational exercises are required
+before claiming deployment readiness.

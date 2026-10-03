@@ -60,6 +60,7 @@ Kafka's three `rdkafka` roles now share local or Google OIDC client configuratio
 | PostgreSQL | Authoritative commands/readiness stop; never write via Redis/Kafka fallback | Local outage evidence only |
 | Redis | Queue/projection lag; normal PostgreSQL commands retain truth | Local evidence only |
 | Kafka | Outbox persists publication intent; audit/projection lag | Local evidence only |
+| Secret mount/start | Affected pod cannot start without its named version; existing healthy pods continue until replacement | Static CSI contract only |
 | Region | This single-region design becomes unavailable; recovery is Phase 21 | Not tested |
 
 ## Identity, secrets, state and operations

@@ -67,7 +67,7 @@ variable "redis_memory_gb" {
 }
 
 variable "enable_redis" {
-  description = "Separate gate while Redis TLS/auth client integration remains unresolved."
+  description = "Separate gate: private TLS is modeled, but classic Redis has no application AUTH in this reference."
   type        = bool
   default     = false
   validation {

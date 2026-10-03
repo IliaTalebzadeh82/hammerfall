@@ -96,6 +96,14 @@ CI checks Ruby lint/security/tests, frontend lint/format/types/tests/build, and
 Compose startup, HTTP smoke tests and real-API Playwright browser scenarios. [Version choices](docs/tooling.md), [code map](docs/code-map.md),
 and [learning guide](docs/learning-guide.md) explain the foundation.
 
+## Cloud reference
+
+[Phase 19's Terraform/GCP reference](docs/cloud/phase-19-final.md) defines a
+gated GKE Autopilot, Cloud SQL, Redis and managed Kafka topology with a GKE
+workload overlay, managed-service client contracts and a [cost model](docs/cloud/cost-estimate.md).
+It is locally and statically validated; no live GCP deployment or managed-service
+connection has been performed.
+
 ## Later engineering work
 
 [Failure scenarios](docs/failure-model.md), [job/Redis runbook](docs/runbooks/sidekiq-redis.md), [Kafka runbook](docs/runbooks/kafka.md), [projection recovery](docs/runbooks/redis-projection.md), [reconciliation operations](docs/runbooks/projection-reconciliation.md), [consistency](docs/consistency-model.md),

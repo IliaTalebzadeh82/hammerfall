@@ -91,6 +91,8 @@ render_dir=$(mktemp -d /tmp/hammerfall-k8s-render.XXXXXX)
 trap 'rm -r "$render_dir"' EXIT
 mkdir "$render_dir/base"
 for manifest in k8s/base/*.yaml; do
+  # Kustomization is a build instruction, not an API object for apply -f.
+  [[ $(basename "$manifest") == kustomization.yaml ]] && continue
   sed -e "s/hammerfall-api:phase18/hammerfall-api:${image_tag}/g" \
       -e "s/hammerfall-web:phase18/hammerfall-web:${image_tag}/g" \
       "$manifest" > "$render_dir/base/$(basename "$manifest")"
