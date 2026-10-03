@@ -1,7 +1,7 @@
 # Phase 19 ExecPlan — Terraform and GCP architecture
 
 Status: **Complete 2026-10-03.** Phase 20 has not started. No cloud spend or resource mutation occurred.
-Final evidence and limits: [Phase 19 final report](../cloud/phase-19-final.md). Hosted verification: [GitHub Actions run 37104780362](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37104780362), API/web/Compose all succeeded on `756f138df7495773eb4bf43b5be0bcc65c9468f6`.
+Final evidence and limits: [Phase 19 final report](../cloud/phase-19-final.md). Hosted verification: [GitHub Actions run 37105296963](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37105296963), API/web/Compose all succeeded on the closure commit `a1fca5e0bf6055e5351b52437772e33ec9053ee0`.
 
 ## Completed
 
@@ -24,7 +24,7 @@ Final evidence and limits: [Phase 19 final report](../cloud/phase-19-final.md). 
 
 ## Verified
 
-Session 3 final regression: 461 RSpec examples, 0 failures, 3 expected broker-gated pendings, seed 45789; Ruby lint/security/Zeitwerk/syntax passed; 74 Vitest tests and frontend lint/format/types/build passed. Compose rebuilt healthy and proved Kafka outbox/audit, Redis projection, Sidekiq enqueue and auction lifecycle. The initial kind base apply exposed the new Kustomization file being applied directly; `up.sh` was fixed, and a rerun proved two API/two web/seven background roles, lifecycle smoke and API replacement. Base render: 17 resources; cloud overlay: 29. Terraform 1.16.5 format, three official-archive provider validations, four root and three module mock tests passed. The official release ZIP was checked against the lock-file hash; registry discovery remained unavailable. No GCP credential, plan or apply. Hosted API/web/Compose all succeeded on run 37104780362. See [final report](../cloud/phase-19-final.md).
+Session 3 final regression: 461 RSpec examples, 0 failures, 3 expected broker-gated pendings, seed 45789; Ruby lint/security/Zeitwerk/syntax passed; 74 Vitest tests and frontend lint/format/types/build passed. Compose rebuilt healthy and proved Kafka outbox/audit, Redis projection, Sidekiq enqueue and auction lifecycle. The initial kind base apply exposed the new Kustomization file being applied directly; `up.sh` was fixed, and a rerun proved two API/two web/seven background roles, lifecycle smoke and API replacement. Base render: 17 resources; cloud overlay: 29. Terraform 1.16.5 format, three official-archive provider validations, four root and three module mock tests passed. The official release ZIP was checked against the lock-file hash; registry discovery remained unavailable. No GCP credential, plan or apply. Hosted API/web/Compose all succeeded on run 37105296963. See [final report](../cloud/phase-19-final.md).
 
 ### Session 2 focused evidence (superseded by final gates where overlapping)
 

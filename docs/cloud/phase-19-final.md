@@ -2,7 +2,7 @@
 
 Date: 2026-10-03. Status: local/static verification complete; no GCP authentication, API mutation, resource or charge. This is Hammerfall's **near-deployable reference**, not a production deployment or a description of Catawiki's internal infrastructure. Detailed architecture and research are in [ADR-015](../adr/015-gcp-reference-infrastructure.md), [architecture](architecture.md), [cost model](cost-estimate.md) and [Session 2](session-2.md).
 
-Hosted [GitHub Actions run 37104780362](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37104780362) passed API, web and Compose jobs on verification commit `756f138df7495773eb4bf43b5be0bcc65c9468f6`, including the hosted browser scenarios. Normal CI used no GCP credentials.
+Hosted [GitHub Actions run 37105296963](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37105296963) passed API, web and Compose jobs on the Phase 19 closure commit `a1fca5e0bf6055e5351b52437772e33ec9053ee0`, including the hosted browser scenarios. Normal CI used no GCP credentials.
 
 ## Direction and ownership
 
