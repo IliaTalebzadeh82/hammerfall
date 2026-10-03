@@ -19,6 +19,7 @@ jobs:
         working-directory: apps/api
     env:
       RAILS_ENV: test
+      RAILS_MAX_THREADS: "15"
       PGHOST: 127.0.0.1
       PGUSER: hammerfall
       PGPASSWORD: hammerfall_ci_only

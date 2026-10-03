@@ -29,6 +29,8 @@ The server does not promise that an accepted bid leads, that a Cable hint confir
 
 The closure commit cannot literally contain its own content hash or a future Actions run ID. The authoritative exact values are the commit containing this report and its completed `CI` run; they are reported together in the final closure response.
 
+The first hosted attempt (`6c38b59`, run `37158321874`) passed its web and full Compose/browser jobs, but its API RSpec step failed. The API job used the default five database connections for ten-worker idempotency cases. Four focused cases timed out locally with that default; the same 16 focused examples passed after setting `RAILS_MAX_THREADS=15`. The final repair revision must pass the complete hosted workflow.
+
 ## Adversarial findings
 
 | Severity | Finding and resolution or accepted limit |

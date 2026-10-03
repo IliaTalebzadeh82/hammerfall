@@ -830,3 +830,9 @@ behavior without bypassing authentication or time authority. A ten-worker
 idempotency script similarly keeps each race intact while allowing Redis
 admission windows to reset between independent scenarios. The final report
 records the exact local evidence and cloud/operational limits.
+
+The first hosted closure run exposed the API job's default five-connection
+test pool: four ten-worker idempotency examples timed out. Reproducing the same
+focused failure locally and rerunning with a 15-connection pool isolated the
+runner configuration error. CI now sets `RAILS_MAX_THREADS=15` explicitly;
+the concurrency tests retain their original worker count.

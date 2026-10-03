@@ -2355,6 +2355,10 @@ requirement-by-requirement evidence and accepted limits.
 Phase 20 closes only with a successful hosted `CI` run whose `head_sha` equals the
 closure commit. The exact closure SHA and run ID are reported in the final closure
 response because a commit cannot embed its own hash or a future Actions run ID.
+First hosted attempt `6c38b59`/run `37158321874` exposed a five-connection API
+job pool against ten-worker idempotency tests. The failure reproduced locally as
+four connection timeouts; setting `RAILS_MAX_THREADS=15` passed the same focused
+16 examples. The workflow was repaired before the final exact-SHA gate.
 Production readiness remains separate: no professional penetration test or live
 cloud deployment; GKE Gateway upstream byte buffering is unproven; Redis outage
 fallback quota is per process; an already established Cable socket may receive
