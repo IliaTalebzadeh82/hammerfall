@@ -1,0 +1,32 @@
+# ADR-016 — First-party identity and revocable browser sessions
+
+Status: Adopted for Phase 20 Session 1 (2026-10-03)
+
+## Context
+
+The public API currently accepts a caller-chosen `bidder_id` and all auction mutations are unauthenticated. The browser is a same-origin Next.js client of a Rails API, and Action Cable carries public revision hints. Multiple Rails replicas share PostgreSQL. A lost response can be retried with the same idempotency key for seven days, including after a session expires. Identity must establish the actor before the existing command executor; it must not decide bid validity.
+
+## Decision
+
+Use first-party login credentials (`login`, bcrypt `password_digest`) and a server-managed, opaque random session. Store only a SHA-256 digest of the 256-bit session token in PostgreSQL. Deliver the raw token in an encrypted, HttpOnly, host-only, SameSite=Lax cookie, Secure in production. The cookie is a transport for the opaque credential; the database row is the authority for expiry and revocation. No session token or password is put in JSON, URL, browser storage or logs. The distinct CSRF token is sent in session JSON for same-origin JavaScript to return as a header.
+
+Sessions have a fixed 12-hour expiry, no silent renewal in Session 1, and are deleted on logout. Reauthentication creates a new independent session. Any Rails replica can authenticate against PostgreSQL with shared Rails secret configuration. The cookie encryption and the session digest are separate layers; a copied valid cookie remains replayable until expiry or revocation. Passwords are never recoverable. Existing users receive no guessed credentials; a deliberate operator provisioning step must set login and password. Local development seeds use explicitly local demo credentials only.
+
+The browser obtains a CSRF token from the same-origin session JSON and sends it in `X-CSRF-Token` for authenticated unsafe HTTP methods. The token is derived from the current opaque session secret and Rails secret key, is not a login credential, and is checked in constant time. Login requires a JSON request with a custom header; no credentialed cross-origin CORS policy is enabled. SameSite and exact Cable origins add defense in depth. A future cross-origin client needs a separate reviewed design. The Next.js rewrite must preserve the browser's cookie and headers.
+
+HTTP commands ignore any client-selected actor; an unknown `bidder_id` field is rejected. The authenticated user ID occupies the *same* `actor_id` and canonical fingerprint slot used before Phase 20. Existing retained idempotency records therefore remain replayable by that user with the same key and semantic payload. Another user cannot retrieve that outcome. After expiry, the client must log in as the same user and retry the unchanged key and payload; a 401 before the executor neither commits nor consumes the key. The browser holds a pending intention until it can confirm the historical outcome or explicitly abandon it.
+
+Action Cable reads the same cookie and resolves a live PostgreSQL session at handshake. Connections without one are rejected; the auction channel remains limited to public revision hints and validates subscriptions. A session revoked or expired *after* handshake can retain an open socket until reconnect or server disconnect; Session 2 will verify a bounded disconnect policy. Hints never authorize or confirm commands.
+
+Human authorization uses a small explicit policy at the HTTP boundary: public reads; authenticated buyer commands; seller ownership for create/edit/cancel; operator scheduling/activation/intervention/close. The autonomous closer and background jobs are trusted internal paths, not fake operator users. Auctions created after migration have a seller; preexisting auctions with unknown provenance retain null seller and are operator-managed until ownership is deliberately assigned. Seller self-bid is also checked under the auction lock in the domain methods, including maximum instructions. A reassignment or stale browser view cannot bypass it. Seller cannot inspect private ceilings; no private maximum read endpoint is added.
+
+## Alternatives considered
+
+- Rails encrypted CookieStore alone is compact and integrates with standard Rails CSRF, but immediate per-session revocation needs extra server state. Once that state is added, an opaque session row makes the guarantee direct. The [Rails security guide](https://guides.rubyonrails.org/security.html) explicitly notes copied cookie reuse and revocation limitations.
+- An opaque `Authorization: Bearer` token has clear non-browser semantics but leaves a browser storage and Cable handshake problem. An HttpOnly cookie uses the existing same-origin browser path; non-browser access can be revisited.
+- JWT would add signing, key rotation, revocation lists or short expiry plus refresh, and browser storage/Cable decisions without improving this case study's local browser flow. The [OWASP JWT guidance](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet.html) documents those trade-offs. Rejected for this phase.
+- Rails' authentication generator includes views and reset flows outside this narrow API. Use Rails `has_secure_password` with bcrypt and a small session model; [Rails documents](https://guides.rubyonrails.org/active_model_basics.html#securepassword) its hashing and validation behavior.
+
+## Consequences, risks and revisit when
+
+Each authenticated request and Cable handshake reads PostgreSQL. A PostgreSQL outage already prevents authoritative bidding; session failure must not silently become anonymous command execution. Login pressure and session-row cleanup need Phase 20 rate limiting and maintenance. CSRF follows [OWASP's custom-header guidance](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html); the browser still needs XSS defenses. Session theft remains possible through endpoint compromise or a stolen cookie. Revisit for non-browser clients, cross-origin frontend hosting, account recovery, multi-region writes, or a materially different scale/latency requirement.

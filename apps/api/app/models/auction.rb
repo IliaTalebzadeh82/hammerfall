@@ -9,6 +9,7 @@ class Auction < ApplicationRecord
   }.freeze
 
   belongs_to :current_leader, class_name: "User", optional: true
+  belongs_to :seller, class_name: "User", optional: true, inverse_of: :seller_auctions
   has_many :maximum_bids, autosave: false, validate: false, dependent: :restrict_with_exception, inverse_of: :auction
 
   belongs_to :winner, class_name: "User", optional: true, inverse_of: :won_auctions
@@ -87,6 +88,7 @@ class Auction < ApplicationRecord
       Observability.lock_wait("place_bid") { reload(lock: true) }
       Observability.trace("hammerfall.bid.decide", attributes: { "hammerfall.operation" => "place_bid" }) do
         decision_time = AuctionClock.now
+        reject_seller_bid!(bidder)
         validate_bidding_window!(decision_time)
 
         bid = Bid.new(auction_id: id, bidder: bidder, amount: amount, sequence: (bids.maximum(:sequence) || 0) + 1)
@@ -111,6 +113,7 @@ class Auction < ApplicationRecord
       Observability.lock_wait("set_maximum_bid") { reload(lock: true) }
       Observability.trace("hammerfall.bid.decide", attributes: { "hammerfall.operation" => "set_maximum_bid" }) do
         decision_time = AuctionClock.now
+        reject_seller_bid!(bidder)
         validate_bidding_window!(decision_time)
         instruction = MaximumBid.find_or_initialize_by(auction_id: id, bidder_id: bidder&.id)
         instruction.bidder = bidder
@@ -146,6 +149,12 @@ class Auction < ApplicationRecord
   end
 
   private
+
+  def reject_seller_bid!(bidder)
+    if seller_id && bidder && seller_id == bidder.id
+      raise DomainError.new("seller_self_bid", "Sellers cannot bid on their own auction.")
+    end
+  end
 
   def validate_bidding_window!(at)
     unless status == "active"
@@ -258,6 +267,9 @@ class Auction < ApplicationRecord
     end
     if will_save_change_to_public_revision? && !@persisting_public_change
       errors.add(:public_revision, "must be assigned by a public command")
+    end
+    if will_save_change_to_seller_id?
+      errors.add(:seller, "cannot change after auction creation")
     end
     if EDITABLE_FIELDS.any? { |field| will_save_change_to_attribute?(field) } && !@persisting_public_change
       errors.add(:base, "Auction terms must change through a public command")

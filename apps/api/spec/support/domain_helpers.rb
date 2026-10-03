@@ -1,4 +1,15 @@
 module DomainHelpers
+  def sign_in_as(user)
+    user.update!(login: "test-user-#{user.id}", password: "test-password") unless user.login?
+    post "/api/v1/session", params: { session: { login: user.login, password: "test-password" } },
+      headers: { "X-Hammerfall-Login" => "1" }, as: :json
+    raise "Test login failed: #{response.status}" unless response.status == 201
+    @csrf_token = json.fetch("csrf_token")
+  end
+
+  def auth_headers(extra = {})
+    { "X-CSRF-Token" => @csrf_token }.merge(extra)
+  end
   def auction_attributes(**overrides)
     {
       title: "Vintage camera",

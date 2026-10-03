@@ -4,7 +4,7 @@
 
 The Next.js App Router UI lists auctions, shows detail/history, and sends manual or private-maximum commands through a same-origin `/api/v1` rewrite to Rails. Rails REST is the current public view. The browser parses decimal EUR input into bounded integer cents, keeps price/leader/winner read-only from server state, and treats its countdown and `X-Server-Time` offset as estimates. A countdown reaching zero triggers a GET; it never closes an auction.
 
-A per-tab pending intention saves operation, actor, auction, amount and UUID key in `sessionStorage` before transmission. Transport ambiguity preserves it for explicit retry; a terminal response resolves the original command, followed by fresh auction/history reads. Browser storage can be lost, and actor ID selection is only an unauthenticated demo. No optimistic price/leader changes or invented command success are permitted.
+A per-tab pending intention saves operation, authenticated actor, auction, amount and UUID key in `sessionStorage` before transmission. Transport ambiguity preserves it for explicit retry; a terminal response resolves the original command, followed by fresh auction/history reads. The stored actor ID binds an intention to the same reauthenticated user but never selects server command ownership. Browser storage can be lost. No optimistic price/leader changes or invented command success are permitted.
 
 ## Invalidation contract
 

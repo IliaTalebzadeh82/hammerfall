@@ -1,13 +1,15 @@
 # Security
 
-Phase 1 exposes business endpoints for local development, with no authentication
-or authorization. A supplied bidder_id is a demo actor selector, not proof of
-identity. Anyone with API access can create identities/auctions, submit bids as any
-existing user, and invoke lifecycle actions. Do not expose it as a public service.
+Phase 20 Session 1 adds first-party login, revocable PostgreSQL-backed sessions,
+CSRF headers, authenticated command identity, seller ownership, operator lifecycle
+permissions and authenticated Action Cable handshakes. See [ADR-016](adr/016-first-party-identity-and-sessions.md)
+and the [Session 1 report](security/phase-20-session-1.md). `bidder_id` is rejected
+on HTTP commands. Public user creation is removed. The API remains a local
+development system, not a public service.
 
-Rails runs API-only middleware; no session or permissive CORS policy is introduced.
-Authentication, authorization, CSRF strategy, and rate limiting are scheduled for
-[Phase 20 — Identity & Security](phases/phase-20.md); none is implemented yet.
+Rails API mode now adds cookie middleware for opaque session transport;
+there is still no permissive CORS policy. Rate limiting, pre-parse body bounds,
+HMAC idempotency-key migration and complete security events remain Phase 20 work.
 The versioned API allowlists resource attributes, rejects nested/unknown fields,
 bounds lists, validates IDs/money, and returns deliberate public JSON with stable
 expected-error codes. It does not broadly rescue unexpected programming errors.
@@ -23,15 +25,15 @@ RuboCop and Brakeman run in checks; bundler-audit runs in CI and is available
 locally. Dependency checks reduce risk but are not a security guarantee.
 
 
-Phase 3 provides representation/data privacy, not complete authorization-based
-secrecy. Public auction/history and maximum acknowledgements omit maxima, priorities
+Phase 3 established representation/data privacy. Public auction/history and maximum acknowledgements omit maxima, priorities
 and automatic origins; parameter/SQL bind/model-inspection filtering is tested.
-No private maximum read/list/delete endpoints exist. Supplied actor IDs still permit
-impersonation and probing; operators can access plaintext maxima in PostgreSQL.
+No private maximum read/list/delete endpoints exist. Session 1 removes supplied
+actor authority and denies seller self-bids; operators with database access can
+still access plaintext maxima.
 An automatic visible offer may reach its ceiling by design, without labelling it as
-that ceiling. Do not expose this unauthenticated local API to untrusted networks.
+that ceiling. Do not expose this incomplete local API to untrusted networks.
 
-Phase 5 idempotency scope uses the supplied actor ID and is not authentication.
+Phase 5 idempotency scope now uses the authenticated actor ID at HTTP entry.
 Raw keys and private payloads are not persisted in the idempotency table; keys and
 canonical requests use SHA-256 digests, and snapshots use only public API serializers.
 An unkeyed key digest permits an offline dictionary attack against low-entropy
@@ -46,12 +48,12 @@ in them. Never reinterpret actor scope or expose retained records as a public li
 Conflict/replay responses retain the original public privacy boundary. New key,
 fingerprint and response attributes are filtered from ordinary model/bind logging.
 
-Phase 6 renders auction text through React, never dangerouslySetInnerHTML. Actor
-selection remains visibly unauthenticated. No credentials or private inputs enter
+Phase 6 renders auction text through React, never dangerouslySetInnerHTML.
+Session 1 removes actor selection and adds a login/logout control. No credentials or private inputs enter
 URLs or public environment variables. The public API client/types/views have no
-maximum/priority/origin display fields. The selected actor's own unresolved maximum
+maximum/priority/origin display fields. The signed-in actor's own unresolved maximum
 is temporarily stored in same-tab sessionStorage for retry; resolved storage is
-removed, unsubmitted inputs clear on actor changes, and no confirmed ceiling is
+removed, unsubmitted inputs clear on logout, and no confirmed ceiling is
 inferred from acknowledgements. Storage access is not an authentication boundary.
 Local host allowances are explicit; production CORS was not broadened. See ADR-007.
 
@@ -61,8 +63,10 @@ Cable exposes only public auction ID/revision/type. Maxima, priority, bid origin
 actor identity, idempotency keys and command outcomes never enter notifications.
 Malformed/unknown subscriptions are rejected. Exact allowed origins remain enabled;
 production has no implicit same-host allowance. No private actor channel exists.
-Demo identity and lifecycle APIs are still unauthenticated; origin checks do not
-replace authentication, authorization, rate limits or connection capacity controls.
+Cable now requires a live session at handshake and subscription, while hints
+remain public data. A socket established before revocation/expiry can continue
+until disconnect; bounded disconnect behavior remains Session 2 work.
+Connection capacity controls remain outstanding.
 
 ## Phase 11 projection privacy
 
@@ -73,5 +77,5 @@ eventual endpoint omit private maximums, priority, bid origin and idempotency
 material. Focused tests and a live private-maximum update checked the raw key;
 this is representation privacy, not authorization or protection against an
 operator with Redis/database access. Avoid logging raw values, event payloads
-or keys from client commands. The local unauthenticated API remains unsuitable
+or keys from client commands. The incomplete local API remains unsuitable
 for public deployment.

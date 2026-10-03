@@ -1,9 +1,9 @@
-# Frontend — Phase 7
+# Frontend — through Phase 20 Session 1
 
 Hammerfall is a text-focused auction interface backed entirely by Rails. It uses
 Next.js App Router, React, TypeScript, Tailwind v4 and shadcn Base UI primitives.
 The listing is `/auctions`; `/` redirects there; detail is `/auctions/[id]`.
-The shell, real user selector, collection cards, public history, bidding forms,
+The shell, login/logout control, collection cards, public history, bidding forms,
 loading/error/empty states and mobile layout form the complete current product.
 There are no invented media, seller, payment or account features.
 
@@ -26,7 +26,7 @@ never submits a close command or declares closure itself.
 
 Each explicit submission creates one opaque UUID and immutable operation/auction/
 actor/amount payload. The shared session saves it before sending, blocks duplicate
-clicks and both forms/actor changes, and retains it across navigation/reload after
+clicks and both forms, and retains it across navigation/reload after
 an uncertain outcome. Retry safely uses the same key and payload, including after
 closure. Refreshing public state alone cannot resolve an unknown command outcome.
 Abandonment requires an explicit warning step and does not cancel server work.
@@ -35,9 +35,10 @@ Success or valid terminal 400/404/409/422 clears the saved record and refreshes
 auction plus history. Idempotency-Replayed recovers the previous result, followed
 by those fresh reads. A 409 never generates another key automatically. Known
 errors explain low bids, binding maximum decreases, noncompetitive maxima, deadlines,
-invalid state, missing actor/auction and validation problems. Historical minimum/
+invalid state, seller self-bid, missing auction and validation problems. Historical minimum/
 price error details are labelled as values at that decision. Network failures,
-timeouts/abort, malformed responses and 5xx remain ambiguous. No mutating request
+timeouts/abort, malformed responses, 401 and 5xx preserve the intention. A 401
+requires reauthentication as the original actor before same-key retry. No mutating request
 has an automatic retry loop.
 
 The per-tab retry horizon is one hour. It is intentionally shorter than the backend
@@ -46,7 +47,9 @@ lost browser storage. Session storage holds only an unresolved command; for a ma
 this temporarily contains that actor's private submitted amount. It is never logged
 or put into localStorage. A resolved maximum acknowledgement does not create a
 persistent display of the actor's current protection, because the API does not
-provide that state. Changing actors clears unsubmitted form inputs.
+provide that state. Signing out clears unsubmitted form inputs. The actor ID
+stored with a pending intention only prevents a different signed-in user from
+retrying it; the server derives command identity from its HttpOnly session cookie.
 
 ## Time, money and accessibility
 

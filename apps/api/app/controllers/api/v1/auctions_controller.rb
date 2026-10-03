@@ -1,6 +1,7 @@
 module Api
   module V1
     class AuctionsController < BaseController
+      before_action :require_actor!, only: %i[create update schedule activate close cancel]
       def index
         render_collection(Auction.all) { |auction| AuctionPresenter.new(auction).as_json }
       end
@@ -37,28 +38,36 @@ module Api
       end
 
       def create
-        auction = Auction.create_draft!(auction_params)
+        return unless require_capability!(AuctionPolicy.new(current_actor).create?)
+        auction = Auction.create_draft!(auction_params.merge(seller: current_actor))
         render_auction(auction, status: :created)
       end
 
       def update
-        render_auction(find_auction.edit_draft!(auction_params))
+        auction = find_auction
+        return unless require_capability!(AuctionPolicy.new(current_actor, auction).manage?)
+        render_auction(auction.edit_draft!(auction_params))
       end
 
       def schedule
+        return unless require_capability!(AuctionPolicy.new(current_actor).transition?)
         render_auction(find_auction.schedule!)
       end
 
       def activate
+        return unless require_capability!(AuctionPolicy.new(current_actor).transition?)
         render_auction(find_auction.activate!)
       end
 
       def close
+        return unless require_capability!(AuctionPolicy.new(current_actor).transition?)
         render_auction(find_auction.close!)
       end
 
       def cancel
-        render_auction(find_auction.cancel!)
+        auction = find_auction
+        return unless require_capability!(AuctionPolicy.new(current_actor, auction).manage?)
+        render_auction(auction.cancel!)
       end
 
       private

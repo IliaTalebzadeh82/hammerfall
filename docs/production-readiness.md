@@ -6,13 +6,13 @@ auction can queue requests and exhaust connection capacity. Phase 14 measured
 short local Compose workloads, but established no production throughput or
 capacity target. Long outer transactions retain locks longer.
 
-There is no authentication, authorization or rate limiting; these are assigned
-to [Phase 20](phases/phase-20.md). No production backup/restore procedure,
+Phase 20 Session 1 added first-party authentication and initial authorization;
+rate limiting and further security controls remain in [Phase 20](phases/phase-20.md). No production backup/restore procedure,
 production deployment or production-grade operating program exists; durability,
 release and operating policy are assigned to [Phase 22](phases/phase-22.md).
 Local runbooks cover specific failures.
 Production Rails boot requires an explicit `API_ALLOWED_HOSTS` allowlist, but
-host filtering does not make the unauthenticated demo API safe to expose.
+host filtering and the initial identity controls do not make the API safe to expose.
 The API has no pre-parse request-body byte cap; its JSON parser can consume
 resources before controller validation. A future public ingress must enforce a
 streaming body-size limit and test chunked requests before accepting untrusted
@@ -53,8 +53,8 @@ lifetime; cleanup and API snapshot compatibility need operational ownership. No
 performance improvement is claimed without measurement. See ADR-006.
 
 Phase 6 now provides a working browser auction UI with session-based retry recovery
-and real-API browser evidence. It still has no authentication, authorization or
-real-money readiness. Reads become stale between explicit/visibility/command/expiry
+and real-API browser evidence. Phase 20 Session 1 adds authentication and initial
+authorization, but the service is not ready for real-money use. Reads become stale between explicit/visibility/command/expiry
 refreshes; Phase 7 also adds best-effort Cable invalidations. Browser storage can
 be lost and clocks
 can move. The one-hour client retry horizon is conservative, not a durability SLA.
@@ -136,8 +136,8 @@ documented in the [observability contract](observability.md) and
 changing an auction outcome. A trace, dashboard panel or empty failure counter
 does not prove business correctness or absence of failures.
 
-This is still an unauthenticated local demo. Phase 20 owns public ingress and
-identity hardening; Phase 22 owns backup/restore, disaster recovery, SLOs and
+This is still an incomplete local demo. Phase 20 owns public ingress and
+remaining identity/security hardening; Phase 22 owns backup/restore, disaster recovery, SLOs and
 alerts. High availability and production capacity remain unverified. Phase 18
 verified local kind orchestration, not production Kubernetes deployment.
 The Ruby OpenTelemetry metrics SDK is alpha. Local outage exercises do not

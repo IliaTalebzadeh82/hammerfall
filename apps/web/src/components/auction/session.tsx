@@ -10,8 +10,21 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { errorMessage, getUsers, sendCommand } from "@/lib/api/client";
-import type { Intention, Operation, User } from "@/lib/api/types";
+import {
+  ApiFailure,
+  errorMessage,
+  getSession,
+  getUsers,
+  login,
+  logout,
+  sendCommand,
+} from "@/lib/api/client";
+import type {
+  AuthenticatedUser,
+  Intention,
+  Operation,
+  User,
+} from "@/lib/api/types";
 import { PENDING_KEY, readPending, retryAllowed } from "@/lib/intentions";
 
 type Outcome = {
@@ -23,7 +36,10 @@ type Outcome = {
 type Session = {
   users: User[];
   actorId: number | null;
-  selectActor: (id: number) => void;
+  actor: AuthenticatedUser | null;
+  signIn: (login: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  authError: string;
   pending: Intention | null;
   phase: "ready" | "pending" | "ambiguous";
   ready: boolean;
@@ -55,6 +71,9 @@ export function AuctionSession({ children }: { children: React.ReactNode }) {
   const [usersError, setUsersError] = useState(false);
   const [usersLoading, setUsersLoading] = useState(true);
   const [actorId, setActorId] = useState<number | null>(null);
+  const [actor, setActor] = useState<AuthenticatedUser | null>(null);
+  const [csrfToken, setCsrfToken] = useState("");
+  const [authError, setAuthError] = useState("");
   const [pending, setPending] = useState<Intention | null>(null);
   const [phase, setPhase] = useState<Session["phase"]>("ready");
   const [ready, setReady] = useState(false);
@@ -80,14 +99,10 @@ export function AuctionSession({ children }: { children: React.ReactNode }) {
   }, []);
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("hammerfall.actor");
-      if (stored && Number.isSafeInteger(Number(stored)) && Number(stored) > 0)
-        setActorId(Number(stored));
       const command = readPending(sessionStorage);
       if (command) {
         commandRef.current = command;
         setPending(command);
-        setActorId(command.actorId);
         setPhase("ambiguous");
       }
     } catch {
@@ -95,21 +110,60 @@ export function AuctionSession({ children }: { children: React.ReactNode }) {
         "Saved retry information could not be read. Review auction state before clearing it.",
       );
     }
-    setReady(true);
+    void getSession()
+      .then((current) => {
+        if (current) {
+          setActor(current.user);
+          setActorId(current.user.id);
+          setCsrfToken(current.csrfToken);
+        }
+      })
+      .catch(() =>
+        setAuthError(
+          "Could not check your session. Retry by refreshing the page.",
+        ),
+      )
+      .finally(() => setReady(true));
     void loadUsers();
   }, [loadUsers]);
-  const selectActor = (id: number) => {
-    if (commandRef.current || inFlight.current) return;
-    setActorId(id);
-    setOutcome(null);
+  const signIn = async (name: string, password: string) => {
     try {
-      localStorage.setItem("hammerfall.actor", String(id));
+      const current = await login(name, password);
+      setActor(current.user);
+      setActorId(current.user.id);
+      setCsrfToken(current.csrfToken);
+      setAuthError("");
     } catch {
-      /* Current tab can still select an actor. */
+      setAuthError("Sign in failed. Check your credentials and try again.");
+    }
+  };
+  const signOut = async () => {
+    if (inFlight.current) return;
+    try {
+      await logout(csrfToken);
+      setActor(null);
+      setActorId(null);
+      setCsrfToken("");
+      setAuthError("");
+    } catch (error) {
+      if (error instanceof ApiFailure && error.status === 401) {
+        setActor(null);
+        setActorId(null);
+        setCsrfToken("");
+        setAuthError("Session expired. Sign in again to continue.");
+      } else {
+        setAuthError("Sign out could not be confirmed. Refresh and try again.");
+      }
     }
   };
   const execute = async (command: Intention) => {
     if (inFlight.current) return;
+    if (!actorId || actorId !== command.actorId || !csrfToken) {
+      setAuthError(
+        `Sign in as bidder #${command.actorId} to recover this attempt.`,
+      );
+      return;
+    }
     inFlight.current = true;
     commandRef.current = command;
     setPending(command);
@@ -128,7 +182,7 @@ export function AuctionSession({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const response = await sendCommand(command);
+      const response = await sendCommand(command, csrfToken);
       setOutcome({
         auctionId: command.auctionId,
         success: response.success,
@@ -152,14 +206,29 @@ export function AuctionSession({ children }: { children: React.ReactNode }) {
         );
         setPhase("ambiguous");
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiFailure && error.status === 401) {
+        setActor(null);
+        setActorId(null);
+        setCsrfToken("");
+        setAuthError(
+          `Session expired. Sign in as bidder #${command.actorId}, then retry this unchanged attempt.`,
+        );
+      }
       setPhase("ambiguous");
     } finally {
       inFlight.current = false;
     }
   };
   const submit: Session["submit"] = async (auctionId, operation, amount) => {
-    if (!ready || !actorId || issue || commandRef.current || inFlight.current)
+    if (
+      !ready ||
+      !actorId ||
+      !csrfToken ||
+      issue ||
+      commandRef.current ||
+      inFlight.current
+    )
       return;
     let key: string;
     try {
@@ -210,7 +279,10 @@ export function AuctionSession({ children }: { children: React.ReactNode }) {
       value={{
         users,
         actorId,
-        selectActor,
+        actor,
+        signIn,
+        signOut,
+        authError,
         pending,
         phase,
         ready,
@@ -236,7 +308,8 @@ export function AuctionSession({ children }: { children: React.ReactNode }) {
 export function ApplicationShell({ children }: { children: React.ReactNode }) {
   const s = useAuctionSession();
   const [confirmAbandon, setConfirmAbandon] = useState(false);
-  const knownActor = s.users.some((user) => user.id === s.actorId);
+  const [loginName, setLoginName] = useState("");
+  const [password, setPassword] = useState("");
   return (
     <>
       <a href="#main" className="skip-link">
@@ -260,49 +333,55 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
             </Link>
           </nav>
           <div className="actor-control">
-            <label htmlFor="demo-actor">Demo bidder</label>
-            <select
-              id="demo-actor"
-              value={s.actorId ?? ""}
-              disabled={s.blocked || s.usersLoading}
-              onChange={(event) => s.selectActor(Number(event.target.value))}
-            >
-              <option value="" disabled>
-                {s.usersLoading ? "Loading bidders…" : "Choose a bidder"}
-              </option>
-              {!knownActor && s.actorId && (
-                <option value={s.actorId}>
-                  Bidder #{s.actorId} · saved selection
-                </option>
-              )}
-              {s.users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name} · #{user.id}
-                </option>
-              ))}
-            </select>
-            {(s.usersNext || s.usersError) && (
-              <Button
-                variant="link"
-                disabled={s.usersLoading}
-                onClick={s.moreUsers}
+            {s.actor ? (
+              <>
+                <span>
+                  Signed in: {s.actor.name} · #{s.actor.id}
+                </span>
+                <Button variant="outline" onClick={() => void s.signOut()}>
+                  Sign out
+                </Button>
+              </>
+            ) : (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void s
+                    .signIn(loginName, password)
+                    .then(() => setPassword(""));
+                }}
               >
-                {s.usersError ? "Retry bidders" : "More bidders"}
-              </Button>
+                <label htmlFor="login-name">Login</label>
+                <input
+                  id="login-name"
+                  autoComplete="username"
+                  value={loginName}
+                  onChange={(event) => setLoginName(event.target.value)}
+                  required
+                />
+                <label htmlFor="login-password">Password</label>
+                <input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+                <Button type="submit" disabled={!s.ready}>
+                  Sign in
+                </Button>
+              </form>
             )}
-            {!s.usersLoading && !s.usersError && s.users.length === 0 && (
-              <span role="status">No demo users available.</span>
-            )}
-          </div>
-        </div>
-        <div className="demo-strip">
-          <div className="shell">
-            Demo mode · Selecting a bidder does not authenticate you. It only
-            chooses the actor ID used by requests.
           </div>
         </div>
       </header>
       <div className="shell">
+        {s.authError && (
+          <section role="alert" className="notice warning">
+            {s.authError}
+          </section>
+        )}
         {s.issue && (
           <section role="alert" className="notice warning">
             <p>{s.issue}</p>
@@ -384,9 +463,7 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
       <footer className="shell site-footer">
         <span className="wordmark">Hammerfall.</span>
         <p>Considered objects. Committed bids.</p>
-        <p>
-          Auction details support live updates. This demo has no authentication.
-        </p>
+        <p>Auction details support live updates. Sign in before bidding.</p>
       </footer>
     </>
   );

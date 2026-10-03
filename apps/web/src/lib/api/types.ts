@@ -33,6 +33,7 @@ export type PublicBid = {
   created_at: string;
 };
 export type User = { id: number; name: string };
+export type AuthenticatedUser = User & { role: "member" | "operator" };
 export type ApiErrorBody = {
   error: { code: string; message: string; details: Record<string, unknown> };
 };

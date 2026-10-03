@@ -10,7 +10,7 @@ RSpec.describe "API presentation time", type: :request do
 
   it "provides presentation time on expected errors too" do
     post "/api/v1/auctions/1/bids", params: {}, as: :json
-    expect(response).to have_http_status(:bad_request)
+    expect(response).to have_http_status(:unauthorized)
     expect(Time.iso8601(response.headers.fetch("X-Server-Time"))).to be_within(2.seconds).of(Time.current)
   end
 end

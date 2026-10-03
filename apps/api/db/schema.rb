@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_01_013000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_03_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -24,6 +24,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_013000) do
     t.bigint "minimum_increment", null: false
     t.datetime "original_ends_at", null: false
     t.bigint "public_revision", default: 0, null: false
+    t.bigint "seller_id"
     t.bigint "starting_price", null: false
     t.datetime "starts_at", null: false
     t.string "status", default: "draft", null: false
@@ -32,6 +33,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_013000) do
     t.bigint "winner_id"
     t.index ["current_leader_id"], name: "index_auctions_on_current_leader_id"
     t.index ["ends_at", "id"], name: "index_auctions_due", where: "((status)::text = 'active'::text)"
+    t.index ["seller_id"], name: "index_auctions_on_seller_id"
     t.index ["winner_id"], name: "index_auctions_on_winner_id"
     t.check_constraint "(status::text = 'closed'::text) = (closed_at IS NOT NULL)", name: "auctions_closure_timestamp"
     t.check_constraint "closed_at IS NULL OR closed_at >= ends_at", name: "auctions_closure_after_deadline"
@@ -42,6 +44,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_013000) do
     t.check_constraint "minimum_increment >= 1 AND minimum_increment <= '1000000000000'::bigint", name: "auctions_minimum_increment_range"
     t.check_constraint "original_ends_at > starts_at", name: "auctions_original_window"
     t.check_constraint "public_revision >= 0", name: "auctions_public_revision_nonnegative"
+    t.check_constraint "seller_id IS NULL OR seller_id IS DISTINCT FROM current_leader_id", name: "auctions_seller_not_leader"
+    t.check_constraint "seller_id IS NULL OR seller_id IS DISTINCT FROM winner_id", name: "auctions_seller_not_winner"
     t.check_constraint "starting_price >= 1 AND starting_price <= '1000000000000'::bigint", name: "auctions_starting_price_range"
     t.check_constraint "status::text <> 'closed'::text OR NOT winner_id IS DISTINCT FROM current_leader_id", name: "auctions_final_winner"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'scheduled'::character varying, 'active'::character varying, 'closed'::character varying, 'cancelled'::character varying]::text[])", name: "auctions_valid_status"
@@ -164,18 +168,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_013000) do
     t.check_constraint "name::text = ANY (ARRAY['postgresql_state'::character varying, 'projection'::character varying]::text[])", name: "reconciliation_leases_known_names"
   end
 
+  create_table "user_sessions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "token_digest", limit: 64, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["token_digest"], name: "index_user_sessions_on_token_digest", unique: true
+    t.index ["user_id"], name: "index_user_sessions_on_user_id"
+    t.check_constraint "expires_at > created_at", name: "user_sessions_positive_lifetime"
+  end
+
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.string "login", limit: 254
     t.string "name", limit: 100, null: false
+    t.string "password_digest"
+    t.string "role", default: "member", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((login)::text)", name: "index_users_on_lower_login", unique: true, where: "(login IS NOT NULL)"
+    t.check_constraint "(login IS NULL) = (password_digest IS NULL)", name: "users_credential_pair"
     t.check_constraint "name::text ~ '[^[:space:]]'::text", name: "users_name_present"
+    t.check_constraint "role::text = ANY (ARRAY['member'::character varying, 'operator'::character varying]::text[])", name: "users_valid_role"
   end
 
   add_foreign_key "auctions", "users", column: "current_leader_id"
+  add_foreign_key "auctions", "users", column: "seller_id"
   add_foreign_key "auctions", "users", column: "winner_id"
   add_foreign_key "bids", "auctions"
   add_foreign_key "bids", "users", column: "bidder_id"
   add_foreign_key "idempotency_records", "users", column: "actor_id"
   add_foreign_key "maximum_bids", "auctions"
   add_foreign_key "maximum_bids", "users", column: "bidder_id"
+  add_foreign_key "user_sessions", "users"
 end

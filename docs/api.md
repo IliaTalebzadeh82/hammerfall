@@ -1,7 +1,7 @@
-# Phase 5 API
+# API — Phase 20 Session 1 identity foundation
 
-Base path: `/api/v1`. This API is for local development. There is **no authentication
-or authorization**; supplied bidder_id identifies a database row, not the caller.
+Base path: `/api/v1`. This API remains for local development. Mutations require
+an authenticated session; public reads remain available without login.
 Use JSON request bodies with Content-Type: application/json. See
 [domain semantics](domain-model.md) for lifecycle and money rules.
 
@@ -10,7 +10,9 @@ Use JSON request bodies with Content-Type: application/json. See
 | Method | Path | Behavior |
 | --- | --- | --- |
 | GET | /users | List minimal user identities |
-| POST | /users | Create identity from `{"user":{"name":"Alice"}}` |
+| GET | /session | Current identity and CSRF token; 401 without a live session |
+| POST | /session | Login with JSON credentials and `X-Hammerfall-Login: 1` |
+| DELETE | /session | Revoke current session; `X-CSRF-Token` required |
 | GET | /auctions | List auctions |
 | POST | /auctions | Create a draft |
 | GET | /auctions/:id | Read one auction |
@@ -28,6 +30,32 @@ use `{"data": {...}}`. Lists use `{"data": [...], "meta": {"next_after_id": null
 User/auction lists are ordered by ascending ID, default limit 20, maximum 100. Pass positive
 `limit` and optional `after_id`; follow next_after_id until null. These cursors do
 not imply authoritative transaction ordering.
+
+## Authentication and authorization
+
+POST `/session` with `{"session":{"login":"demo-alice","password":"..."}}`
+and `X-Hammerfall-Login: 1`. The successful 201 returns
+`{"data":{"id":1,"name":"...","role":"member"},"csrf_token":"..."}`
+and an encrypted HttpOnly SameSite cookie. GET `/session` returns the same
+shape for a live session. Send `X-CSRF-Token` on every authenticated POST,
+PUT, PATCH or DELETE. DELETE `/session` returns 204. Cookies are host-only,
+Secure in production, and expire after 12 hours without silent renewal;
+logout revokes the database row immediately for new HTTP/Cable handshakes.
+The browser must sign in again after expiry and retry an ambiguous command
+with its original key and payload as the **same** user. A different user cannot
+retrieve that actor's saved outcome. 401 `authentication_required`, 403
+`invalid_csrf` and 403 `forbidden` are pre-command errors, not retained
+idempotency outcomes.
+
+Public list/detail/state/history/users return public fields. Any authenticated
+user may create a draft and becomes its seller. The seller or operator may edit
+a draft or cancel an eligible auction. Only an operator may schedule, activate
+or call the HTTP close endpoint; the autonomous closer calls the domain model
+internally. Sellers cannot bid or set a maximum on their own auctions.
+Existing auctions with unknown pre-migration ownership are operator-managed.
+No private maximum read endpoint exists. User creation is removed from HTTP;
+credentials are provisioned out of band. Local seed credentials are documented
+in [running locally](running-locally.md).
 
 Bid history instead uses ascending auction-local `sequence`, `after_sequence`, and
 `meta.next_after_sequence` with the same limits. This replaces Phase 1 after_id for
@@ -67,10 +95,10 @@ Lifecycle actions take no body and never accept client time as authoritative.
 Both POST bids and PUT maximum-bid require `Idempotency-Key`; see the contract below.
 
 ```json
-{"bid":{"bidder_id":1,"amount":10500}}
+{"bid":{"amount":10500}}
 ```
 
-The bidder must already exist. Money must be an integer JSON number: `10500.5`,
+The bidder is the authenticated user; `bidder_id` is rejected if supplied. Money must be an integer JSON number: `10500.5`,
 `10500.0`, and `"10500"` are invalid. A bid must meet starting_price if first;
 otherwise current_price + minimum_increment. Responses contain id, auction_id,
 bidder_id, amount, sequence, currency, created_at. There is no bid edit/delete API or rejected-bid table. The protected endpoints
@@ -100,32 +128,26 @@ sequence. IDs/timestamps remain metadata.
 | --- | --- | --- |
 | 400 | invalid_request | Missing/wrong root shape, unknown/nested fields, malformed JSON, malformed ID/cursor/limit |
 | 404 | auction_not_found | Auction ID does not exist |
-| 404 | user_not_found | Bidder ID does not exist |
+| 401 | authentication_required | Missing, revoked or expired session |
+| 403 | forbidden / invalid_csrf | Capability denied / missing or incorrect CSRF token |
 | 422 | validation_failed | Model fields are invalid; details maps field names to message arrays |
 | 422 | invalid_state_transition | Edge or transition precondition is invalid |
 | 422 | invalid_auction_state | Bid on non-active auction or edit outside draft |
 | 422 | auction_not_open | Active status before starts_at |
 | 422 | auction_ended | Active status but DB decision time at/after ends_at; details includes public ends_at |
 | 422 | bid_too_low | Amount below required minimum |
+| 422 | seller_self_bid | Seller attempted to bid on own auction |
 
 These are expected-error mappings, not a catch-all that hides programming failures.
 No expected response includes exception class, SQL text, or a stack trace. Arbitrary
 unknown routes still follow Rails routing behavior. Matching retained keys replay; a fresh key is a new logical command.
 
-## Run the live demonstration
+## Live demonstration status
 
-From the root, after Compose is healthy:
-
-```sh
-./scripts/smoke-api
-# Or run with the container's Ruby:
-docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-api
-```
-
-The script creates a labelled user and auction, edits/schedules/activates it, accepts
-two bids, rejects a low bid, waits about 65 seconds for ends_at, closes twice,
-rejects a post-close bid, and verifies history/leader/winner. It leaves those rows
-for inspection. This is sequential HTTP verification, not a concurrency benchmark.
+The pre-Phase-20 `scripts/smoke-*` clients create users and send `bidder_id`.
+They need conversion to authenticated sessions and CSRF headers before serving
+as current API smoke checks. Session 1 request specs exercise the new contract
+against PostgreSQL; the original scripts remain historical until adapted.
 
 
 For simultaneous HTTP verification, run `./scripts/smoke-concurrent-bids`. It starts
@@ -141,7 +163,7 @@ This is correctness smoke coverage, not a capacity benchmark.
 PUT `/api/v1/auctions/:id/maximum-bid`:
 
 ```json
-{"maximum_bid":{"bidder_id":42,"maximum_amount":50000}}
+{"maximum_bid":{"maximum_amount":50000}}
 ```
 
 Returns 200 for create, increase or same-value no-op:
@@ -152,8 +174,7 @@ Returns 200 for create, increase or same-value no-op:
 
 The acknowledgement intentionally omits even the supplied ceiling and private
 priority. No GET/list/delete maximum endpoints exist (404). Unknown fields such as
-priority_sequence/origin are 400. Supplied bidder_id is still a demo actor selector,
-not authentication: representation privacy does not prevent impersonation/probing.
+priority_sequence/origin/bidder_id are 400. The authenticated user is the actor.
 
 Money uses the same strict bounded integer cents validator. New or increased protection covers
 starting_price, or exceeds public current_price for a nonleader, or covers the
@@ -164,7 +185,7 @@ preserves priority; a valid increase resets it.
 
 Additional 422 errors: maximum_bid_cannot_decrease and maximum_bid_too_low. They
 contain no stored private amount. The latter may contain public current_price.
-Existing validation_failed/invalid_auction_state/auction_not_open/user_not_found
+Existing validation_failed/invalid_auction_state/auction_not_open
 contracts still apply, including lifecycle checks for repeated same values.
 
 One command may emit zero, one or two public Bid rows, each with its own sequence.
@@ -213,15 +234,16 @@ Protected endpoints only:
 POST /api/v1/auctions/42/bids
 Content-Type: application/json
 Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
+X-CSRF-Token: <token from GET /session>
 
-{"bid":{"bidder_id":9,"amount":25000}}
+{"bid":{"amount":25000}}
 ```
 
 Use a fresh key for each new intention and **reuse the same key and semantic payload
 when retrying an uncertain outcome**. Keys are opaque, case-sensitive, 1–255 visible
 ASCII characters, without spaces or control characters. UUID is allowed, not required.
-The scope is actor + operation + key; actor is still an unauthenticated supplied
-user ID. An actor may use the same key independently for bid and max commands.
+The scope is authenticated actor + operation + key; retained pre-Phase-20
+records with that same actor ID remain replayable by that user. An actor may use the same key independently for bid and max commands.
 Reusing it for another auction or amount within one operation is a conflict.
 
 The server fingerprints canonical v1 operation/auction/actor/amount data, not raw
@@ -259,9 +281,9 @@ same key may execute as a new command. Clients must not assume indefinite protec
 An identical maximum with a **different** key is a new command and may be a domain
 no-op; its response is not marked replayed.
 
-All existing smoke scripts now generate a new key per distinct bidding command.
-`scripts/smoke-idempotency` reuses keys intentionally across two independent API
-URLs to demonstrate duplicates, conflicts, lost responses and replay after closure.
+Pre-Phase-20 smoke scripts generated a new key per distinct bidding command;
+`scripts/smoke-idempotency` reused keys intentionally across two independent API
+URLs. These scripts are pending authenticated-client updates.
 
 ## Phase 6 presentation metadata
 

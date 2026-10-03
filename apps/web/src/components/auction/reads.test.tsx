@@ -72,7 +72,7 @@ it("handles no auctions and no users", async () => {
     </AuctionSession>,
   );
   await screen.findByText("No auctions available");
-  await screen.findByText("No demo users available.");
+  await screen.findByRole("button", { name: "Sign in" });
 });
 it("coalesces a queued refresh after an older GET; history follows sequence pagination", async () => {
   let auctionReads = 0;
@@ -83,6 +83,17 @@ it("coalesces a queued refresh after an older GET; history follows sequence pagi
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
+      if (url.endsWith("/session"))
+        return json(
+          {
+            error: {
+              code: "authentication_required",
+              message: "Sign in",
+              details: {},
+            },
+          },
+          401,
+        );
       if (url.includes("/users"))
         return json({ data: [], meta: { next_after_id: null } });
       if (url.includes("/bids"))

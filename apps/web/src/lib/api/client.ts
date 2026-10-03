@@ -3,6 +3,7 @@ import type {
   ApiErrorBody,
   ApiResponse,
   Auction,
+  AuthenticatedUser,
   Intention,
   PublicBid,
   User,
@@ -57,6 +58,8 @@ export function isBid(v: unknown): v is PublicBid {
 }
 export const isUser = (v: unknown): v is User =>
   object(v) && positive(v.id) && typeof v.name === "string";
+const isAuthenticatedUser = (v: unknown): v is AuthenticatedUser =>
+  isUser(v) && "role" in v && ["member", "operator"].includes(String(v.role));
 export function isError(v: unknown): v is ApiErrorBody {
   return (
     object(v) &&
@@ -98,6 +101,49 @@ async function request(
     body,
     offset: Number.isFinite(observed) ? observed - receivedAt : null,
   };
+}
+export async function getSession() {
+  const response = await request("/session");
+  if (response.status === 401) return null;
+  if (
+    response.status !== 200 ||
+    !object(response.body) ||
+    !isAuthenticatedUser(response.body.data) ||
+    typeof response.body.csrf_token !== "string"
+  )
+    throw new ApiFailure(response.status);
+  return { user: response.body.data, csrfToken: response.body.csrf_token };
+}
+export async function login(login: string, password: string) {
+  const response = await request("/session", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Hammerfall-Login": "1",
+    },
+    body: JSON.stringify({ session: { login, password } }),
+  });
+  if (response.status === 401)
+    throw new ApiFailure(
+      401,
+      isError(response.body) ? response.body : undefined,
+    );
+  if (
+    response.status !== 201 ||
+    !object(response.body) ||
+    !isAuthenticatedUser(response.body.data) ||
+    typeof response.body.csrf_token !== "string"
+  )
+    throw new ApiFailure(response.status);
+  return { user: response.body.data, csrfToken: response.body.csrf_token };
+}
+export async function logout(csrfToken: string) {
+  const response = await fetch("/api/v1/session", {
+    method: "DELETE",
+    credentials: "same-origin",
+    headers: { "X-CSRF-Token": csrfToken, Accept: "application/json" },
+  });
+  if (response.status !== 204) throw new ApiFailure(response.status);
 }
 export async function getAuction(id: number, signal?: AbortSignal) {
   const response = await request(`/auctions/${id}`, { signal });
@@ -151,16 +197,15 @@ export const getUsers = (after?: number, signal?: AbortSignal) =>
 export const getBids = (id: number, after?: number, signal?: AbortSignal) =>
   page(`/auctions/${id}/bids`, "sequence", isBid, after, signal);
 
-export async function sendCommand(intention: Intention) {
+export async function sendCommand(intention: Intention, csrfToken: string) {
   const maximum = intention.operation === "maximum";
   const payload = maximum
     ? {
         maximum_bid: {
-          bidder_id: intention.actorId,
           maximum_amount: intention.amount,
         },
       }
-    : { bid: { bidder_id: intention.actorId, amount: intention.amount } };
+    : { bid: { amount: intention.amount } };
   const response = await request(
     `/auctions/${intention.auctionId}/${maximum ? "maximum-bid" : "bids"}`,
     {
@@ -168,11 +213,14 @@ export async function sendCommand(intention: Intention) {
       headers: {
         "Content-Type": "application/json",
         "Idempotency-Key": intention.key,
+        "X-CSRF-Token": csrfToken,
       },
       body: JSON.stringify(payload),
     },
   );
   const body = response.body;
+  if (response.status === 401)
+    throw new ApiFailure(401, isError(body) ? body : undefined);
   const data = object(body) ? body.data : undefined;
   const success = maximum
     ? response.status === 200 &&
@@ -213,6 +261,7 @@ export function errorMessage(body?: ApiErrorBody): string {
     invalid_auction_state: "This auction is not accepting new bids.",
     auction_not_found: "This auction could not be found.",
     user_not_found: "This demo bidder no longer exists. Choose another bidder.",
+    seller_self_bid: "Sellers cannot bid on their own auction.",
     idempotency_key_conflict:
       "This attempt conflicts with an earlier request. Nothing was resubmitted. Refresh and review before starting a new attempt.",
     idempotency_key_required:

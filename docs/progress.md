@@ -2260,3 +2260,29 @@ Auction Policy; Phase 22 — Durability, Release & Operations; Phase 23 — Cata
 Case Study & Demo; and Phase 24 — Final Engineering Polish. The original polish
 scope is preserved in Phase 24, the final phase. This entry records governance,
 not product implementation. Phase 20 has not started.
+
+### Phase 20 Session 1 — identity/security foundation (2026-10-03)
+
+Phase 20 was explicitly authorized. [ADR-016](adr/016-first-party-identity-and-sessions.md)
+adopts first-party credentials with revocable PostgreSQL-backed opaque browser
+sessions and CSRF headers. The API now derives bid/maximum actor IDs from the
+session, removes public user creation, gives new drafts a seller, enforces
+owner/operator lifecycle capability, and rejects seller self-bids under the
+auction lock. Cable authenticates handshakes/subscriptions; the web replaces
+the demo actor selector with login/logout and same-user retry after expiry.
+Existing idempotency actor scope is preserved; a focused test replayed a
+pre-authentication record through the new authenticated HTTP path.
+
+Focused identity/Cable/model/seed tests passed 34 examples. The selected request
+regression passed 79 examples. The backend suite on isolated Redis DB 15 passed
+470 examples, zero failures, three existing gated live-Kafka pending (seed 13658).
+The initial run on development Redis DB 0 hit 16 stale projection-key collisions;
+the isolated rerun passed. Frontend lint/format/types, 75 Vitest tests and build
+passed. Ruby lint inspected 146 files with zero offenses; Zeitwerk, Brakeman
+(zero warnings) and updated bundler-audit (zero known advisories) passed.
+Session 1 did not run Compose/browser/hosted CI against the new contract.
+Legacy smoke and Playwright clients still use the removed demo actor API.
+Rate limiting, body bounds, HMAC idempotency digests, full security events and
+multi-instance verification remain. Phase 20 is not complete; Phase 21 has not
+started. See the [ExecPlan](plans/phase-20-execplan.md) and
+[Session 1 report](security/phase-20-session-1.md).

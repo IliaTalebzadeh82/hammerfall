@@ -5,14 +5,14 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Completed through Phase 19; Phase 20 Identity & Security has not started.**
+**Completed through Phase 19; Phase 20 Identity & Security Session 1 is in progress.**
 Phase 18 verified local Kubernetes orchestration, and Phase 19 added a
 default-disabled Terraform/GCP reference without cloud deployment. See
 [local Kubernetes setup](k8s/README.md) and the [latest handoff](docs/handoffs/latest.md)
 for their scope and limits.
 
 Browse real auctions, inspect public bid
-history, select an explicit demo bidder, and submit manual or private maximum bids.
+history, sign in with a local demo identity, and submit manual or private maximum bids.
 The responsive Next.js interface preserves stable client intentions for safe retry
 after lost responses, including tab reload. Rails/PostgreSQL still owns price,
 leader, deadline extensions and final winner. Auction details receive PostgreSQL-backed
@@ -35,7 +35,7 @@ boundary logs. Telemetry loss does not decide auction outcomes. See the
 [ADR-010](docs/adr/010-transactional-public-outbox.md) and
 [ADR-011](docs/adr/011-kafka-domain-events.md) document the retained publisher
 row locks across external delivery and their unmeasured scaling cost. The
-demo API remains unauthenticated and has no configured pre-parse body-size
+API has an initial first-party identity boundary but no configured pre-parse body-size
 limit; [security](docs/security.md) describes the risk of weak client keys
 stored as unkeyed digests. It is not a public production service.
 [Realtime](docs/realtime.md) documents the remaining delivery limits. Start future work with
@@ -83,8 +83,8 @@ the hot-auction bottleneck. Next.js presents public GET state and never optimist
 See [frontend](docs/frontend.md), [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
 [ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
 
-The remaining roadmap starts with later operations work. The current API has no authentication; bidder
-IDs are demo identity only. See [API usage](docs/api.md) and
+The remaining Phase 20 work includes rate limiting, body bounds and idempotency
+digest hardening. See [API usage](docs/api.md) and
 [ADR-002](docs/adr/002-core-auction-state.md) for the domain choices.
 
 ## Verification and learning

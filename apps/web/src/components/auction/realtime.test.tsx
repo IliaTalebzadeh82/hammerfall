@@ -30,7 +30,6 @@ beforeEach(() => {
   failRead = false;
   localStorage.clear();
   sessionStorage.clear();
-  localStorage.setItem("hammerfall.actor", "1");
   mutation = async () => json({ data: bid }, 201);
   transport.subscribe.mockImplementation((_id, cb) => {
     callbacks = cb;
@@ -39,6 +38,11 @@ beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init: RequestInit) => {
+      if (url.endsWith("/session") && !init.method)
+        return json({
+          data: { id: 1, name: "Alice", role: "member" },
+          csrf_token: "csrf-token",
+        });
       if (init.method) return mutation();
       if (url.includes("/users"))
         return json({
@@ -69,6 +73,7 @@ async function open() {
     </AuctionSession>,
   );
   await screen.findByText("€300.00");
+  await screen.findByText("Signed in: Alice · #1");
   await waitFor(() => expect(transport.subscribe).toHaveBeenCalledOnce());
   return view;
 }

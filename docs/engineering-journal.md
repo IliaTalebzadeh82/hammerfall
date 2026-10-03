@@ -780,3 +780,13 @@ also found the PostgreSQL-only auction closer sharing a Redis-capable KSA and
 CSI class with Sidekiq workers; a separate closer KSA and database-only mount
 now match its actual dependency. These are examples of why an overlay needs
 both static isolation checks and a real base deployment regression.
+# Phase 20 Session 1 discovery — actor continuity under session expiry
+
+The existing idempotency table's actor ID and canonical fingerprint did not
+need a schema migration when HTTP identity changed. Authenticating first and
+passing the verified user ID preserves retained outcomes; an expired cookie
+returns 401 before key claim, and a new session for the same user can replay
+the unchanged command. This avoids turning authentication expiry into an
+irrecoverable ambiguous bid. The trade-off is a PostgreSQL lookup per request
+and a remaining post-handshake Cable expiry window. See ADR-016 and
+`spec/requests/identity_security_spec.rb`.

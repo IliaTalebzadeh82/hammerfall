@@ -126,9 +126,7 @@ export function BiddingPanel({ auction }: { auction: Auction }) {
           processed.
         </p>
       </div>
-      {!session.actorId && (
-        <p className="notice">Choose a demo bidder in the header to bid.</p>
-      )}
+      {!session.actorId && <p className="notice">Sign in to bid.</p>}
       <AmountForm
         key={`bid-${session.actorId}`}
         auction={auction}

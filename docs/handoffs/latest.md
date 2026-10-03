@@ -1,11 +1,33 @@
-# Current handoff — Phase 20 Identity & Security gate
+# Current handoff — Phase 20 Identity & Security, after Session 1
 
-Updated: 2026-10-03. Phase 19 is complete as a locally and statically verified, default-disabled Terraform/GCP reference. Its [final report](../cloud/phase-19-final.md), [ADR-015](../adr/015-gcp-reference-infrastructure.md) and [ExecPlan](../plans/phase-19-execplan.md) hold decisions, evidence and limits. Closure commit `a1fca5e0bf6055e5351b52437772e33ec9053ee0` passed hosted [CI run 37105296963](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37105296963). No GCP authentication, Terraform apply, project mutation, paid resource or live managed-service proof occurred. Paid GCP work remains unauthorized.
+Updated: 2026-10-03. Phase 20 was explicitly authorized. Session 1 completed
+the identity foundation and is checkpointed; Phase 20 is **not complete** and
+Phase 21 has **not** started. Resume in a fresh conversation from the
+[Phase 20 ExecPlan](../plans/phase-20-execplan.md),
+[Session 1 report](../security/phase-20-session-1.md),
+[ADR-016](../adr/016-first-party-identity-and-sessions.md) and
+[Phase 20 spec](../phases/phase-20.md).
 
-After Phase 19, the roadmap extension was explicitly authorized. The original Phases 0–20 ended in Final Engineering Polish; that substantive scope is preserved in final [Phase 24](../phases/phase-24.md). The current sequence is [Phase 20 — Identity & Security](../phases/phase-20.md), [Phase 21 — Marketplace Trust & Auction Policy](../phases/phase-21.md), [Phase 22 — Durability, Release & Operations](../phases/phase-22.md), [Phase 23 — Catawiki Case Study & Demo](../phases/phase-23.md), and Phase 24 — Final Engineering Polish. The project is a Catawiki-aligned engineering case study informed by public information, not a claim about Catawiki's internal systems.
+Rails now authenticates first-party users through revocable PostgreSQL-backed
+opaque sessions in encrypted HttpOnly cookies, checks CSRF on unsafe requests,
+derives bid/maximum actor identity from the session, and rejects client
+`bidder_id`. New auctions have a seller; owner/operator policy guards lifecycle
+routes and the locked auction domain rejects seller self-bids. Cable requires
+a live session at handshake/subscription. The web has login/logout and preserves
+ambiguous intentions across expiry for same-user replay. Historical idempotency
+actor/fingerprint semantics were preserved and tested through the new HTTP path.
 
-The next phase is **Phase 20 — Identity & Security**, only on explicit request. The current API still trusts demo actor IDs; authentication, authorization, rate limiting, request-body protection and idempotency digest hardening are now formally scheduled, not implemented. GKE WIF/IAM identifies infrastructure workloads, not auction users. PostgreSQL remains authoritative for auction correctness; Redis, Kafka, Sidekiq and Cable are derived or transport systems. Phase 20 must preserve historical idempotency replay and private-data boundaries.
+Evidence: focused identity/Cable/model/seed tests 34/0; selected requests 79/0;
+isolated-Redis backend suite 470/0 with three gated live-Kafka pending; frontend
+75/0 plus lint/types/format/build; Ruby lint, Zeitwerk, Brakeman and advisory
+audit passed. Initial backend run against development Redis DB 0 had stale
+projection-key collisions; DB 15 resolved them. Exact methods and logs are
+in the ExecPlan Evidence Index.
 
-The cloud reference retains deployment gates: obtain a real plan and cost quote, securely bootstrap credentials/state, and verify managed connections, Gateway TLS/WSS, admission, capacity and recovery before claiming cloud readiness. Phase 22 owns the bounded durability and operating exercises; Phase 23 packages evidence into a reproducible case study. Do not infer production readiness from static infrastructure.
-
-Phase 20 has not started.
+Next: verify real Next rewrite cookie/CSRF/Cable behavior and multi-replica
+login/logout, then implement Phase 20 rate limits, body bounds, versioned HMAC
+idempotency digests/rotation, full security events and Cable expiry policy.
+Legacy smoke/Playwright clients still use removed actor selection and need
+adaptation before final Compose/browser/hosted CI. Open sockets can retain
+public hints after logout until disconnect. No GCP apply or paid resource was
+created. Phase 19 remains complete as a static GCP reference only.

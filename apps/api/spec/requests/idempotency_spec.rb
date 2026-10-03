@@ -9,13 +9,15 @@ RSpec.describe "Idempotent bidding API", type: :request do
   let(:key) { "opaque-command:abc-123" }
 
   def bid(amount = 10_000, key_value: key, user: alice, target: path)
-    headers = key_value.nil? ? {} : { "Idempotency-Key" => key_value }
-    post target, params: { bid: { bidder_id: user.id, amount: amount } }, headers: headers, as: :json
+    sign_in_as(user)
+    headers = key_value.nil? ? auth_headers : auth_headers("Idempotency-Key" => key_value)
+    post target, params: { bid: { amount: amount } }, headers: headers, as: :json
   end
 
   def maximum(amount = 30_000, key_value: key)
-    put "/api/v1/auctions/#{auction.id}/maximum-bid", params: { maximum_bid: { bidder_id: alice.id, maximum_amount: amount } },
-      headers: { "Idempotency-Key" => key_value }, as: :json
+    sign_in_as(alice)
+    put "/api/v1/auctions/#{auction.id}/maximum-bid", params: { maximum_bid: { maximum_amount: amount } },
+      headers: auth_headers("Idempotency-Key" => key_value), as: :json
   end
 
   [ nil, "", " ", "has spaces", "x" * 256, "é", "line\nbreak" ].each do |value|
@@ -82,8 +84,8 @@ RSpec.describe "Idempotent bidding API", type: :request do
   it "canonicalizes semantic input independently of JSON order, whitespace, and unrelated headers" do
     bid
     original = response.body
-    post path, params: " { \"bid\": { \"amount\" : 10000, \"bidder_id\" : #{alice.id} } } ",
-      headers: { "Content-Type" => "application/json", "Idempotency-Key" => key, "X-Unrelated" => "changed" }
+    post path, params: ' { "bid": { "amount" : 10000 } } ',
+      headers: auth_headers("Content-Type" => "application/json", "Idempotency-Key" => key, "X-Unrelated" => "changed")
     expect(response.body).to eq(original)
     expect(response.headers["Idempotency-Replayed"]).to eq("true")
     bid(10_000.0)

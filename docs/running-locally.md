@@ -141,17 +141,24 @@ apps/web to add primitives when needed, rather than copying arbitrary components
 
 ```sh
 docker compose exec api bin/rails db:seed
-docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-api
 ```
 
-Seeds populate only an empty development domain with 3 users, scheduled/active/
-closed auctions, and 4 bids. A rerun or a database with existing domain records is
-left unchanged. The active seed's window lasts seven days from its first creation;
+Seeds populate an empty development domain with 4 local identities (three bidders
+and one operator), scheduled/active/closed auctions, and 4 bids. All four local
+logins use password `hammerfall-local-demo-only`: `demo-alice`, `demo-bob`,
+`demo-carol`, `demo-operator`. Never use these credentials outside local development.
+On a populated development database, rerunning seeds creates separate local
+demo identities without recreating auctions or bids. Existing users, even ones
+with the same display names, receive no guessed credentials; provision them
+deliberately from a trusted Rails console.
+The active seed's window lasts seven days from its first creation;
 seeds never reopen or refresh old auctions. The historical closed example uses
 explicit historical fixture SQL before normal closure; creation times are insertion metadata.
 No test/production data is seeded.
 
-The smoke script creates its own labelled records, exercises the real JSON API,
+The legacy smoke script still uses the removed actor-ID API and needs Phase 20
+adaptation before it can serve as a current security smoke check. It previously
+created its own labelled records, exercised the real JSON API,
 waits about 65 seconds for the deadline, and leaves its closed auction for
 inspection. Native Ruby users can run `./scripts/smoke-api`; set API_BASE_URL if the
 API port differs from 3001. API details: [api.md](api.md).
@@ -310,10 +317,10 @@ Run all four concurrent_* suites repeatedly, serially against the test database.
 Idempotency adds no process-local lock or new service. The existing closer remains
 a separate Rails process role and needs no Idempotency-Key.
 
-## Phase 6 browser frontend
+## Browser frontend (Phase 20 Session 1)
 
-Open http://localhost:3000/auctions. Choose a real demo user in the header; the
-selector is explicitly unauthenticated. Browse a detail page, enter EUR strings,
+Open http://localhost:3000/auctions. Sign in with a local demo identity listed
+above. Browse a detail page, enter EUR strings,
 and submit a manual or binding private maximum bid. The API still decides acceptance,
 leadership, extensions and closure. Detail pages now subscribe to public auction
 invalidations. Initial load, subscription confirmation/reconfirmation, visible-tab
@@ -326,21 +333,23 @@ changes; production builds capture rewrite configuration. Only loopback is added
 to Next's allowed development origins, and Rails development allows the Compose
 proxy and direct API hosts. No credentials belong in this URL or NEXT_PUBLIC variables.
 
-The existing small development seed remains unchanged: three demo users and
-scheduled/active/closed examples are sufficient to start browsing. It skips an
-existing domain and never refreshes expired auctions. Browser scenarios create
-fresh labelled fixtures through the API instead of resetting your data. Lifecycle
+The development seed provides four identities and scheduled/active/closed examples.
+It provisions local credentials on existing development data but never refreshes
+expired auctions. Older browser scenarios create fresh labelled fixtures through
+the retired user-creation API and need Phase 20 adaptation. Lifecycle
 activation remains explicit; the frontend does not add admin controls.
 
-Pending command recovery uses sessionStorage; selecting a demo actor uses
-localStorage. If a response is lost, keep the saved attempt and use Retry safely.
+Pending command recovery uses sessionStorage; session credentials remain in an
+HttpOnly cookie. If a response is lost, keep the saved attempt and use Retry safely.
 Reloading or navigating within the same tab preserves it. Refresh alone cannot
 confirm the command outcome. Private maximum input may remain temporarily in the
 caller's pending session record until terminal resolution/abandonment/tab cleanup.
 Do not copy this storage into logs or bug reports. The client retry window is one
 hour; it is not indefinite server retention. See frontend.md and ADR-007.
 
-Browser verification against the running local Compose stack:
+The pre-Phase-20 Playwright suite still uses the removed demo actor selector and
+needs adaptation before it can verify the new browser flow. Its prior invocation
+against the local Compose stack was:
 
 ```sh
 cd apps/web

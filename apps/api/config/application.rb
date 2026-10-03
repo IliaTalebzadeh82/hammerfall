@@ -42,6 +42,7 @@ module Hammerfall
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+    config.middleware.use ActionDispatch::Cookies
     config.time_zone = "UTC"
     config.action_cable.mount_path = "/cable"
     config.action_cable.allow_same_origin_as_host = false

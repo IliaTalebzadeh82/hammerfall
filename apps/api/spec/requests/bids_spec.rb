@@ -4,9 +4,10 @@ RSpec.describe "Bidding API", :domain, type: :request do
   let(:auction) { create_auction(state: "active") }
   let(:bidder) { User.create!(name: "Alice") }
   let(:path) { "/api/v1/auctions/#{auction.id}/bids" }
+  before { sign_in_as(bidder) }
 
   it "accepts a bid, exposes history and a leader, and sets a winner only at closure" do
-    post path, params: { bid: { bidder_id: bidder.id, amount: 10_000 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+    post path, params: { bid: { amount: 10_000 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
     expect(response).to have_http_status(:created)
     data = json.fetch("data")
     expect(data.keys).to match_array(%w[id auction_id bidder_id amount sequence currency created_at])
@@ -16,9 +17,11 @@ RSpec.describe "Bidding API", :domain, type: :request do
     get "/api/v1/auctions/#{auction.id}"
     expect(json.fetch("data")).to include("current_price" => 10_000, "current_leader_id" => bidder.id, "winner_id" => nil)
     expire_fixture(auction)
-    post "/api/v1/auctions/#{auction.id}/close"
+    sign_in_as(User.create!(name: "Operator", role: "operator"))
+    post "/api/v1/auctions/#{auction.id}/close", headers: auth_headers
     expect(json.fetch("data")).to include("status" => "closed", "current_leader_id" => bidder.id, "winner_id" => bidder.id)
-    post path, params: { bid: { bidder_id: bidder.id, amount: 11_000 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+    sign_in_as(bidder)
+    post path, params: { bid: { amount: 11_000 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
     expect(response).to have_http_status(:unprocessable_content)
     expect(json.dig("error", "code")).to eq("invalid_auction_state")
     expect(auction.bids.count).to eq(1)
@@ -26,7 +29,7 @@ RSpec.describe "Bidding API", :domain, type: :request do
 
   it "rejects a low bid with the required minimum, leaving state intact" do
     auction.place_bid!(bidder: bidder, amount: 10_000)
-    post path, params: { bid: { bidder_id: bidder.id, amount: 10_499 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+    post path, params: { bid: { amount: 10_499 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
     expect(response).to have_http_status(:unprocessable_content)
     expect(json).to eq("error" => { "code" => "bid_too_low", "message" => "Bid must be at least 10500 cents.", "details" => { "minimum_bid" => 10_500, "current_price" => 10_000 } })
     expect(auction.reload.current_price).to eq(10_000)
@@ -35,33 +38,33 @@ RSpec.describe "Bidding API", :domain, type: :request do
 
   [ 10_000.5, "10000", 0, nil, true, MinorUnitsValidator::MAXIMUM + 1 ].each do |amount|
     it "rejects invalid amount #{amount.inspect}" do
-      post path, params: { bid: { bidder_id: bidder.id, amount: amount } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+      post path, params: { bid: { amount: amount } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
       expect(response).to have_http_status(:unprocessable_content)
       expect(json.dig("error", "code")).to eq("validation_failed")
       expect(auction.bids.count).to eq(0)
     end
   end
 
-  it "reports missing auction and user distinctly" do
-    post "/api/v1/auctions/9223372036854775807/bids", params: { bid: { bidder_id: bidder.id, amount: 10_000 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+  it "reports missing auction and rejects a supplied actor" do
+    post "/api/v1/auctions/9223372036854775807/bids", params: { bid: { amount: 10_000 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
     expect(response).to have_http_status(:not_found)
     expect(json.dig("error", "code")).to eq("auction_not_found")
-    post path, params: { bid: { bidder_id: 9_223_372_036_854_775_807, amount: 10_000 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
-    expect(response).to have_http_status(:not_found)
-    expect(json.dig("error", "code")).to eq("user_not_found")
+    post path, params: { bid: { bidder_id: 9_223_372_036_854_775_807, amount: 10_000 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
+    expect(response).to have_http_status(:bad_request)
+    expect(json.dig("error", "code")).to eq("invalid_request")
   end
 
-  it "rejects missing identity and client timestamp overrides" do
-    post path, params: { bid: { amount: 10_000 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+  it "uses authenticated identity and rejects client timestamp overrides" do
+    post path, params: { bid: { amount: 10_000 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
+    expect(response).to have_http_status(:created)
+    post path, params: { bid: { amount: 10_000, created_at: 1.year.ago } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
     expect(response).to have_http_status(:bad_request)
-    post path, params: { bid: { bidder_id: bidder.id, amount: 10_000, created_at: 1.year.ago } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
-    expect(response).to have_http_status(:bad_request)
-    expect(auction.bids.count).to eq(0)
+    expect(auction.bids.count).to eq(1)
   end
 
   it "rejects an elapsed window even while status remains active" do
     expire_fixture(auction)
-    post path, params: { bid: { bidder_id: bidder.id, amount: 10_000 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+    post path, params: { bid: { amount: 10_000 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
     expect(response).to have_http_status(:unprocessable_content)
     expect(json.dig("error", "code")).to eq("auction_ended")
   end
@@ -79,7 +82,7 @@ RSpec.describe "Bidding API", :domain, type: :request do
   end
 
   it "rejects client sequences and invalid or obsolete history cursors" do
-    post path, params: { bid: { bidder_id: bidder.id, amount: 10_000, sequence: 20 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+    post path, params: { bid: { amount: 10_000, sequence: 20 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
     expect(response).to have_http_status(:bad_request)
     [ { after_id: 1 }, { after_sequence: 0 }, { after_sequence: "oops" } ].each do |query|
       get path, params: query

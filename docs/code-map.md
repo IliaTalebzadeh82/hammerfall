@@ -1,5 +1,20 @@
 # Code map
 
+## Phase 20 Session 1 identity path
+
+`POST /api/v1/session` verifies a bcrypt password, creates a PostgreSQL
+`UserSession` and sets an encrypted HttpOnly cookie. `GET /session` supplies
+the current actor and CSRF token; `DELETE /session` revokes the row. See
+`apps/api/app/controllers/api/v1/sessions_controller.rb`,
+`app/models/user_session.rb` and `app/models/user.rb`. Protected controllers
+use `BaseController#require_actor!` and `#verify_authenticated_csrf`, then
+`AuctionPolicy` for ownership/operator capability. Bid controllers pass the
+authenticated ID to the unchanged `IdempotentBidding` executor; `Auction`
+rejects seller self-bids after its PostgreSQL row lock. Cable resolves the
+same session row at handshake and checks it again at subscription. The web
+session component handles login, logout and reauthentication before same-key
+retry. Older demo-actor descriptions below are historical Phase 6/7 maps.
+
 Paths below are relative to the repository root. Phase 5 resolves client key ownership before the PostgreSQL auction row lock.
 Phase 10 extends the transactional public outbox with Kafka domain events and an audit consumer.
 
@@ -30,7 +45,8 @@ Phase 10 extends the transactional public outbox with Kafka domain events and an
 ## Placing a bid
 
 - HTTP entry: `apps/api/app/controllers/api/v1/bids_controller.rb#create`.
-- Actor: IdempotentBidding finds User from supplied bidder_id; no authentication yet.
+- Actor: `BaseController` authenticates the session, and the bid controller
+  passes its user ID to `IdempotentBidding`; supplied `bidder_id` is rejected.
 - Protected HTTP wrapper: Idempotency::Executor resolves a required client key before
   the domain path below; completed retries bypass it entirely.
 - Domain and transaction: `apps/api/app/models/auction.rb#place_bid!`,

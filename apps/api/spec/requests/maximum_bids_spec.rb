@@ -9,7 +9,8 @@ RSpec.describe "Maximum bidding API privacy", :domain, type: :request do
   let(:secret) { 987_654 }
 
   def configure(user, amount)
-    put path, params: { maximum_bid: { bidder_id: user.id, maximum_amount: amount } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+    sign_in_as(user)
+    put path, params: { maximum_bid: { maximum_amount: amount } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
   end
 
   def expect_public_json
@@ -29,7 +30,8 @@ RSpec.describe "Maximum bidding API privacy", :domain, type: :request do
       expect(response).to have_http_status(:ok)
       expect_public_json
     end
-    post "/api/v1/auctions/#{auction.id}/bids", params: { bid: { bidder_id: bob.id, amount: 30_000 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+    sign_in_as(bob)
+    post "/api/v1/auctions/#{auction.id}/bids", params: { bid: { amount: 30_000 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
     expect(response).to have_http_status(:created)
     expect_public_json
     expect(auction.reload).to have_attributes(current_price: 31_000, current_leader_id: alice.id)
@@ -54,7 +56,7 @@ RSpec.describe "Maximum bidding API privacy", :domain, type: :request do
     expect(response).to have_http_status(:not_found)
     delete path
     expect(response).to have_http_status(:not_found)
-    put path, params: { maximum_bid: { bidder_id: bob.id, maximum_amount: 30_000, priority_sequence: 1 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
+    put path, params: { maximum_bid: { bidder_id: bob.id, maximum_amount: 30_000, priority_sequence: 1 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
     expect(response).to have_http_status(:bad_request)
     expect(auction.maximum_bids.count).to eq(1)
   end
@@ -65,8 +67,8 @@ RSpec.describe "Maximum bidding API privacy", :domain, type: :request do
     configure(alice, secret)
     expect(response).to have_http_status(:ok)
     expect(auction.maximum_bids.first.attributes).to eq(instruction)
-    put path, params: { maximum_bid: { bidder_id: 9_223_372_036_854_775_807, maximum_amount: 40_000 } }, headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json
-    expect(json.dig("error", "code")).to eq("user_not_found")
+    put path, params: { maximum_bid: { bidder_id: 9_223_372_036_854_775_807, maximum_amount: 40_000 } }, headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
+    expect(json.dig("error", "code")).to eq("invalid_request")
   end
 
   it "filters request parameters, SQL bind values and model inspection from debug logs" do

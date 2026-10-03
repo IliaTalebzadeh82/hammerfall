@@ -4,7 +4,8 @@ Rails.application.routes.draw do
 
   namespace :api do
     namespace :v1 do
-      resources :users, only: %i[index create]
+      resources :users, only: %i[index]
+      resource :session, only: %i[show create destroy]
       resources :auctions, only: %i[index show create update] do
         member do
           get "public-state", to: "auctions#public_state"

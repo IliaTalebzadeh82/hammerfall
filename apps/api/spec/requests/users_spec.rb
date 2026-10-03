@@ -1,19 +1,16 @@
 require "rails_helper"
 
-RSpec.describe "Demo identity API", :domain, type: :request do
-  it "creates and lists public minimal user identities" do
-    post "/api/v1/users", params: { user: { name: "Alice" } }, as: :json
-    expect(response).to have_http_status(:created)
-    user = json.fetch("data")
-    expect(user.keys).to match_array(%w[id name])
+RSpec.describe "Public identity directory", :domain, type: :request do
+  it "lists only minimal public identity fields" do
+    user = User.create!(name: "Alice", login: "alice-one", password: "private-password")
     get "/api/v1/users"
-    expect(json.fetch("data")).to eq([ user ])
+    expect(json.fetch("data")).to eq([ { "id" => user.id, "name" => "Alice" } ])
+    expect(response.body).not_to include("login", "password", "role")
   end
 
-  it "rejects blank names using the common error envelope" do
-    post "/api/v1/users", params: { user: { name: " " } }, as: :json
-    expect(response).to have_http_status(:unprocessable_content)
-    expect(json.dig("error", "code")).to eq("validation_failed")
-    expect(json.dig("error", "details", "name")).not_to be_empty
+  it "does not allow anonymous account creation" do
+    post "/api/v1/users", params: { user: { name: "Attacker" } }, as: :json
+    expect(response).to have_http_status(:not_found)
+    expect(User.count).to eq(0)
   end
 end

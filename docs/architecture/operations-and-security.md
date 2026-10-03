@@ -2,11 +2,11 @@
 
 ## Current limit
 
-The current API uses unauthenticated demo actor IDs and unauthenticated lifecycle endpoints; it is not a public real-money service. Public-field filtering protects representation, not authorization. Local Compose credentials and named volumes are development conveniences, not backups. [Security](../security.md) and [production readiness](../production-readiness.md) state current risks.
+Phase 20 Session 1 uses authenticated HTTP identity, owner/operator policy and a post-lock seller self-bid guard. Auction correctness remains in PostgreSQL. Rate limiting, ingress byte bounds and HMAC key migration are still in progress; this is not a public real-money service. Local Compose credentials and named volumes are development conveniences, not backups. [Security](../security.md) and [production readiness](../production-readiness.md) state current risks.
 
 ## Security and data handling
 
-Phase 20 schedules authentication and authorization, request-body protection, appropriate CSRF/headers, safe error envelopes, secret management and bounded bid rate limits by actor/IP as appropriate. Rate limiting failure policy must not become auction authority. Do not commit credentials or log tokens, raw idempotency keys, passwords, private maxima or unnecessary personal data. Metrics must avoid unbounded user, auction, bid or email labels. Review production origin/WSS/proxy settings and connection budgets before deployment.
+Phase 20 Session 1 implements first-party authentication and initial authorization; request-body protection, secret management review and bounded bid rate limits by actor/IP remain. Rate limiting failure policy must not become auction authority. Do not commit credentials or log tokens, raw idempotency keys, passwords, private maxima or unnecessary personal data. Metrics must avoid unbounded user, auction, bid or email labels. Review production origin/WSS/proxy settings and connection budgets before deployment.
 
 ## Observability and failure response
 

@@ -17,7 +17,7 @@ it("preserves response status, headers and historical replay data", async () => 
       json({ data: bid }, 201, { "Idempotency-Replayed": "true" }),
     );
   vi.stubGlobal("fetch", fetcher);
-  const response = await sendCommand(command);
+  const response = await sendCommand(command, "csrf-token");
   expect(response).toMatchObject({
     status: 201,
     success: true,
@@ -27,8 +27,8 @@ it("preserves response status, headers and historical replay data", async () => 
   expect(response.headers.get("Idempotency-Replayed")).toBe("true");
   expect(fetcher.mock.calls[0][1]).toMatchObject({
     method: "POST",
-    headers: { "Idempotency-Key": "opaque-key" },
-    body: '{"bid":{"bidder_id":1,"amount":31000}}',
+    headers: { "Idempotency-Key": "opaque-key", "X-CSRF-Token": "csrf-token" },
+    body: '{"bid":{"amount":31000}}',
   });
 });
 it.each([200, 201, 500, 502])(
@@ -38,7 +38,7 @@ it.each([200, 201, 500, 502])(
       "fetch",
       vi.fn().mockResolvedValue(json({ unexpected: true }, status)),
     );
-    await expect(sendCommand(command)).rejects.toThrow();
+    await expect(sendCommand(command, "csrf-token")).rejects.toThrow();
   },
 );
 it("rejects non-JSON without logging payloads", async () => {
@@ -50,14 +50,14 @@ it("rejects non-JSON without logging payloads", async () => {
         new Response("<html>Bad gateway</html>", { status: 502 }),
       ),
   );
-  await expect(sendCommand(command)).rejects.toThrow();
+  await expect(sendCommand(command, "csrf-token")).rejects.toThrow();
 });
 it("rejects a success belonging to another actor", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue(json({ data: { ...bid, bidder_id: 2 } }, 201)),
   );
-  await expect(sendCommand(command)).rejects.toThrow();
+  await expect(sendCommand(command, "csrf-token")).rejects.toThrow();
 });
 it("validates public data and estimates server offset", async () => {
   vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-01-01T00:00:00Z"));

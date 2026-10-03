@@ -2,6 +2,7 @@ module Api
   module V1
     class BaseController < ApplicationController
       wrap_parameters false
+      before_action :verify_authenticated_csrf, if: :unsafe_request?
       # Presentation calibration only; bidding still uses post-lock PostgreSQL time.
       after_action :set_presentation_time
       after_action :set_local_instance
@@ -25,6 +26,39 @@ module Api
       end
 
       private
+
+      def session_token
+        @session_token ||= cookies.encrypted[UserSession::COOKIE_NAME]
+      end
+
+      def current_user_session
+        @current_user_session ||= UserSession.resolve(session_token)
+      end
+
+      def current_actor
+        current_user_session&.user
+      end
+
+      def require_actor!
+        return if current_actor
+        render_error("authentication_required", "Sign in to continue.", :unauthorized)
+      end
+
+      def require_capability!(allowed)
+        return true if allowed
+        render_error("forbidden", "This action is not permitted.", :forbidden)
+        false
+      end
+
+      def unsafe_request?
+        !request.get? && !request.head? && !request.options?
+      end
+
+      def verify_authenticated_csrf
+        return unless session_token && current_user_session
+        return if UserSession.valid_csrf?(session_token, request.headers["X-CSRF-Token"])
+        render_error("invalid_csrf", "Request verification failed.", :forbidden)
+      end
 
       def render_idempotent(outcome)
         @observability_replayed = outcome.replayed

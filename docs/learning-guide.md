@@ -1,5 +1,22 @@
 # Learning guide
 
+## Phase 20 Session 1: establishing the command actor
+
+**Problem:** a public client could choose `bidder_id`, so idempotency and
+private-maximum filtering did not establish who owned a command. **Naive
+approach:** add a JWT while still trusting the request actor, or put a signed
+cookie user ID into commands without revocation. **Chosen design:** bcrypt
+credentials and a PostgreSQL-backed opaque session in an encrypted HttpOnly
+cookie. HTTP authenticates before invoking the existing idempotency executor;
+its actor ID and canonical fingerprint retain historical replay semantics.
+An owner/operator policy guards lifecycle routes, and the auction row lock
+guards seller self-bidding. Cable resolves the same session at handshake and
+subscription. See [ADR-016](adr/016-first-party-identity-and-sessions.md),
+[Session 1 report](security/phase-20-session-1.md) and the focused identity
+request/channel specs. Session 2 still needs rate limits, body bounds, HMAC
+idempotency digests and deeper multi-instance/expiry evidence. Earlier sections
+describe their original phase state where they mention demo actor selection.
+
 ## Repository foundation
 
 **Problem:** provide a reproducible starting point for two runtimes and a real

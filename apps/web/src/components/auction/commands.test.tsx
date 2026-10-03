@@ -21,7 +21,6 @@ let mutation: (init: RequestInit) => Promise<Response>;
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  localStorage.setItem("hammerfall.actor", "1");
   latest = { ...auction };
   mutations = [];
   reads = [];
@@ -29,6 +28,21 @@ beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init: RequestInit) => {
+      if (url.endsWith("/session") && !init.method)
+        return json({
+          data: { id: 1, name: "Alice", role: "member" },
+          csrf_token: "csrf-token",
+        });
+      if (url.endsWith("/session") && init.method === "POST")
+        return json(
+          {
+            data: { id: 1, name: "Alice", role: "member" },
+            csrf_token: "new-csrf-token",
+          },
+          201,
+        );
+      if (url.endsWith("/session") && init.method === "DELETE")
+        return new Response(null, { status: 204 });
       if (init.method) {
         mutations.push({ url, init });
         return mutation(init);
@@ -61,9 +75,7 @@ async function open() {
     </AuctionSession>,
   );
   await screen.findByRole("heading", { name: auction.title });
-  await waitFor(() =>
-    expect(screen.getByLabelText("Demo bidder")).not.toBeDisabled(),
-  );
+  await screen.findByText("Signed in: Alice · #1");
   return view;
 }
 async function place(amount = "310") {
@@ -87,7 +99,7 @@ it("one intention survives network loss and safe retry; replay refreshes both re
   const saved = sessionStorage.getItem(PENDING_KEY);
   expect(saved).toBeTruthy();
   expect(screen.getByLabelText("Your bid (EUR)")).toBeDisabled();
-  expect(screen.getByLabelText("Demo bidder")).toBeDisabled();
+  expect(screen.getByLabelText("Your bid (EUR)")).toBeDisabled();
   const priorReads = reads.length;
   fireEvent.click(screen.getByRole("button", { name: "Retry safely" }));
   await screen.findByText(/Previous result recovered safely/);
@@ -101,6 +113,46 @@ it("one intention survives network loss and safe retry; replay refreshes both re
   await place("410");
   await waitFor(() => expect(mutations).toHaveLength(3));
   expect(mutations[2].init.headers).not.toEqual(mutations[0].init.headers);
+});
+it("keeps an ambiguous intention across session expiry and reauthentication", async () => {
+  let attempt = 0;
+  mutation = async () =>
+    ++attempt === 1
+      ? json(
+          {
+            error: {
+              code: "authentication_required",
+              message: "Sign in",
+              details: {},
+            },
+          },
+          401,
+        )
+      : json({ data: bid }, 201, { "Idempotency-Replayed": "true" });
+  await open();
+  await place();
+  await screen.findByText(/Session expired/);
+  const saved = sessionStorage.getItem(PENDING_KEY);
+  expect(saved).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Login"), {
+    target: { value: "demo-alice" },
+  });
+  fireEvent.change(screen.getByLabelText("Password"), {
+    target: { value: "local-password" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+  await screen.findByText("Signed in: Alice · #1");
+  fireEvent.click(screen.getByRole("button", { name: "Retry safely" }));
+  await screen.findByText(/Previous result recovered safely/);
+  expect(mutations).toHaveLength(2);
+  expect(mutations[1].init.body).toBe(mutations[0].init.body);
+  expect(mutations[1].init.headers).toMatchObject({
+    "Idempotency-Key": (mutations[0].init.headers as Record<string, string>)[
+      "Idempotency-Key"
+    ],
+    "X-CSRF-Token": "new-csrf-token",
+  });
+  expect(sessionStorage.getItem(PENDING_KEY)).toBeNull();
 });
 it("does not create another intention on repeated clicks while pending", async () => {
   let resolve!: (response: Response) => void;
@@ -153,8 +205,11 @@ it("recovers exact maximum request after reload without displaying its amount pu
     url: "/api/v1/auctions/42/maximum-bid",
     init: {
       method: "PUT",
-      body: '{"maximum_bid":{"bidder_id":1,"maximum_amount":987654}}',
-      headers: { "Idempotency-Key": "recovery-key" },
+      body: '{"maximum_bid":{"maximum_amount":987654}}',
+      headers: {
+        "Idempotency-Key": "recovery-key",
+        "X-CSRF-Token": "csrf-token",
+      },
     },
   });
   expect(sessionStorage.getItem(PENDING_KEY)).toBeNull();
@@ -184,7 +239,7 @@ it("shows stale rejection details and refreshes without optimistic price or lead
 it.each([
   [409, "idempotency_key_conflict", /conflicts with an earlier request/],
   [400, "invalid_request", /request was invalid/],
-  [404, "user_not_found", /bidder no longer exists/],
+  [422, "seller_self_bid", /Sellers cannot bid/],
 ])(
   "handles terminal %s and never automatically resubmits",
   async (status, code, message) => {
@@ -291,14 +346,13 @@ it("does not transmit if pending-intention storage is unavailable", async () => 
   expect(mutations).toHaveLength(0);
 });
 
-it("hides an actor's unsubmitted private input when selecting another demo bidder", async () => {
+it("clears an unsubmitted private input on sign out", async () => {
   await open();
   fireEvent.change(screen.getByLabelText("Your maximum (EUR)"), {
     target: { value: "9876.54" },
   });
-  fireEvent.change(screen.getByLabelText("Demo bidder"), {
-    target: { value: "2" },
-  });
+  fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+  await screen.findByRole("button", { name: "Sign in" });
   expect(screen.getByLabelText("Your maximum (EUR)")).toHaveValue("");
-  expect(localStorage.getItem("hammerfall.actor")).toBe("2");
+  expect(localStorage.getItem("hammerfall.actor")).toBeNull();
 });
