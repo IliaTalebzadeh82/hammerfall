@@ -1,0 +1,39 @@
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: api-ready
+  namespace: hammerfall
+spec:
+  targetRef:
+    group: ""
+    kind: Service
+    name: api
+  default:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 3000
+        host: PUBLIC_HOSTNAME.invalid
+        requestPath: /ready
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: web-ready
+  namespace: hammerfall
+spec:
+  targetRef:
+    group: ""
+    kind: Service
+    name: web
+  default:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 3000
+        host: PUBLIC_HOSTNAME.invalid
+        requestPath: /

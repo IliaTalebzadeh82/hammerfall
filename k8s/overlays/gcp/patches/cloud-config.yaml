@@ -1,0 +1,16 @@
+- op: replace
+  path: /data
+  value:
+    RAILS_ENV: production
+    PERFORMANCE_DISABLE_RELOADING: 'true'
+    REDIS_URL: rediss://REDIS_HOST:6379/0
+    REDIS_CONNECTION_MODE: tls
+    REDIS_AUTH_MODE: none
+    REDIS_TLS_CA_FILE: /var/run/hammerfall-secrets/redis-ca.pem
+    KAFKA_BOOTSTRAP_SERVERS: KAFKA_BOOTSTRAP_ADDRESS
+    CABLE_ALLOWED_ORIGINS: https://PUBLIC_HOSTNAME.invalid
+    CABLE_WORKER_THREADS: '2'
+    OTEL_ENABLED: 'false'
+    AUCTION_CLOSER_INTERVAL: '1'
+    RECONCILIATION_INTERVAL: '60'
+    API_ALLOWED_HOSTS: PUBLIC_HOSTNAME.invalid

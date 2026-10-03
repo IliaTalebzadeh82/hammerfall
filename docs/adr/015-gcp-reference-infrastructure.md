@@ -12,7 +12,13 @@ Use a single dedicated GCP project for each future environment and a European `e
 
 Retain Kafka semantics. Google Managed Service for Apache Kafka is the preferred faithful managed target, but its authenticated TLS client integration and cost remain an explicit deployment gate. Terraform does not create a broker by default or substitute Pub/Sub. The edge target is GKE Gateway backed by an external Application Load Balancer with TLS at the edge; DNS, certificate, static IP and Gateway manifests await a domain and separate work.
 
-Cloud SQL private IP and TLS are selected; Rails database credential delivery and server-certificate verification need integration before runtime deployment. The Terraform reference creates only Secret Manager secret metadata and IAM grants, never payload versions. Redis TLS/client integration and authenticated access need completion before deploying the current Sidekiq/projection clients.
+Cloud SQL private IP and TLS are selected. The Terraform reference creates Secret Manager metadata and IAM grants, never payload versions. Redis remains a derived service behind its own cost gate.
+
+**Session 2 refinement (2026-10-03):** Direct Cloud SQL uses a shared Google-managed CA, private `sql-psa.goog` DNS and libpq `sslmode=verify-full`; Terraform models the private DNS record, while a separate bootstrap supplies the SQL user/password and trusted CA bundle. Rails production needs `SECRET_KEY_BASE`, not just `RAILS_MASTER_KEY`, because this repository has no encrypted credentials file. Mounted files supply the database URL and key. The GKE overlay uses Gateway and removes local Nginx.
+
+Managed Kafka remains a separate disabled cost gate. Google's non-Java OAUTHBEARER helper runs on pod loopback beside Ruby/librdkafka. Three linked GKE-to-IAM service accounts provide distinct Kafka ACL email principals without static keys. Kafka IAM grants only connect; topic/group/cluster ACLs authorize operations. This is statically modeled, not live authenticated.
+
+Classic Memorystore Redis remains disabled by default. It uses private VPC and verified TLS **without Redis AUTH** in this reference because the provider's computed AUTH string enters Terraform state, while Redis Cluster IAM is not a Sidekiq-compatible topology. This is an explicit security limitation that must be reviewed before any Redis deployment. The application supports a mounted AUTH password for a future non-Terraform credential path, but this reference does not claim one.
 
 The default Terraform configuration creates no resources, and all billable reference infrastructure requires `enable_reference_infrastructure=true` plus a project and an operator CIDR. The GCS state bucket has a separate, disabled bootstrap root. `terraform apply` and other GCP mutations require separate spending authorization.
 
@@ -28,7 +34,7 @@ The default Terraform configuration creates no resources, and all billable refer
 
 Autopilot can increase Phase 18's low pod requests to enforced minima, so the local requests cannot be billed as production sizing. Scaling pods multiplies PostgreSQL connection pools and hot-row pressure. A regional GKE cluster alone does not make Cloud SQL, Redis or Kafka highly available. PostgreSQL outage stops authoritative writes; Redis/Kafka loss leaves auction truth in PostgreSQL but delivery/read projections can lag. Backup/PITR settings do not establish RPO, RTO or tested recovery; Phase 21 owns those.
 
-The Session 1 Terraform is a safe, near-deployable foundation, not an end-to-end running cloud environment. The edge, broker client adapter, secret injection, database user provisioning, Redis auth/TLS client setup, workload manifests, cloud plan, and live failure proof are outstanding. See [architecture](../cloud/architecture.md), [cost model](../cloud/cost-estimate.md), and the [ExecPlan](../plans/phase-19-execplan.md).
+The Session 1 Terraform was a safe foundation. Session 2 added the static edge, broker client adapter, secret mounts, verified-TLS client guard and workload overlay. A real domain, certificate map/IP, immutable image digests, secret versions, database user, Redis security decision, provider-backed plan and live failure proof remain outstanding. See [architecture](../cloud/architecture.md), [cost model](../cloud/cost-estimate.md), and the [ExecPlan](../plans/phase-19-execplan.md).
 
 ## Revisit when
 

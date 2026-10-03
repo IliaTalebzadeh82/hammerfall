@@ -999,3 +999,17 @@ same-key mutation retry; a green Deployment alone cannot promise every
 request will succeed. See the [final review](kubernetes/phase-18-final.md).
 No production capacity or high availability follows from the local values or
 one-node cluster.
+
+## Phase 19 managed-service integration lesson
+
+A private managed endpoint still has a client contract. Managed Kafka needs
+short-lived Google OAuth credentials *and* Kafka ACLs; a successful IAM
+connection alone does not grant topic or consumer-group operations. Ruby
+librdkafka can use Google's local ADC helper as its OIDC token endpoint, so
+GKE WIF replaces a static service-account key without changing outbox or
+offset semantics. Cloud SQL's private IP does not by itself verify the server:
+libpq needs the PSA certificate hostname, trusted CA and `verify-full`.
+Classic Memorystore's AUTH string would enter Terraform state if Terraform
+enabled it, so the gated reference keeps private TLS without AUTH and records
+that as a security limit. [Session 2](cloud/session-2.md) separates these
+implemented/static contracts from untested GCP behavior.

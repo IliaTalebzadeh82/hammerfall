@@ -1,10 +1,11 @@
 # Deliberately empty by default. Enabling this module is a separate, cost-bearing act.
 locals {
-  required_apis = toset([
+  required_apis = toset(concat([
     "artifactregistry.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",
+    "dns.googleapis.com",
     "iam.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
@@ -12,7 +13,7 @@ locals {
     "secretmanager.googleapis.com",
     "servicenetworking.googleapis.com",
     "sqladmin.googleapis.com",
-  ])
+  ], var.enable_kafka ? ["managedkafka.googleapis.com"] : []))
 }
 
 resource "google_project_service" "required" {
@@ -35,6 +36,7 @@ module "reference" {
   redis_tier            = var.redis_tier
   redis_memory_gb       = var.redis_memory_gb
   enable_redis          = var.enable_redis
+  enable_kafka          = var.enable_kafka
 
   depends_on = [google_project_service.required]
 }

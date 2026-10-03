@@ -25,7 +25,7 @@ class AuctionPublicProjection
   LUA
 
   def initialize(redis: nil)
-    @redis = redis || RedisClient.config(url: ENV.fetch("REDIS_URL", "redis://127.0.0.1:6379/0"), timeout: 1).new_client
+    @redis = redis || RedisClient.config(**RedisConnectionConfig.build, timeout: 1).new_client
   end
 
   def apply_event(event)

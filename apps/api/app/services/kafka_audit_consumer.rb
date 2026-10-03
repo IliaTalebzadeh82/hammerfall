@@ -67,10 +67,9 @@ class KafkaAuditConsumer
   private
 
   def consumer
-    @consumer ||= Rdkafka::Config.new(
-      "bootstrap.servers": ENV.fetch("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092"),
+    @consumer ||= Rdkafka::Config.new(KafkaClientConfig.build.merge(
       "group.id": GROUP, "auto.offset.reset": "earliest", "enable.auto.commit": false,
       "enable.auto.offset.store": false
-    ).consumer
+    )).consumer
   end
 end

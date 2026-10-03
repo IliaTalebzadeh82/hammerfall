@@ -151,9 +151,11 @@ resource "google_sql_database_instance" "authority" {
     user_labels                 = local.labels
 
     ip_configuration {
-      ipv4_enabled    = false
-      private_network = google_compute_network.main.id
-      ssl_mode        = "ENCRYPTED_ONLY"
+      ipv4_enabled                     = false
+      private_network                  = google_compute_network.main.id
+      ssl_mode                         = "ENCRYPTED_ONLY"
+      server_ca_mode                   = "GOOGLE_MANAGED_CAS_CA"
+      server_certificate_rotation_mode = "AUTOMATIC_ROTATION_DURING_MAINTENANCE"
     }
 
     backup_configuration {
@@ -168,6 +170,24 @@ resource "google_sql_database_instance" "authority" {
 resource "google_sql_database" "app" {
   name     = "hammerfall_production"
   instance = google_sql_database_instance.authority.name
+}
+
+resource "google_dns_managed_zone" "cloud_sql_private" {
+  name        = "${local.name}-sql-psa"
+  dns_name    = "sql-psa.goog."
+  description = "Private Cloud SQL PSA certificate hostname resolution"
+  visibility  = "private"
+  private_visibility_config {
+    networks { network_url = google_compute_network.main.id }
+  }
+}
+
+resource "google_dns_record_set" "cloud_sql_private" {
+  managed_zone = google_dns_managed_zone.cloud_sql_private.name
+  name         = "${trimsuffix(one([for entry in google_sql_database_instance.authority.dns_names : entry.name if endswith(trimsuffix(entry.name, "."), ".sql-psa.goog")]), ".")}."
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_sql_database_instance.authority.private_ip_address]
 }
 
 # Redis remains derived queue/projection infrastructure. Authentication and
@@ -199,8 +219,28 @@ resource "google_secret_manager_secret" "database_url" {
   }
 }
 
-resource "google_secret_manager_secret" "rails_master_key" {
-  secret_id = "${local.name}-rails-master-key"
+resource "google_secret_manager_secret" "secret_key_base" {
+  secret_id = "${local.name}-secret-key-base"
+  labels    = local.labels
+  replication {
+    user_managed {
+      replicas { location = var.region }
+    }
+  }
+}
+
+resource "google_secret_manager_secret" "cloud_sql_ca_bundle" {
+  secret_id = "${local.name}-cloud-sql-ca-bundle"
+  labels    = local.labels
+  replication {
+    user_managed {
+      replicas { location = var.region }
+    }
+  }
+}
+
+resource "google_secret_manager_secret" "redis_ca_bundle" {
+  secret_id = "${local.name}-redis-ca-bundle"
   labels    = local.labels
   replication {
     user_managed {
@@ -210,10 +250,27 @@ resource "google_secret_manager_secret" "rails_master_key" {
 }
 
 locals {
-  secret_readers = toset(["api", "worker", "db-prepare"])
+  secret_readers = toset(["api", "worker", "db-prepare", "kafka-publisher", "kafka-audit", "kafka-projection"])
+  redis_readers  = toset(["api", "worker", "kafka-projection"])
   workload_principals = {
     for sa in local.secret_readers : sa => "principal://iam.googleapis.com/projects/${data.google_project.current.number}/locations/global/workloadIdentityPools/${var.project_id}.svc.id.goog/subject/ns/hammerfall/sa/${sa}"
   }
+}
+
+resource "google_secret_manager_secret_iam_member" "cloud_sql_ca_read" {
+  for_each  = local.workload_principals
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.cloud_sql_ca_bundle.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = each.value
+}
+
+resource "google_secret_manager_secret_iam_member" "redis_ca_read" {
+  for_each  = { for sa, principal in local.workload_principals : sa => principal if contains(local.redis_readers, sa) }
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.redis_ca_bundle.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = each.value
 }
 
 resource "google_secret_manager_secret_iam_member" "database_url_read" {
@@ -224,10 +281,10 @@ resource "google_secret_manager_secret_iam_member" "database_url_read" {
   member    = each.value
 }
 
-resource "google_secret_manager_secret_iam_member" "rails_key_read" {
+resource "google_secret_manager_secret_iam_member" "secret_key_read" {
   for_each  = local.workload_principals
   project   = var.project_id
-  secret_id = google_secret_manager_secret.rails_master_key.secret_id
+  secret_id = google_secret_manager_secret.secret_key_base.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = each.value
 }

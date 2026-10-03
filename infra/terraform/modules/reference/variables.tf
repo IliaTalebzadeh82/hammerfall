@@ -7,3 +7,4 @@ variable "sql_availability_type" { type = string }
 variable "redis_tier" { type = string }
 variable "redis_memory_gb" { type = number }
 variable "enable_redis" { type = bool }
+variable "enable_kafka" { type = bool }

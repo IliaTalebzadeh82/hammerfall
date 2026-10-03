@@ -105,10 +105,9 @@ class KafkaOutboxPublisher
   private
 
   def producer
-    @producer ||= Rdkafka::Config.new(
-      "bootstrap.servers": ENV.fetch("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092"),
+    @producer ||= Rdkafka::Config.new(KafkaClientConfig.build.merge(
       "acks": "all", "enable.idempotence": true, "message.timeout.ms": 5000,
       "socket.timeout.ms": 3000
-    ).producer
+    )).producer
   end
 end

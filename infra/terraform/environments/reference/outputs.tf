@@ -14,6 +14,14 @@ output "redis_host" {
   value = var.enable_reference_infrastructure ? module.reference[0].redis_host : null
 }
 
+output "kafka_cluster_id" {
+  value = var.enable_reference_infrastructure ? module.reference[0].kafka_cluster_id : null
+}
+
+output "sql_psa_dns_name" {
+  value = var.enable_reference_infrastructure ? module.reference[0].sql_psa_dns_name : null
+}
+
 output "artifact_repository" {
   value = var.enable_reference_infrastructure ? module.reference[0].artifact_repository : null
 }

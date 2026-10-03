@@ -1,0 +1,109 @@
+[
+  {
+    "op": "remove",
+    "path": "/spec/template/spec/containers/0/envFrom/1"
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/serviceAccountName",
+    "value": "kafka-publisher"
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/volumes",
+    "value": [
+      {
+        "name": "runtime-secrets",
+        "csi": {
+          "driver": "secrets-store-gke.csi.k8s.io",
+          "readOnly": true,
+          "volumeAttributes": {
+            "secretProviderClass": "hammerfall-db-gke"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/volumeMounts",
+    "value": [
+      {
+        "name": "runtime-secrets",
+        "mountPath": "/var/run/hammerfall-secrets",
+        "readOnly": true
+      }
+    ]
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/env",
+    "value": [
+      {
+        "name": "DATABASE_CONNECTION_MODE",
+        "value": "cloud_sql"
+      },
+      {
+        "name": "DATABASE_URL_FILE",
+        "value": "/var/run/hammerfall-secrets/database-url"
+      },
+      {
+        "name": "SECRET_KEY_BASE_FILE",
+        "value": "/var/run/hammerfall-secrets/secret-key-base"
+      },
+      {
+        "name": "KAFKA_AUTH_MODE",
+        "value": "google_oidc"
+      },
+      {
+        "name": "KAFKA_OAUTH_TOKEN_ENDPOINT",
+        "value": "http://127.0.0.1:14293"
+      },
+      {
+        "name": "REDIS_CONNECTION_MODE",
+        "value": "disabled"
+      }
+    ]
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/-",
+    "value": {
+      "name": "kafka-auth",
+      "image": "hammerfall-kafka-auth:phase19",
+      "imagePullPolicy": "IfNotPresent",
+      "ports": [
+        {
+          "name": "auth",
+          "containerPort": 14293
+        }
+      ],
+      "readinessProbe": {
+        "tcpSocket": {
+          "port": "auth"
+        },
+        "periodSeconds": 5
+      },
+      "resources": {
+        "requests": {
+          "cpu": "50m",
+          "memory": "64Mi"
+        },
+        "limits": {
+          "cpu": "250m",
+          "memory": "256Mi"
+        }
+      },
+      "securityContext": {
+        "allowPrivilegeEscalation": false,
+        "readOnlyRootFilesystem": true,
+        "runAsNonRoot": true,
+        "capabilities": {
+          "drop": [
+            "ALL"
+          ]
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-prepare
+  namespace: hammerfall
+spec:
+  suspend: true
+  backoffLimit: 1
+  template:
+    spec:
+      serviceAccountName: db-prepare
+      restartPolicy: Never
+      containers:
+      - name: db-prepare
+        image: hammerfall-api:phase18
+        command: ["bin/rails", "db:prepare"]
+        envFrom:
+        - configMapRef:
+            name: hammerfall-config
+        env:
+        - name: DATABASE_CONNECTION_MODE
+          value: cloud_sql
+        - name: DATABASE_URL_FILE
+          value: /var/run/hammerfall-secrets/database-url
+        - name: SECRET_KEY_BASE_FILE
+          value: /var/run/hammerfall-secrets/secret-key-base
+        - name: REDIS_CONNECTION_MODE
+          value: disabled
+        volumeMounts:
+        - name: runtime-secrets
+          mountPath: /var/run/hammerfall-secrets
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 768Mi
+      volumes:
+      - name: runtime-secrets
+        csi:
+          driver: secrets-store-gke.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: hammerfall-db-gke

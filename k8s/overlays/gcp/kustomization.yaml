@@ -1,0 +1,88 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../base
+- serviceaccounts.yaml
+- secret-providers.yaml
+- gateway.yaml
+- healthchecks.yaml
+- db-prepare.yaml
+images:
+- name: hammerfall-api
+  newName: europe-west4-docker.pkg.dev/PROJECT_ID/hammerfall-reference-images/hammerfall-api
+  digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+- name: hammerfall-web
+  newName: europe-west4-docker.pkg.dev/PROJECT_ID/hammerfall-reference-images/hammerfall-web
+  digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
+- name: hammerfall-kafka-auth
+  newName: europe-west4-docker.pkg.dev/PROJECT_ID/hammerfall-reference-images/hammerfall-kafka-auth
+  digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+patches:
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: api
+  path: patches/api.json
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: sidekiq
+  path: patches/sidekiq.json
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: outbox-publisher
+  path: patches/outbox-publisher.json
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: auction-closer
+  path: patches/auction-closer.json
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: reconciliation-scheduler
+  path: patches/reconciliation-scheduler.json
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: kafka-outbox-publisher
+  path: patches/kafka-outbox-publisher.json
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: kafka-audit-consumer
+  path: patches/kafka-audit-consumer.json
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: kafka-projection-consumer
+  path: patches/kafka-projection-consumer.json
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: web
+  path: patches/web.json
+- target:
+    version: v1
+    kind: Service
+    name: web
+  path: patches/web-service.yaml
+- target:
+    version: v1
+    kind: ConfigMap
+    name: hammerfall-config
+  path: patches/cloud-config.yaml
+- path: patches/delete-service-db.yaml
+- path: patches/delete-service-redis.yaml
+- path: patches/delete-service-kafka.yaml
+- path: patches/delete-configmap-web-proxy.yaml

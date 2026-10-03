@@ -75,3 +75,13 @@ variable "enable_redis" {
     error_message = "Redis can be enabled only with the reference infrastructure."
   }
 }
+
+variable "enable_kafka" {
+  description = "Separate cost gate for the managed Kafka cluster, topic and ACLs."
+  type        = bool
+  default     = false
+  validation {
+    condition     = !var.enable_kafka || var.enable_reference_infrastructure
+    error_message = "Kafka can be enabled only with the reference infrastructure."
+  }
+}

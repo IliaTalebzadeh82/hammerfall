@@ -756,3 +756,16 @@ reduce disruption but cannot guarantee that every in-flight or immediately
 adjacent request succeeds. Safe GET retry and keyed command replay still
 belong to clients, while PostgreSQL preserves the result. The
 [final report](kubernetes/phase-18-final.md) records the exact proof boundary.
+
+## 2026-10-03 — Phase 19 managed-service contract check
+
+The first dummy production Rails boot with only a master-key assumption failed:
+this repository has no encrypted credentials file, and Rails required
+`SECRET_KEY_BASE`. A file-backed key path then booted locally. This is why
+mounting a secret is not equivalent to proving an application can consume it.
+The Kafka review found Google's documented non-Java loopback OAuth helper for
+librdkafka, so the GKE overlay includes a real sidecar contract instead of
+assuming Java credentials work in Ruby. A final static pass also caught a
+Google service-account name length edge case, duplicate Cloud SQL TLS query
+keys, and Kafka API enablement outside the broker gate; all were corrected.
+[Session 2](cloud/session-2.md) holds the evidence and remaining live gaps.

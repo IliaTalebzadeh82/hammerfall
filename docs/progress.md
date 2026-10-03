@@ -2211,3 +2211,17 @@ orchestration with external stateful dependencies, not production Kubernetes
 availability or capacity. The observed transient 502 and long active-worker
 shutdown limit remain explicit. No known serious correctness bug remains in
 Phase 18 scope. Phase 19 has not started.
+
+### Phase 19 Session 2 static integration checkpoint — 2026-10-03
+
+Starting from `b3b07744d7ebec6fd31c9dbb52d8993c4565be7b`, Session 2
+implemented secure client configuration for Kafka, Redis and Cloud SQL,
+file-backed Rails secrets, a GKE overlay, and separately gated Terraform
+Managed Kafka resources/ACLs. Focused Compose integration passed 41 examples,
+zero failures, one existing live-broker pending; focused RuboCop passed 12
+files. Terraform mirrored-provider schema validation passed for reference,
+module and bootstrap; mock tests passed 4 root and 2 module runs. Base and
+28-resource cloud overlay rendered statically. [Session 2](cloud/session-2.md)
+and the [ExecPlan](plans/phase-19-execplan.md) record decisions and limits.
+No GCP login, API mutation, paid resource or apply occurred. Phase 19 remains
+active; broad regression and final gates belong to a fresh Session 3.
