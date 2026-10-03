@@ -1,7 +1,7 @@
 # Phase 19 ExecPlan — Terraform and GCP architecture
 
-Status: **Active; final local/static verification complete 2026-10-03, hosted CI pending.** Phase 20 has not started. No cloud spend or resource mutation authorized.
-Current milestone: close hosted CI and phase documentation against the [final report](../cloud/phase-19-final.md).
+Status: **Complete 2026-10-03.** Phase 20 has not started. No cloud spend or resource mutation occurred.
+Final evidence and limits: [Phase 19 final report](../cloud/phase-19-final.md). Hosted verification: [GitHub Actions run 37104780362](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37104780362), API/web/Compose all succeeded on `756f138df7495773eb4bf43b5be0bcc65c9468f6`.
 
 ## Completed
 
@@ -9,7 +9,7 @@ Current milestone: close hosted CI and phase documentation against the [final re
 - Session 2: verified Google's documented non-Java Managed Kafka OAuth helper path for librdkafka and added a centralized Ruby local/GCP client config. Kept existing event, partition, offset, retry and auction authority semantics. Added gated Kafka cluster/topic/ACL/IAM Terraform, with distinct Kafka identities and default-deny ACL sentinel.
 - Session 2: centralized Sidekiq/projection Redis config. Classic Memorystore uses private verified TLS but deliberately no AUTH because its generated AUTH string would enter Terraform state. `enable_redis=false` remains the default.
 - Session 2: added mounted Rails secret files and Cloud SQL verified-TLS boot guard; modeled shared CA, automatic rotation, private PSA DNS and four Secret Manager metadata containers. Production dummy boot discovered `SECRET_KEY_BASE` is required and then passed after correction. SQL user/password/secret versions remain separate bootstrap work.
-- Session 2: added static GKE overlay with seven KSAs, read-only Secret Manager CSI, Kafka OAuth helper sidecars, direct web Service/Gateway routing, HTTPS redirect, API `/ready` health, suspended `db-prepare` and immutable digest render contract. Local base remains intact except a Kustomization file. Added [Session 2 report](../cloud/session-2.md), [overlay README](../../k8s/overlays/gcp/README.md) and updated architecture/cost/ADR/Terraform README.
+- Session 2: added static GKE overlay with seven KSAs, read-only Secret Manager CSI, Kafka OAuth helper sidecars, direct web Service/Gateway routing, HTTPS redirect, API `/ready` health, suspended `db-prepare` and immutable digest render contract. Session 3 added a closer-only KSA and fixed the local base apply path. Added [Session 2 report](../cloud/session-2.md), [overlay README](../../k8s/overlays/gcp/README.md) and updated architecture/cost/ADR/Terraform README.
 
 ## Decisions
 
@@ -24,7 +24,9 @@ Current milestone: close hosted CI and phase documentation against the [final re
 
 ## Verified
 
-Session 3 final regression: 461 RSpec examples, 0 failures, 3 expected broker-gated pendings, seed 45789; Ruby lint/security/Zeitwerk/syntax passed; 74 Vitest tests and frontend lint/format/types/build passed. Compose rebuilt healthy and proved Kafka outbox/audit, Redis projection, Sidekiq enqueue and auction lifecycle. The initial kind base apply exposed the new Kustomization file being applied directly; `up.sh` was fixed, and a rerun proved two API/two web/seven background roles, lifecycle smoke and API replacement. Base render: 17 resources; cloud overlay: 29. Terraform 1.16.5 format, three official-archive provider validations, four root and three module mock tests passed. The official release ZIP was checked against the lock-file hash; registry discovery remained unavailable. No GCP credential, plan or apply. See [final report](../cloud/phase-19-final.md).
+Session 3 final regression: 461 RSpec examples, 0 failures, 3 expected broker-gated pendings, seed 45789; Ruby lint/security/Zeitwerk/syntax passed; 74 Vitest tests and frontend lint/format/types/build passed. Compose rebuilt healthy and proved Kafka outbox/audit, Redis projection, Sidekiq enqueue and auction lifecycle. The initial kind base apply exposed the new Kustomization file being applied directly; `up.sh` was fixed, and a rerun proved two API/two web/seven background roles, lifecycle smoke and API replacement. Base render: 17 resources; cloud overlay: 29. Terraform 1.16.5 format, three official-archive provider validations, four root and three module mock tests passed. The official release ZIP was checked against the lock-file hash; registry discovery remained unavailable. No GCP credential, plan or apply. Hosted API/web/Compose all succeeded on run 37104780362. See [final report](../cloud/phase-19-final.md).
+
+### Session 2 focused evidence (superseded by final gates where overlapping)
 
 | Check | Command / method | Result | Evidence / limit |
 | --- | --- | --- | --- |
@@ -36,22 +38,17 @@ Session 3 final regression: 461 RSpec examples, 0 failures, 3 expected broker-ga
 | Kubernetes static | `kubectl kustomize` base and overlay; `ruby k8s/overlays/gcp/validate.rb`; dummy `render.py` | **28 cloud resources; identity/mount/route/health checked; no placeholders** | No GKE CRD admission or live networking. |
 | No-cloud boundary | Command/action review | **No auth, API changes, resources, apply, secrets or charges created** | User cost boundary retained. |
 
-## Remaining
+## Future authorized deployment prerequisites
 
-1. Commit/push final code and documentation; inspect hosted API, web and Compose CI; record the workflow evidence, then mark Phase 19 complete and rewrite the Phase 20 handoff.
-2. For any future authorized deployment: obtain a dated Netherlands quote and real plan; securely bootstrap SQL app role/password, key/CA secret versions; provide domain, cert map, static IP, images; prove GKE WIF/CSI, SQL TLS/DNS, Redis/Kafka connectivity/ACLs and Gateway/WSS. Redis no-AUTH requires a specific security decision before enabling it. Live paid proof is not required to complete Phase 19 under the phase spec, but must remain labeled unverified.
+For any future authorized deployment: obtain a dated Netherlands quote and real plan; securely bootstrap SQL app role/password, key/CA secret versions; provide domain, cert map, static IP, images; prove GKE WIF/CSI, SQL TLS/DNS, Redis/Kafka connectivity/ACLs and Gateway/WSS. Redis no-AUTH requires a specific security decision before enabling it. Live paid proof was outside Phase 19.
 
 ## Known failures/limitations
 
-- HashiCorp registry/distribution geo-blocked official provider validation. Mirror 8.5.0 passed schema/mock checks; no ADC or real plan. Cloud SQL provider-computed DNS names and Kafka ACL acceptance remain live-plan/provisioning risks.
+- HashiCorp registry discovery remained inaccessible, but the official 8.5.0 release archive was checksum-verified and passed schema/mock checks from a temporary mirror. No ADC or real plan. Cloud SQL provider-computed DNS names and Kafka ACL acceptance remain live-plan/provisioning risks.
 - Classic Redis has no application AUTH in the static reference; do not describe it as production secure. Broker and Redis are separately gated off by default. Secret Manager metadata has no payload/version; overlay points to version `1` only as a bootstrap contract.
-- Autopilot pod admission/effective resources, GKE Gateway/CSI/WIF, Cloud SQL TLS chain, Managed Kafka OAuth/ACLs, private networking, public WSS, failure recovery and cost remain unverified live. A local kind cluster was unavailable in Session 2; the full local regression is Session 3 work.
+- Autopilot pod admission/effective resources, GKE Gateway/CSI/WIF, Cloud SQL TLS chain, Managed Kafka OAuth/ACLs, private networking, public WSS, failure recovery and cost remain unverified live. Session 3's local kind base regression passed after repair.
 
 ## Relevant files and ADRs
 
 - [Session 2](../cloud/session-2.md), [architecture](../cloud/architecture.md), [cost estimate](../cloud/cost-estimate.md), [Terraform README](../../infra/terraform/README.md), [GKE overlay README](../../k8s/overlays/gcp/README.md), `apps/api/app/services/{kafka_client_config,redis_connection_config}.rb`, `apps/api/lib/secret_files.rb`, `infra/terraform/`, `k8s/overlays/gcp/`.
 - [ADR-015](../adr/015-gcp-reference-infrastructure.md), [ADR-014](../adr/014-local-kubernetes-process-orchestration.md).
-
-## Next-session starting point
-
-Start a fresh Codex conversation. Read `AGENTS.md`, [latest handoff](../handoffs/latest.md), this plan, [Phase 19 spec](../phases/phase-19.md), and [Session 2](../cloud/session-2.md); use [context map](../context-map.md) for targeted implementation. Begin with the final regression and static/adversarial gates, then close documentation and phase only on actual evidence. Do not enter Phase 20 or create GCP resources without a separate explicit request.
