@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Hammerfall tests how one correct auction outcome survives concurrent bids, asynchronous work and stale clients. Keep the product narrow: browse and inspect auctions/history, bid or set a private maximum, see countdowns/extensions and final outcomes. A minimal operator surface should eventually expose auction/bid state, reconciliation, failed processing and degraded health. Seller onboarding, shipping, messaging, reviews, recommendations, elaborate profiles, social features, complex payments and catalog systems are outside this focus unless justified later.
+Hammerfall tests how one correct auction outcome survives concurrent bids, asynchronous work and stale clients. It is a Catawiki-aligned engineering case study, informed by public product and technology information, for learning the difficult auction-marketplace problems and discussing evidence and trade-offs with Catawiki engineers. It is not a claim about their internal architecture or a complete marketplace clone. Keep the product narrow: browse and inspect auctions/history, bid or set a private maximum, see countdowns/extensions and final outcomes. A minimal operator surface should eventually expose auction/bid state, reconciliation, failed processing and degraded health. Seller onboarding, shipping, messaging, reviews, recommendations, elaborate profiles, social features, complex payments and catalog systems are outside this focus unless justified later.
 
 ## Current responsibilities
 
@@ -17,7 +17,7 @@ Rails/ActiveRecord is the modular monolith and sole business authority. PostgreS
 
 ## Technology and documentation contracts
 
-The stack includes Ruby/Rails API, ActiveRecord, PostgreSQL, RSpec; TypeScript, React, Next.js, Tailwind and shadcn/ui; Action Cable/WebSockets; Redis, Sidekiq and Kafka. Phase 18 is proving local Kubernetes orchestration of application processes under [ADR-014](../adr/014-local-kubernetes-process-orchestration.md); Terraform and GCP remain future work. A change needs a reason and ADR. Docker Compose remains the local stateful dependency foundation; GitHub Actions runs ordinary checks without deployment credentials. [README](../../README.md), [tooling](../tooling.md), [running locally](../running-locally.md) and [production readiness](../production-readiness.md) distinguish installed from future tools.
+The stack includes Ruby/Rails API, ActiveRecord, PostgreSQL, RSpec; TypeScript, React, Next.js, Tailwind and shadcn/ui; Action Cable/WebSockets; Redis, Sidekiq and Kafka. Phase 18 verified local Kubernetes orchestration of application processes under [ADR-014](../adr/014-local-kubernetes-process-orchestration.md); Phase 19 completed a default-disabled Terraform/GCP reference without a paid deployment. A change needs a reason and ADR. Docker Compose remains the local stateful dependency foundation; GitHub Actions runs ordinary checks without deployment credentials. [README](../../README.md), [tooling](../tooling.md), [running locally](../running-locally.md) and [production readiness](../production-readiness.md) distinguish installed from future tools.
 
 Maintain ADRs with Context, Decision, Alternatives Considered, Consequences, Risks and Revisit When. The learning guide, workflow code map, substantive engineering journal, candid production readiness and final interview/review documents serve the owner's study goal. Do not exaggerate completion in README or operational claims.
 

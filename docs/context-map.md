@@ -2,6 +2,8 @@
 
 `AGENTS.md` is the routine instruction entry point. [Latest handoff](handoffs/latest.md) is the compact current-state entry point. The [context lifecycle and ExecPlan convention](context-lifecycle.md) governs checkpoints and resumption; the completed [Phase 13 ExecPlan](plans/phase-13-execplan.md) holds observability decisions and evidence. The closed [Phase 12.5 ExecPlan](plans/phase-12-5-hardening-execplan.md) holds its findings, while `docs/plans/phase-12-execplan.md` records completed Phase 12 evidence. [Phase specifications](phases/) hold each phase's scope. [Progress](progress.md) is historical evidence, not startup context; the [archived original](archive/masterprompt-original.md) is for a specific missing historical fact only.
 
+The original master roadmap contained Phases 0–20 and ended with Final Engineering Polish. After Phase 19, it was explicitly extended to Phases 20–24 to schedule previously unassigned security requirements and align final work with Hammerfall's Catawiki-aligned engineering case-study purpose. The original polish scope moved to [Phase 24](phases/phase-24.md), now the final phase. Current navigation: [Phase 20 Identity & Security](phases/phase-20.md), [Phase 21 Marketplace Trust & Auction Policy](phases/phase-21.md), [Phase 22 Durability, Release & Operations](phases/phase-22.md), [Phase 23 Catawiki Case Study & Demo](phases/phase-23.md), then Phase 24. Each begins only on explicit request.
+
 | Working on | Required context | Optional targeted context |
 |---|---|---|
 | Any repository task | `AGENTS.md` | This map |
@@ -16,7 +18,7 @@
 | Jobs/events/outbox/Kafka | `docs/architecture/async-events.md`, applicable phase spec | `docs/event-model.md`, `docs/failure-model.md` |
 | Redis projection/reconciliation | `docs/architecture/projections-and-reconciliation.md`, applicable phase spec | `docs/consistency-model.md` |
 | Security/operations/load/deployment | `docs/architecture/operations-and-security.md`, applicable phase spec | Current production/readiness/runbook/benchmark evidence |
-| Final phase verification | Current phase spec, latest handoff, changed architecture/ADR | `docs/progress.md` for prior actual evidence |
+| Final Phase 24 verification | `docs/phases/phase-24.md`, latest handoff, changed architecture/ADR | `docs/progress.md` for prior actual evidence |
 | Historical evidence | Relevant `docs/progress.md` phase heading/anchor | Completed ExecPlan or specific Git commit |
 
 ## Recommended Codex session lifecycle
@@ -26,7 +28,7 @@
 3. Implement and verify rigorously. At a substantial milestone, persist state and evidence, mark `CONTEXT CHECKPOINT READY`, and resume significant remaining work in a fresh session.
 4. At phase end, update durable docs/ADRs and actual progress evidence, rewrite the compact handoff, leave a clean tree and stop at the phase boundary.
 
-## Master prompt migration trace
+## Historical master prompt migration trace
 
 The rows below cover every top-level numbered section and each named roadmap phase in the 2,644-line original. Subheadings within a numbered section inherit that row's destination; the notes identify multi-topic sections. The archive retains the exact source for audit. “Planned” means a requirement is preserved for a later phase, **not** that it is implemented.
 
@@ -63,8 +65,8 @@ The rows below cover every top-level numbered section and each named roadmap pha
 | 28. CHAOS / FAILURE INJECTION | Verification/phase | `docs/architecture/operations-and-security.md; docs/phases/phase-16.md` | All Kafka/Redis/consumer/post-commit crash outcomes retained. |
 | 29. PROPERTY / INVARIANT TESTING | Verification | `docs/architecture/operations-and-security.md` | Property checks for bidding, retries and projection replay retained. |
 | 30. MULTI-INSTANCE TESTING | Verification/phase | `docs/architecture/operations-and-security.md; docs/phases/phase-17.md` | Multiple-process proof and no local synchronization retained. |
-| 31. SECURITY BASICS | Security | `docs/architecture/operations-and-security.md; docs/security.md` | Authentication, authorization and deployment safety remain future work; demo limitation explicit. |
-| 32. RATE LIMITING | Security | `docs/architecture/operations-and-security.md; docs/security.md` | Bounded bid rate limiting and Redis failure strategy retained for future implementation. |
+| 31. SECURITY BASICS | Security | `docs/architecture/operations-and-security.md; docs/security.md; docs/phases/phase-20.md` | Originally unscheduled; now assigned to Phase 20. Demo limitation explicit. |
+| 32. RATE LIMITING | Security | `docs/architecture/operations-and-security.md; docs/security.md; docs/phases/phase-20.md` | Originally unscheduled; bounded limiting and failure strategy now assigned to Phase 20. |
 | 33. DATABASE DESIGN | Persistence | `docs/architecture/auction-state.md` | Indexes, plan review and named hot queries retained. |
 | 34. MIGRATIONS | Persistence | `docs/architecture/auction-state.md` | Reversibility, safety and deploy-safe migration policy retained. |
 | 35. API DESIGN | API | `docs/architecture/auction-state.md; docs/api.md` | Versioned REST/error envelope; actual API contract supersedes illustrative paths. |
@@ -78,7 +80,7 @@ The rows below cover every top-level numbered section and each named roadmap pha
 | 43. RAILS DESIGN STYLE | Agent rule | `AGENTS.md` | Thin controllers and bounded Rails abstractions consolidated. |
 | 44. DATABASE AS CONCURRENCY COORDINATOR | Architecture | `docs/architecture/auction-state.md; AGENTS.md` | Database coordination across Rails instances preserved. |
 | 45. CLOCKS | Architecture | `docs/architecture/deadlines.md` | DB time, UTC, scheduler/client assumptions preserved. |
-| 46. EXPERIMENTATION | Product future | `docs/architecture/operations-and-security.md; docs/context-migration-review.md` | Lightweight bucketing/events preserved; phase/privacy placement needs review. |
+| 46. EXPERIMENTATION | Product future | `docs/architecture/operations-and-security.md; docs/context-migration-review.md; docs/phases/phase-21.md` | Originally unscheduled; Phase 21 owns a privacy-aware go/no-go decision. |
 | 47. PRODUCTION READINESS DOCUMENT | Operations | `docs/architecture/operations-and-security.md; docs/production-readiness.md` | Capacity, durability, backup, runbook and real-money gap retained. |
 | 48. RUNBOOKS | Operations | `docs/architecture/operations-and-security.md` | Six operational runbooks and required template retained for future phase work. |
 | 49. PHASED IMPLEMENTATION ROADMAP | Phase governance | `docs/phases/phase-00.md through phase-20.md; AGENTS.md` | All 21 roadmap phases split below; each leaves working repository. |
@@ -91,10 +93,10 @@ The rows below cover every top-level numbered section and each named roadmap pha
 | 56. DEFINITION OF DONE FOR EACH PHASE | Agent rule | `AGENTS.md; docs/phases/phase-00.md through phase-20.md` | Completion gate and progress evidence retained. |
 | 57. LEARNING DOCUMENT | Documentation | `docs/architecture/operations-and-security.md; docs/learning-guide.md` | Questions and required subsystem coverage retained. |
 | 58. CODE WALKTHROUGH MAP | Documentation | `docs/architecture/operations-and-security.md; docs/code-map.md` | Workflow map boundaries retained. |
-| 59. INTERVIEW PREPARATION DOCUMENT | Documentation future | `docs/architecture/operations-and-security.md; docs/phases/phase-20.md` | Interview questions preserved as end-of-project deliverable. |
+| 59. INTERVIEW PREPARATION DOCUMENT | Documentation future | `docs/architecture/operations-and-security.md; docs/phases/phase-23.md` | Interview questions preserved in current case-study phase. |
 | 60. ENGINEERING JOURNAL | Documentation | `docs/architecture/operations-and-security.md; docs/engineering-journal.md` | Substantive discovery journal retained; diary history remains reference-only. |
-| 61. FINAL SYSTEM REVIEW | Verification future | `docs/architecture/operations-and-security.md; docs/phases/phase-20.md` | Adversarial review, severity categories and critical/high fix rule retained. |
-| 62. FINAL DELIVERABLE | Roadmap | `docs/architecture/system-boundaries.md; docs/phases/phase-20.md` | Breadth preserved but secondary to correctness. |
+| 61. FINAL SYSTEM REVIEW | Verification future | `docs/architecture/operations-and-security.md; docs/phases/phase-24.md` | Adversarial review, severity categories and critical/high fix rule retained in moved polish scope. |
+| 62. FINAL DELIVERABLE | Roadmap | `docs/architecture/system-boundaries.md; docs/phases/phase-24.md` | Breadth preserved but secondary to correctness. |
 | 63. WHAT SUCCESS LOOKS LIKE | Roadmap | `docs/architecture/system-boundaries.md; docs/architecture/operations-and-security.md` | Success criteria preserved as explicit invariants/evidence and honest limitations. |
 | 64. STARTING INSTRUCTION | Historical agent instruction | `docs/archive/masterprompt-original.md; docs/context-map.md` | Phase 0 bootstrap completed; unconditional continue-to-next-phase superseded by current explicit phase boundaries and user request. |
 
@@ -122,7 +124,7 @@ The rows below cover every top-level numbered section and each named roadmap pha
 | PHASE 17 — MULTI-INSTANCE DEPLOYMENT | Phase specification | `docs/phases/phase-17.md` | Original roadmap scope preserved; detailed cross-cutting rules linked; completed state stays in handoff/progress. |
 | PHASE 18 — KUBERNETES | Phase specification | `docs/phases/phase-18.md` | Original roadmap scope preserved; detailed cross-cutting rules linked; completed state stays in handoff/progress. |
 | PHASE 19 — TERRAFORM + GCP ARCHITECTURE | Phase specification | `docs/phases/phase-19.md` | Original roadmap scope preserved; detailed cross-cutting rules linked; completed state stays in handoff/progress. |
-| PHASE 20 — FINAL ENGINEERING POLISH | Phase specification | `docs/phases/phase-20.md` | Original roadmap scope preserved; detailed cross-cutting rules linked; completed state stays in handoff/progress. |
+| PHASE 20 — FINAL ENGINEERING POLISH | Historical phase specification | `docs/phases/phase-24.md` | Original Phase 20 scope preserved in current Phase 24 after the explicit post-Phase-19 extension. |
 
 ### Superseded references and active-context reduction
 

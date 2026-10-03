@@ -6,7 +6,8 @@ identity. Anyone with API access can create identities/auctions, submit bids as 
 existing user, and invoke lifecycle actions. Do not expose it as a public service.
 
 Rails runs API-only middleware; no session or permissive CORS policy is introduced.
-Authentication, authorization, CSRF strategy, and rate limiting remain future work.
+Authentication, authorization, CSRF strategy, and rate limiting are scheduled for
+[Phase 20 — Identity & Security](phases/phase-20.md); none is implemented yet.
 The versioned API allowlists resource attributes, rejects nested/unknown fields,
 bounds lists, validates IDs/money, and returns deliberate public JSON with stable
 expected-error codes. It does not broadly rescue unexpected programming errors.
@@ -35,7 +36,7 @@ Raw keys and private payloads are not persisted in the idempotency table; keys a
 canonical requests use SHA-256 digests, and snapshots use only public API serializers.
 An unkeyed key digest permits an offline dictionary attack against low-entropy
 client keys if the idempotency table is stolen. Phase 12.5 explicitly deferred
-HMAC conversion to the security phase: retained digests are unversioned, so a
+HMAC conversion to Phase 20: retained digests are unversioned, so a
 safe rollout needs legacy lookup, key versions, shared multi-instance secrets
 and a rotation policy that preserves replays until pruning. Clients should use
 unpredictable keys. This decision does not treat SHA-256 as secret protection.

@@ -2248,3 +2248,15 @@ no payloads or keys. Phase 19 closure commit
 [GitHub Actions run 37105296963](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37105296963):
 API, web and Compose jobs succeeded. Phase 19 is complete as a near-deployable
 reference, with no paid-cloud proof claimed. Phase 20 has not started.
+
+### Roadmap governance extension — 2026-10-03
+
+After Phase 19, the roadmap was explicitly extended to schedule previously
+unassigned identity/security and operational requirements and to finish as a
+Catawiki-aligned engineering case study. The original master roadmap covered
+Phases 0–20 and ended in Phase 20 — Final Engineering Polish. The current
+sequence is Phase 20 — Identity & Security; Phase 21 — Marketplace Trust &
+Auction Policy; Phase 22 — Durability, Release & Operations; Phase 23 — Catawiki
+Case Study & Demo; and Phase 24 — Final Engineering Polish. The original polish
+scope is preserved in Phase 24, the final phase. This entry records governance,
+not product implementation. Phase 20 has not started.

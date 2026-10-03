@@ -6,15 +6,17 @@ auction can queue requests and exhaust connection capacity. Phase 14 measured
 short local Compose workloads, but established no production throughput or
 capacity target. Long outer transactions retain locks longer.
 
-There is no authentication, authorization,
-rate limiting, production backup/restore procedure, production deployment or
-production-grade operating program. Local runbooks cover specific failures.
+There is no authentication, authorization or rate limiting; these are assigned
+to [Phase 20](phases/phase-20.md). No production backup/restore procedure,
+production deployment or production-grade operating program exists; durability,
+release and operating policy are assigned to [Phase 22](phases/phase-22.md).
+Local runbooks cover specific failures.
 Production Rails boot requires an explicit `API_ALLOWED_HOSTS` allowlist, but
 host filtering does not make the unauthenticated demo API safe to expose.
 The API has no pre-parse request-body byte cap; its JSON parser can consume
 resources before controller validation. A future public ingress must enforce a
 streaming body-size limit and test chunked requests before accepting untrusted
-traffic. Phase 12.5 leaves this at the deployment/security boundary because
+traffic. Phase 12.5 deferred this to Phase 20 because
 there is no production ingress or authenticated public deployment yet. The
 repository's Puma and Next rewrite configuration set no explicit request-body
 limit; no effective framework or proxy limit has been verified.
@@ -134,9 +136,10 @@ documented in the [observability contract](observability.md) and
 changing an auction outcome. A trace, dashboard panel or empty failure counter
 does not prove business correctness or absence of failures.
 
-This is still an unauthenticated local demo. Public ingress hardening, backups
-and restores, high availability, production capacity measurements, SLOs, alerts,
-disaster recovery and Kubernetes deployment remain unverified or future work.
+This is still an unauthenticated local demo. Phase 20 owns public ingress and
+identity hardening; Phase 22 owns backup/restore, disaster recovery, SLOs and
+alerts. High availability and production capacity remain unverified. Phase 18
+verified local kind orchestration, not production Kubernetes deployment.
 The Ruby OpenTelemetry metrics SDK is alpha. Local outage exercises do not
 establish performance or queue saturation behavior.
 
