@@ -303,7 +303,7 @@ All paths in this section begin under `apps/web` unless otherwise noted.
 - Unit/component tests: lib/money.test.ts, lib/api/client.test.ts,
   lib/intentions.test.ts; components/auction/{commands,reads,presentation}.test.tsx.
 - Real API browser tests: `e2e/auctions.spec.ts`, `playwright.config.ts`; real browsing,
-  actor selection, manual/max, stale rejection, commit-then-drop-response/reload/retry,
+  login, manual/max, stale rejection, commit-then-drop-response/re-login/retry,
   countdown/closure and 390/768/1440 screenshots with long titles/large amounts.
 - Commands: `npm test`, lint, format:check, typecheck, build, test:e2e. CI's Compose
   job starts real Rails/PostgreSQL/closer and runs the browser scenarios.
@@ -592,3 +592,18 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
   against the rendered overlay and Terraform KSA lists. The
   [final report](cloud/phase-19-final.md) separates local/static proof from
   live-cloud prerequisites; no cloud resources have been created.
+
+## Phase 20 final integration clients
+
+- `apps/api/script/authenticated_smoke.rb` is the development-only HTTP helper
+  for login, cookie/CSRF persistence and explicit-key authenticated requests.
+  `scripts/smoke-*`, `apps/api/script/phase17_session1.rb` and
+  `apps/api/script/phase20_final_replicas.rb` exercise the actual Rails transport;
+  the final replica script checks A/B authentication, revocation, replay and
+  competing bid serialization. `phase20_limiter_replicas.rb` checks shared Redis
+  login quota across the two replicas.
+- `apps/web/e2e/auth.ts` prepares real browser/API sessions. The auctions,
+  realtime and security Playwright specs cover the Next rewrite, browser cookie,
+  CSRF command, Cable, logout and same-user retry. `docker-compose.yml` leaves
+  `NEXT_PUBLIC_CABLE_URL` empty locally so the client uses the browser host
+  for host-only cookies on port 3001.

@@ -1,9 +1,9 @@
 # Security
 
-Phase 20 Sessions 1–2 add first-party login, revocable PostgreSQL-backed sessions,
+Phase 20 adds first-party login, revocable PostgreSQL-backed sessions,
 CSRF headers, authenticated command identity, seller ownership, operator lifecycle
 permissions and authenticated Action Cable handshakes. See [ADR-016](adr/016-first-party-identity-and-sessions.md),
-the [Session 1 report](security/phase-20-session-1.md) and [Session 2 report](security/phase-20-session-2.md). `bidder_id` is rejected
+the [final review](security/phase-20-final.md), [Session 1 report](security/phase-20-session-1.md) and [Session 2 report](security/phase-20-session-2.md). `bidder_id` is rejected
 on HTTP commands. Public user creation is removed. The API remains a local
 development system, not a public service.
 
@@ -58,6 +58,10 @@ development/test alone use a fixed local-only key. See
 [ADR-017](adr/017-versioned-keyed-idempotency-digests.md). Clients should still
 use unpredictable keys. Legacy SHA rows retain their offline-guessing exposure
 until pruning.
+For initial rollout, distribute the same Rails secret and HMAC keyring to every
+replica, drain old executors that lack the advisory lock, migrate, then allow
+new HMAC writes. Mixed old/new writers are unsupported. During later rotation,
+retain each previous key until its rows are physically pruned.
 Fingerprints are not encryption or protection against an operator reading the
 plaintext database. Opaque keys should be sufficiently unique; do not encode secrets
 in them. Never reinterpret actor scope or expose retained records as a public list.

@@ -160,10 +160,11 @@ also covers chunked bodies; local nginx applies the same bound.
 
 ## Live demonstration status
 
-The pre-Phase-20 `scripts/smoke-*` clients create users and send `bidder_id`.
-They need conversion to authenticated sessions and CSRF headers before serving
-as current API smoke checks. Session 1 request specs exercise the new contract
-against PostgreSQL; the original scripts remain historical until adapted.
+Current `scripts/smoke-*` clients use seeded local identities, real login cookies
+and CSRF headers. They keep an explicit `Idempotency-Key` with the same payload
+for every intentional retry. Run them only against a local development stack;
+the application and browser regression evidence is in the
+[Phase 20 final review](security/phase-20-final.md).
 
 
 For simultaneous HTTP verification, run `./scripts/smoke-concurrent-bids`. It starts
@@ -300,9 +301,10 @@ same key may execute as a new command. Clients must not assume indefinite protec
 An identical maximum with a **different** key is a new command and may be a domain
 no-op; its response is not marked replayed.
 
-Pre-Phase-20 smoke scripts generated a new key per distinct bidding command;
-`scripts/smoke-idempotency` reused keys intentionally across two independent API
-URLs. These scripts are pending authenticated-client updates.
+The current smoke scripts generate a new key per distinct bidding intention;
+`scripts/smoke-idempotency` intentionally reuses the same key and payload across
+two authenticated API replicas to prove historical replay. See
+[running locally](running-locally.md) for the current Compose invocation.
 
 ## Phase 6 presentation metadata
 

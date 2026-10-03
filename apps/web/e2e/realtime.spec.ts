@@ -7,43 +7,55 @@ import {
   type WebSocketRoute,
 } from "@playwright/test";
 import { execFileSync } from "node:child_process";
+import { authenticatePage, loginApi, type AuthApi } from "./auth";
+
+let operator: AuthApi;
+let alice: AuthApi;
+let bob: AuthApi;
+test.beforeAll(async ({ baseURL }) => {
+  test.setTimeout(180000);
+  const url = baseURL ?? "http://127.0.0.1:3000";
+  operator = await loginApi(url, "demo-operator");
+  alice = await loginApi(url, "demo-alice");
+  bob = await loginApi(url, "demo-bob");
+});
+test.afterAll(async () => {
+  await Promise.all(
+    [operator, alice, bob].filter(Boolean).map((api) => api.context.dispose()),
+  );
+});
 
 // Real Rails/PostgreSQL only. Labelled local demo records are retained.
-async function auction(request: APIRequestContext, seconds = 7200) {
+async function auction(api: AuthApi, seconds = 7200) {
   const now = Date.now();
-  const response = await request.post("/api/v1/auctions", {
-    data: {
-      auction: {
-        title: `Realtime study ${now}`,
-        description:
-          "Two connected clients observing authoritative public state.",
-        starting_price: 10000,
-        minimum_increment: 1000,
-        starts_at: new Date(now - 60000).toISOString(),
-        ends_at: new Date(now + seconds * 1000).toISOString(),
-      },
+  const response = await api.post("/api/v1/auctions", {
+    auction: {
+      title: `Realtime study ${now}`,
+      description:
+        "Two connected clients observing authoritative public state.",
+      starting_price: 10000,
+      minimum_increment: 1000,
+      starts_at: new Date(now - 60000).toISOString(),
+      ends_at: new Date(now + seconds * 1000).toISOString(),
     },
   });
   expect(response.status()).toBe(201);
   const id = (await response.json()).data.id;
   for (const action of ["schedule", "activate"])
-    expect(
-      (await request.post(`/api/v1/auctions/${id}/${action}`)).status(),
-    ).toBe(200);
+    expect((await api.post(`/api/v1/auctions/${id}/${action}`)).status()).toBe(
+      200,
+    );
   return id as number;
 }
 async function client(
   browser: Browser,
   baseURL: string,
   id: number,
-  actor: number,
+  api: AuthApi,
 ) {
   const context = await browser.newContext({ baseURL });
-  await context.addInitScript(
-    (id) => localStorage.setItem("hammerfall.actor", String(id)),
-    actor,
-  );
   const page = await context.newPage();
+  await authenticatePage(page, api);
   return {
     context,
     page,
@@ -69,20 +81,14 @@ test("two clients observe proxy settlement; reconnect recovers a missed commit a
   request,
   baseURL,
 }) => {
-  const users = (await (await request.get("/api/v1/users")).json()).data;
-  const id = await auction(request);
+  const id = await auction(operator);
   const a = await client(
     browser,
     baseURL ?? "http://127.0.0.1:3000",
     id,
-    users[0].id,
+    alice,
   );
-  const b = await client(
-    browser,
-    baseURL ?? "http://127.0.0.1:3000",
-    id,
-    users[1].id,
-  );
+  const b = await client(browser, baseURL ?? "http://127.0.0.1:3000", id, bob);
   let block = false;
   let route: WebSocketRoute | undefined;
   let server: WebSocketRoute | undefined;
@@ -124,7 +130,7 @@ test("two clients observe proxy settlement; reconnect recovers a missed commit a
       await expect(page.locator("tbody tr")).toHaveCount(3);
       await expect(page.locator("body")).not.toContainText("€300.00");
     }
-    expect((await state(request, id)).current_leader_id).toBe(users[0].id);
+    expect((await state(request, id)).current_leader_id).toBe(alice.id);
     block = true;
     await route?.close();
     await server?.close();
@@ -136,10 +142,11 @@ test("two clients observe proxy settlement; reconnect recovers a missed commit a
         .getByRole("button", { name: "Place bid", exact: true })
         .isEnabled(),
     ).toBe(true);
-    const missed = await request.post(`/api/v1/auctions/${id}/bids`, {
-      headers: { "Idempotency-Key": crypto.randomUUID() },
-      data: { bid: { bidder_id: users[0].id, amount: 45000 } },
-    });
+    const missed = await alice.post(
+      `/api/v1/auctions/${id}/bids`,
+      { bid: { amount: 45000 } },
+      crypto.randomUUID(),
+    );
     expect(missed.status()).toBe(201);
     await expect(a.page.locator(".hero-price")).toHaveText("€450.00");
     expect(await b.page.locator(".hero-price").textContent()).toBe("€210.00");
@@ -170,13 +177,12 @@ test("REST recovers a bid while notification workers are stopped; a later hint r
     "Local Compose fault injection is opt-in",
   );
   test.setTimeout(120000);
-  const users = (await (await request.get("/api/v1/users")).json()).data;
-  const id = await auction(request);
+  const id = await auction(operator);
   const observer = await client(
     browser,
     baseURL ?? "http://127.0.0.1:3000",
     id,
-    users[1].id,
+    bob,
   );
   const hints: number[] = [];
   let reads = 0;
@@ -204,15 +210,16 @@ test("REST recovers a bid while notification workers are stopped; a later hint r
     stopped = true;
     execFileSync("docker", ["compose", "stop", "sidekiq", "outbox-publisher"]);
     const before = await state(request, id);
-    const first = await request.post(`/api/v1/auctions/${id}/bids`, {
-      headers: { "Idempotency-Key": crypto.randomUUID() },
-      data: { bid: { bidder_id: users[0].id, amount: 10000 } },
-    });
+    const first = await alice.post(
+      `/api/v1/auctions/${id}/bids`,
+      { bid: { amount: 10000 } },
+      crypto.randomUUID(),
+    );
     expect(first.status()).toBe(201);
     const committed = await state(request, id);
     expect(committed.public_revision).toBe(before.public_revision + 1);
     expect(committed.current_price).toBe(10000);
-    expect(committed.current_leader_id).toBe(users[0].id);
+    expect(committed.current_leader_id).toBe(alice.id);
     expect(hints).not.toContain(committed.public_revision);
     await expect(observer.page.locator(".hero-price")).toHaveText("€100.00");
     expect(await observer.page.locator("tbody tr").count()).toBe(0);
@@ -223,20 +230,23 @@ test("REST recovers a bid while notification workers are stopped; a later hint r
     await expect(observer.page.locator("tbody tr")).toHaveCount(1);
     expect(reads).toBeGreaterThan(readsBeforeRecovery);
     await expect(
-      observer.page.getByText(`Current leader · ${users[0].name}`),
+      observer.page.getByText(
+        new RegExp(`Current leader · (Demo Alice|Bidder #${alice.id})`),
+      ),
     ).toBeVisible();
     execFileSync("docker", ["compose", "start", "sidekiq", "outbox-publisher"]);
     stopped = false;
-    const second = await request.post(`/api/v1/auctions/${id}/bids`, {
-      headers: { "Idempotency-Key": crypto.randomUUID() },
-      data: { bid: { bidder_id: users[1].id, amount: 20000 } },
-    });
+    const second = await bob.post(
+      `/api/v1/auctions/${id}/bids`,
+      { bid: { amount: 20000 } },
+      crypto.randomUUID(),
+    );
     expect(second.status()).toBe(201);
     const final = await state(request, id);
     await expect.poll(() => hints).toContain(final.public_revision);
     await expect(observer.page.locator(".hero-price")).toHaveText("€200.00");
     await expect(observer.page.locator("tbody tr")).toHaveCount(2);
-    expect(final.current_leader_id).toBe(users[1].id);
+    expect(final.current_leader_id).toBe(bob.id);
     expect(
       (await (await request.get(`/api/v1/auctions/${id}/bids`)).json()).data,
     ).toHaveLength(2);
@@ -263,20 +273,14 @@ test("another client adopts a soft-close deadline from REST without adding local
   request,
   baseURL,
 }) => {
-  const users = (await (await request.get("/api/v1/users")).json()).data;
-  const id = await auction(request, 30);
+  const id = await auction(operator, 30);
   const a = await client(
     browser,
     baseURL ?? "http://127.0.0.1:3000",
     id,
-    users[0].id,
+    alice,
   );
-  const b = await client(
-    browser,
-    baseURL ?? "http://127.0.0.1:3000",
-    id,
-    users[1].id,
-  );
+  const b = await client(browser, baseURL ?? "http://127.0.0.1:3000", id, bob);
   try {
     await Promise.all([a.open(), b.open()]);
     const before = await state(request, id);
@@ -303,23 +307,19 @@ test("autonomous closer publishes the final winner to connected clients", async 
   request,
   baseURL,
 }) => {
-  test.setTimeout(95000);
-  const users = (await (await request.get("/api/v1/users")).json()).data;
-  const id = await auction(request, 70);
+  test.setTimeout(240000);
+  // Leave room for a definite 429 admission retry during fixture setup.
+  const id = await auction(operator, 150);
   // Establish a winner while safely outside the 60-second extension window.
-  const accepted = await request.post(`/api/v1/auctions/${id}/bids`, {
-    headers: { "Idempotency-Key": crypto.randomUUID() },
-    data: { bid: { bidder_id: users[0].id, amount: 10000 } },
-  });
+  const accepted = await alice.post(
+    `/api/v1/auctions/${id}/bids`,
+    { bid: { amount: 10000 } },
+    crypto.randomUUID(),
+  );
   expect(accepted.status()).toBe(201);
   const before = await state(request, id);
   expect(before.ends_at).toBe(before.original_ends_at);
-  const b = await client(
-    browser,
-    baseURL ?? "http://127.0.0.1:3000",
-    id,
-    users[1].id,
-  );
+  const b = await client(browser, baseURL ?? "http://127.0.0.1:3000", id, bob);
   const notified: number[] = [];
   b.page.on("websocket", (socket) => {
     if (new URL(socket.url()).pathname !== "/cable") return;
@@ -331,8 +331,10 @@ test("autonomous closer publishes the final winner to connected clients", async 
   });
   try {
     await b.open();
-    await expect(b.page.getByText(`Winner · ${users[0].name}`)).toBeVisible({
-      timeout: 85000,
+    await expect(
+      b.page.getByText(new RegExp(`Winner · (Demo Alice|Bidder #${alice.id})`)),
+    ).toBeVisible({
+      timeout: 220000,
     });
     await expect(
       b.page.getByRole("button", { name: "Place bid", exact: true }),

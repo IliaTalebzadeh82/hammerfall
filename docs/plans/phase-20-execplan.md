@@ -1,14 +1,14 @@
 # Phase 20 ExecPlan — Identity & Security
 
-Status: Active Phase 20; Sessions 1 and 2 checkpointed. Phase 20 is not complete; Phase 21 has not started.
-Current milestone: Session 2 security control architecture and focused live proof complete; Session 3 final gate remains.
+Status: Session 3 local final gate passed; closure requires successful exact-SHA hosted CI. Sessions 1 and 2 are checkpointed; Phase 21 has not started.
+Current milestone: Documentation and final diff reviewed; commit, push and hosted CI verification remain.
 Completed: Session 1 identity foundation (below); Session 2 real Next rewrite cookie/CSRF/Cable and two-replica identity/replay proof; Redis-backed endpoint-class rate limits with explicit outage policy; 32 KiB early body bound; versioned HMAC idempotency digests with legacy/rotation lookup; bounded security events; post-handshake Cable public-hint policy; narrowed public user listing; Compose development secret sharing. See [Session 2 report](../security/phase-20-session-2.md).
-Verified: Session 1 evidence below; Session 2 focused PostgreSQL specs, live A/B and browser/Redis-outage/body proofs, frontend suite/build, Ruby/TS lint, Brakeman, advisory audit and Zeitwerk (Evidence Index). Final backend full-suite result is recorded below.
-Remaining: Session 3 must adapt legacy smoke/Playwright clients; run full Compose/browser/hosted CI gates and final multi-instance regression; reconcile final docs/progress and declare Phase 20 complete only after those pass.
-Known failures/limitations: Legacy `scripts/smoke-*` and Playwright clients still use removed user creation/actor selection. Established Cable sockets may continue receiving public hints after revocation until disconnect. Local fallback limiter quota during Redis outage is per process. GKE Gateway body buffering and live cloud secret distribution are unverified; Terraform binary was unavailable locally. No paid cloud work.
+Verified: Session 1/2 evidence below. Session 3 rebuilt Compose, migrated smoke/browser/Phase 17 A/B clients, passed full backend/frontend/browser and supplemental worker-outage gates, direct replica/session/replay/concurrency, Redis outage/limiter/body checks, static audits and 29-resource cloud overlay validation. See [final report](../security/phase-20-final.md) and new Evidence Index rows.
+Remaining: Commit and push, then verify hosted CI on the exact closure SHA. Do not declare completion until CI passes.
+Known failures/limitations: Established Cable sockets may continue receiving public hints after revocation until disconnect. Local fallback limiter quota during Redis outage is per process. GKE Gateway body buffering and live cloud secret distribution are unverified; Terraform binary was unavailable locally. Historical Phase 16/17 chaos/load tooling outside the current smoke/CI gate still uses the retired actor API. No paid cloud work.
 Relevant files: `apps/api/app/controllers/api/v1/`, `app/services/rate_limit_store.rb`, `app/services/idempotency/`, `lib/request_body_limit.rb`, `app/channels/`, `apps/web/src/lib/api/client.ts`, `docker-compose.yml`, cloud overlay and Terraform secret metadata.
 Relevant ADRs: [ADR-016](../adr/016-first-party-identity-and-sessions.md), [ADR-017](../adr/017-versioned-keyed-idempotency-digests.md), [ADR-006](../adr/006-client-command-idempotency.md), [ADR-007](../adr/007-browser-command-intentions.md).
-Next-session starting point: Read this plan, [the Session 2 report](../security/phase-20-session-2.md), [latest handoff](../handoffs/latest.md) and [Phase 20 spec](../phases/phase-20.md). Adapt legacy transport clients, then run Session 3 final gates. Use isolated Redis DB 15 and `RAILS_MAX_THREADS=15` for ten-worker concurrency specs. Do not start Phase 21.
+Closure condition: the GitHub Actions `CI` workflow must pass with `head_sha` equal to the commit containing the final report. The exact immutable SHA and run ID are recorded in the final response because a commit cannot contain its own hash or a future run ID. Do not start Phase 21.
 
 ## Decisions
 
@@ -21,7 +21,7 @@ Next-session starting point: Read this plan, [the Session 2 report](../security/
 - ADOPT: Versioned HMAC digests, legacy SHA lookup and a transaction advisory lock for logical-key ownership. Drain old executors before new writes; keep all key IDs until their rows are physically pruned. See ADR-017.
 - ADOPT: Existing Cable sockets can receive only public hints after logout/expiry; new handshakes/subscriptions check live session. Narrow public users to bidders with public bids.
 - REJECT: Process-local cache as the normal distributed limiter and blind fail-open login on Redis loss.
-- DEFER: Legacy smoke/Playwright migration and full hosted/Compose final gate to Session 3.
+- DONE: Legacy smoke, Playwright and Phase 17 CI A/B clients migrated; full local Compose/browser gate passed in Session 3. Hosted CI remains.
 - NEEDS EVIDENCE: GKE Gateway prebuffer request size and live cloud secret rollout; no cloud apply authorized or performed. Session 3 should validate static Terraform when a binary is available.
 
 ## Work tracks
@@ -43,7 +43,7 @@ Session 1 touched migration/schema/User/UserSession, session/auction/bid control
 | Frontend | `npm run typecheck && npm run lint && npm run format:check && npm test -- --reporter=dot && npm run build` | All passed; 75 tests, 0 failures; Next production build passed | Command output |
 | Ruby lint/load | `bundle exec rubocop`, `bundle exec rails zeitwerk:check` | 146 files, 0 offenses; eager load passed | Command output |
 | Security static/audit | `bundle exec brakeman -q -w2`; `bundle exec bundler-audit check --update` | 0 Brakeman warnings; 0 known gem advisories | Command output; advisory DB 2026-10-02 |
-| Compose/browser/hosted CI | Pending Session 3 | Unrun for new contract | Legacy clients require adaptation |
+| Session 2 Compose/browser/hosted CI | Deferred to Session 3 | Unrun at Session 2 checkpoint | Legacy clients required adaptation then |
 | Session 2 browser rewrite | Chrome/Playwright via `http://localhost:3000` and Next rewrite | Anonymous bid 401; login 201; cross-replica session 200; CSRF bid 201; Cable welcome/subscribed; logout 204; subsequent session 401 and reconnect rejected | [Session 2 report](../security/phase-20-session-2.md) |
 | Two-replica identity/replay | Direct A/B script `/tmp/phase20_replicas.cjs` | Login A; session B same actor; bid A 201; same-key replay B 201 same bid ID; logout B; session A 401 | Local Compose, Session 2 report |
 | Shared limiter | Alternating direct replica wrong-login requests | Ten 401 then eleventh 429 across A/B; Retry-After 60 | Session 2 report |
@@ -57,3 +57,12 @@ Session 1 touched migration/schema/User/UserSession, session/auction/bid control
 | Session 2 frontend | `npm test -- --reporter=dot`; types/lint/format/build | 76 tests, 0 failures; all static/build checks passed | Command output |
 | Session 2 static/security | RuboCop, Zeitwerk, Brakeman, bundler-audit | 159 files/0 offenses; eager load passed; 0 Brakeman warnings; 0 known gem vulnerabilities | Command output |
 | Cloud overlay | GKE static overlay validation | 29 resources rendered; no live cloud or Terraform binary | Session 2 report |
+| Session 3 Compose rebuild | `docker compose down`, regenerate only `api_tmp`, `docker compose up --build --force-recreate --wait` | Expected services healthy/running; bcrypt present; migrations current; four demo identities; A/B secret fingerprints equal | `/tmp/phase20-compose-rebuild.log` and final report |
+| Session 3 application smoke | Authenticated sequential/concurrent/proxy/Kafka/idempotency/closing scripts | All passed, including ten-way same-key races and stale closer locks | `/tmp/phase20-smoke-*.log`; final report |
+| Session 3 A/B | `script/phase17_session1.rb`, `script/phase20_final_replicas.rb` | Cross-replica sequential, concurrent, proxy, same-key replay, session, logout and revocation passed | `/tmp/phase20-cross-replica.log`, `/tmp/phase20-final-replicas.log` |
+| Session 3 browser | Real Chrome/Playwright full suite plus opt-in worker outage | Full suite 8 passed, 1 opt-in skipped; worker-outage case separately passed | `/tmp/phase20-final-browser2.log`, `/tmp/phase20-browser-worker-outage.log` |
+| Session 3 backend/full and focused | isolated Redis DB 15, pool 15 | 494 examples/0 failures/4 pending, seed 28252; focused 29/0 seed 11889 | `/tmp/phase20-final-rspec.log`, `/tmp/phase20-final-focused-security.log` |
+| Session 3 frontend/static | Vitest, type/lint/format/build; RuboCop/Zeitwerk/Brakeman/audit | 76 frontend tests; all checks passed; Ruby 162 files/0 offenses, 0 Brakeman warnings, 0 known advisories | `/tmp/phase20-final-web-*.log`, `/tmp/phase20-final-{rubocop,zeitwerk,brakeman,audit}.log` |
+| Session 3 degraded/edge | Live shared A/B quota, Redis stop/start, Next 33,052-byte body | 401×5 then 429 A/B; login 503, existing bid 201, new Cable unavailable, Redis recovered; edge 413 | `/tmp/phase20-final-{limiter,redis-outage,cable-outage}.log`; final report |
+| Session 3 cloud static | `kubectl kustomize`, `render.py`, `validate.rb` | 29 resources validated; Terraform unavailable; no cloud apply | `/tmp/phase20-k8s-*.yaml`, `/tmp/phase20-gcp-rendered.yaml` |
+| Closure CI | Exact closure SHA GitHub Actions | Pending push | Final report/response after hosted verification |

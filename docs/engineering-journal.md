@@ -810,3 +810,23 @@ passed the focused concurrency spec and the full suite. The frontend recovery
 test also raced session loading; waiting for the signed-in state removed the
 flaky click without changing retry behavior. The [Session 2 report](security/phase-20-session-2.md)
 records the control behavior and proof limits.
+
+## 2026-10-04 — Phase 20 final integration
+
+Migrating the old smoke clients exposed the practical effect of the new
+security boundary: every mutating request needs an authenticated actor and
+CSRF, while a retry must retain its original key and payload. Reusable local
+clients made that explicit. The browser suite initially lost Cable admission
+because it browsed `127.0.0.1` while Compose hardcoded a `localhost` socket.
+A handshake capture showed no Cookie header on that socket even though session
+GET succeeded. Deriving the local Cable URL from the browser host repaired the
+same-origin identity path; the full browser and worker-outage scenarios passed.
+
+The final application proof used a regenerated shared development Rails secret,
+real A/B replicas, PostgreSQL, Redis and Kafka. When a limiter window delayed a
+fixture, a 70-second closer test entered the soft-close window before its first
+bid. Giving that test a longer real deadline preserved the intended closer
+behavior without bypassing authentication or time authority. A ten-worker
+idempotency script similarly keeps each race intact while allowing Redis
+admission windows to reset between independent scenarios. The final report
+records the exact local evidence and cloud/operational limits.

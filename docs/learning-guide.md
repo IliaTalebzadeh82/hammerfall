@@ -13,7 +13,7 @@ An owner/operator policy guards lifecycle routes, and the auction row lock
 guards seller self-bidding. Cable resolves the same session at handshake and
 subscription. See [ADR-016](adr/016-first-party-identity-and-sessions.md),
 [Session 1 report](security/phase-20-session-1.md) and the focused identity
-request/channel specs. Session 2 still needs rate limits, body bounds, HMAC
+request/channel specs. Session 2 then added rate limits, body bounds, HMAC
 idempotency digests and deeper multi-instance/expiry evidence. Earlier sections
 describe their original phase state where they mention demo actor selection.
 
@@ -1078,3 +1078,19 @@ rows and previous HMAC keys remain readable. A PostgreSQL advisory lock
 coordinates logical-key claims across digest versions before auction locking.
 See [ADR-017](adr/017-versioned-keyed-idempotency-digests.md) and the
 [Session 2 evidence](security/phase-20-session-2.md).
+
+## Phase 20 final integration lesson
+
+A host-only cookie is scoped to a hostname, even when two local ports share
+one machine. The browser could authenticate HTTP at `127.0.0.1:3000` while a
+hardcoded `localhost:3001` Cable URL silently omitted that cookie. The local
+Cable default now derives the browser host; the full real browser suite then
+proved HTTP, CSRF and Cable together. Keep tests on the production-facing
+transport and inspect actual WebSocket handshakes when HTTP succeeds but Cable
+admission fails.
+
+An abuse quota is a pre-command admission rule. Multi-scenario integration
+clients must honor 429 `Retry-After` without changing the intended key/payload;
+shortening or mocking the concurrent database race would hide the correctness
+property. The final ten-worker idempotency smoke keeps real contention in
+separate limiter windows. See the [final review](security/phase-20-final.md).

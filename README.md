@@ -5,8 +5,11 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Completed through Phase 19; Phase 20 Identity & Security Session 1 is in progress.**
-Phase 18 verified local Kubernetes orchestration, and Phase 19 added a
+**Completed through Phase 20; Phase 21 has not started.**
+Phase 20 adds authenticated first-party identities, authorization, seller self-bid
+protection, bounded request and rate controls, versioned keyed idempotency digests,
+authenticated realtime admission and verified multi-instance behavior while retaining
+PostgreSQL auction authority. Phase 18 verified local Kubernetes orchestration, and Phase 19 added a
 default-disabled Terraform/GCP reference without cloud deployment. See
 [local Kubernetes setup](k8s/README.md) and the [latest handoff](docs/handoffs/latest.md)
 for their scope and limits.
@@ -34,10 +37,10 @@ boundary logs. Telemetry loss does not decide auction outcomes. See the
 [runbook](docs/runbooks/observability.md) for signal limits and local inspection.
 [ADR-010](docs/adr/010-transactional-public-outbox.md) and
 [ADR-011](docs/adr/011-kafka-domain-events.md) document the retained publisher
-row locks across external delivery and their unmeasured scaling cost. The
-API has an initial first-party identity boundary but no configured pre-parse body-size
-limit; [security](docs/security.md) describes the risk of weak client keys
-stored as unkeyed digests. It is not a public production service.
+row locks across external delivery and their unmeasured scaling cost. The API
+has a 32 KiB pre-parse body guard and versioned HMAC digests for new idempotency
+claims; [security](docs/security.md) describes the guarantees and accepted limits.
+It is not a public production service.
 [Realtime](docs/realtime.md) documents the remaining delivery limits. Start future work with
 [AGENTS.md](AGENTS.md), the [latest handoff](docs/handoffs/latest.md), the relevant
 [phase specification](docs/phases/), and the [context map](docs/context-map.md).
@@ -83,8 +86,8 @@ the hot-auction bottleneck. Next.js presents public GET state and never optimist
 See [frontend](docs/frontend.md), [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
 [ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
 
-The remaining Phase 20 work includes rate limiting, body bounds and idempotency
-digest hardening. See [API usage](docs/api.md) and
+Phase 20's boundary and evidence are in the [final review](docs/security/phase-20-final.md).
+See [API usage](docs/api.md) and
 [ADR-002](docs/adr/002-core-auction-state.md) for the domain choices.
 
 ## Verification and learning

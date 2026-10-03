@@ -1,12 +1,12 @@
 #!/usr/bin/env ruby
 # Development-only multi-process correctness demonstration; retains labelled rows.
 # Run with Compose closer stopped so delayed/stale discovery order is controlled.
-require_relative "../apps/api/config/environment"
+require(File.exist?("./config/environment.rb") ? "./config/environment" : File.expand_path("../apps/api/config/environment", __dir__))
 require "json"
 require "securerandom"
-require "net/http"
 require "open3"
 require "timeout"
+require(File.exist?("./script/authenticated_smoke.rb") ? "./script/authenticated_smoke" : File.expand_path("../apps/api/script/authenticated_smoke", __dir__)) unless ENV["CLOSING_SMOKE_CHILD"]
 $stdout.sync = true
 abort "Closing smoke requires development" unless Rails.env.development?
 
@@ -25,16 +25,15 @@ end
 bases = ENV.fetch("API_BASE_URLS", "http://127.0.0.1:3001,http://127.0.0.1:3002").split(",")
 abort "Supply at least two independent Rails API URLs" unless bases.uniq.size >= 2
 children = []
-request = lambda do |index, method, path, body, expected|
-  uri = URI.join(bases[index % bases.length], path)
-  klass = { post: Net::HTTP::Post, put: Net::HTTP::Put }.fetch(method)
-  req = klass.new(uri)
-  req["Idempotency-Key"] = SecureRandom.uuid if method != :get && path.match?(%r{/(?:bids|maximum-bid)\z})
-  req["Content-Type"] = "application/json"
-  req.body = JSON.generate(body)
-  response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 10) { |http| http.request(req) }
-  raise "Expected #{expected}, got #{response.code}: #{response.body}" unless response.code.to_i == expected
-  JSON.parse(response.body)
+clients = {
+  "demo-alice" => AuthenticatedSmoke.new(base: bases.first, login: "demo-alice"),
+  "demo-bob" => AuthenticatedSmoke.new(base: bases.first, login: "demo-bob")
+}
+request = lambda do |index, client, method, path, body, expected|
+  result = client.request(method, path, body: body, key: SecureRandom.uuid,
+    base: bases[index % bases.length])
+  raise "Expected #{expected}, got #{result[:status]}: #{result[:raw]}" unless result[:status] == expected
+  result[:body]
 end
 make = lambda do |label, seconds = 3600|
   now = AuctionClock.now
@@ -74,20 +73,20 @@ finish = lambda do |child|
   raise "Closer failed: #{child.fetch(:error).read}" unless status.success?
   result
 end
-alice = User.create!(name: "Phase 4 smoke Alice")
-bob = User.create!(name: "Phase 4 smoke Bob")
+alice = User.find_by!(login: "demo-alice")
+bob = User.find_by!(login: "demo-bob")
 
 begin
   a = make.call("A late manual", 30)
   original = a.ends_at
-  request.call(0, :post, "/api/v1/auctions/#{a.id}/bids", { bid: { bidder_id: alice.id, amount: 10_000 } }, 201)
+  request.call(0, clients.fetch("demo-alice"), :post, "/api/v1/auctions/#{a.id}/bids", { bid: { amount: 10_000 } }, 201)
   raise "A extension" unless a.reload.ends_at == original + 90 && a.original_ends_at == original
   puts "A auction=#{a.id} extension=90 leader=#{a.current_leader_id}"
 
   b = make.call("B proxy contest")
-  request.call(0, :put, "/api/v1/auctions/#{b.id}/maximum-bid", { maximum_bid: { bidder_id: alice.id, maximum_amount: 30_000 } }, 200)
+  request.call(0, clients.fetch("demo-alice"), :put, "/api/v1/auctions/#{b.id}/maximum-bid", { maximum_bid: { maximum_amount: 30_000 } }, 200)
   original = fixture_end.call(b, 30)
-  request.call(1, :post, "/api/v1/auctions/#{b.id}/bids", { bid: { bidder_id: bob.id, amount: 20_000 } }, 201)
+  request.call(1, clients.fetch("demo-bob"), :post, "/api/v1/auctions/#{b.id}/bids", { bid: { amount: 20_000 } }, 201)
   raise "B contest" unless b.reload.ends_at == original + 90 && b.bids.order(:sequence).pluck(:amount) == [ 10_000, 20_000, 21_000 ]
   puts "B auction=#{b.id} extension=90 history=10000,20000,21000 leader=#{b.current_leader_id}"
 
@@ -113,7 +112,7 @@ begin
   ApplicationRecord.transaction do
     d.close!
     response_thread = Thread.new do
-      request.call(1, :post, "/api/v1/auctions/#{d.id}/bids", { bid: { bidder_id: bob.id, amount: 12_000 } }, 422)
+      request.call(1, clients.fetch("demo-bob"), :post, "/api/v1/auctions/#{d.id}/bids", { bid: { amount: 12_000 } }, 422)
     end
     # Observe the actual API database session blocked by this process's closer.
     ApplicationRecord.connection_pool.with_connection do |connection|
@@ -141,7 +140,7 @@ begin
   deadline = f.ends_at
   wait_until.call(deadline)
   raise "F requires autonomous closer stopped" unless f.reload.status == "active"
-  response = request.call(0, :post, "/api/v1/auctions/#{f.id}/bids", { bid: { bidder_id: bob.id, amount: 10_000 } }, 422)
+  response = request.call(0, clients.fetch("demo-bob"), :post, "/api/v1/auctions/#{f.id}/bids", { bid: { amount: 10_000 } }, 422)
   raise "F accepted expired active auction" unless response.dig("error", "code") == "auction_ended" && f.reload.status == "active" && f.bids.empty?
   f.close!
   raise "F finalization" unless f.reload.status == "closed" && f.winner_id.nil? && f.ends_at == deadline && f.closed_at >= deadline

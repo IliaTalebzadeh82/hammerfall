@@ -137,7 +137,7 @@ Commit Gemfile.lock and package-lock.json together with manifest changes. Use
 workspace because only one JavaScript application exists. Use the shadcn CLI in
 apps/web to add primitives when needed, rather than copying arbitrary components.
 
-## Phase 1 demo and API verification
+## Local demo identities and API verification
 
 ```sh
 docker compose exec api bin/rails db:seed
@@ -156,15 +156,18 @@ seeds never reopen or refresh old auctions. The historical closed example uses
 explicit historical fixture SQL before normal closure; creation times are insertion metadata.
 No test/production data is seeded.
 
-The legacy smoke script still uses the removed actor-ID API and needs Phase 20
-adaptation before it can serve as a current security smoke check. It previously
-created its own labelled records, exercised the real JSON API,
-waits about 65 seconds for the deadline, and leaves its closed auction for
-inspection. Native Ruby users can run `./scripts/smoke-api`; set API_BASE_URL if the
-API port differs from 3001. API details: [api.md](api.md).
+The authenticated smoke scripts use these seeded identities with a cookie jar,
+CSRF token and explicit idempotency keys. Run them inside the API container, where
+the shared helper and Rails dependencies are mounted. For example:
 
-The API deliberately uses client-supplied bidder IDs without authentication. Keep
-it local. Concurrent bidding, race-safe closure and idempotency are implemented; authentication remains future work.
+```sh
+docker compose exec -T api bin/rails db:seed
+docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-api
+```
+
+The sequential smoke waits about 65 seconds for a real deadline and leaves its
+closed auction for inspection. The API derives the actor from the session and
+rejects supplied `bidder_id`; see [api.md](api.md).
 
 
 ## Phase 2 migration and concurrency verification
@@ -251,12 +254,14 @@ historical fixture import for the closed example; production methods have no at:
 clock override. Existing seed data is still never overwritten.
 
 The sequential HTTP smoke now waits about 65 seconds (or longer if an unexpectedly
-slow run enters the extension window). For Phase 4 demonstrations, start a second
-Rails API at port 3002, then from the root with native PG variables exported:
+slow run enters the extension window). For the two-replica closing demonstration,
+run the script inside the API container so it can create independent Rails closer
+processes against the shared development database:
 
 ```sh
+docker compose cp scripts/smoke-closing api:/tmp/smoke-closing.rb
 docker compose stop auction-closer
-API_BASE_URLS=http://127.0.0.1:3001,http://127.0.0.1:3002 ruby scripts/smoke-closing
+docker compose exec -T -e API_BASE_URLS=http://api:3000,http://api-replica-b:3000 api ruby /tmp/smoke-closing.rb
 docker compose start auction-closer
 ```
 
@@ -301,10 +306,10 @@ storage/cleanup operationally before production. A populated-table downgrade ref
 to discard retained outcomes; preserve them or deliberately expire/prune under an
 approved retention policy before downgrade. Do not drop/reset existing domain data.
 
-With a second Rails API running at localhost:3002 and normal PG variables exported:
+With the normal two-replica Compose stack:
 
 ```sh
-API_BASE_URLS=http://127.0.0.1:3001,http://127.0.0.1:3002 ruby scripts/smoke-idempotency
+docker compose exec -T -e API_BASE_URLS=http://api:3000,http://api-replica-b:3000 api ruby < scripts/smoke-idempotency
 ```
 
 This development-only script uses real concurrent HTTP requests, compares stored
@@ -317,7 +322,7 @@ Run all four concurrent_* suites repeatedly, serially against the test database.
 Idempotency adds no process-local lock or new service. The existing closer remains
 a separate Rails process role and needs no Idempotency-Key.
 
-## Browser frontend (Phase 20 Session 1)
+## Browser frontend
 
 Open http://localhost:3000/auctions. Sign in with a local demo identity listed
 above. Browse a detail page, enter EUR strings,
@@ -335,8 +340,8 @@ proxy and direct API hosts. No credentials belong in this URL or NEXT_PUBLIC var
 
 The development seed provides four identities and scheduled/active/closed examples.
 It provisions local credentials on existing development data but never refreshes
-expired auctions. Older browser scenarios create fresh labelled fixtures through
-the retired user-creation API and need Phase 20 adaptation. Lifecycle
+expired auctions. Browser scenarios create fresh labelled auctions through
+authenticated API setup. Lifecycle
 activation remains explicit; the frontend does not add admin controls.
 
 Pending command recovery uses sessionStorage; session credentials remain in an
@@ -347,9 +352,9 @@ caller's pending session record until terminal resolution/abandonment/tab cleanu
 Do not copy this storage into logs or bug reports. The client retry window is one
 hour; it is not indefinite server retention. See frontend.md and ADR-007.
 
-The pre-Phase-20 Playwright suite still uses the removed demo actor selector and
-needs adaptation before it can verify the new browser flow. Its prior invocation
-against the local Compose stack was:
+The Playwright suite exercises login, session cookies, CSRF, authenticated bids,
+seller protection, same-user retry after reauthentication and realtime delivery.
+Run it against local Compose:
 
 ```sh
 cd apps/web
@@ -362,8 +367,8 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/google/chrome/chrome npm run test:e2e
 
 Set E2E_BASE_URL for another frontend port. The tests exercise real mutations and
 retain labelled records, so use only a local demo/disposable environment. They
-cover browsing, actor selection, manual/max bidding, stale rejection, a committed
-response deliberately dropped before reload/retry, zero/closure, lifecycle states,
+cover browsing, login/logout, manual/max bidding, stale rejection, a committed
+response deliberately dropped before reload/re-login/retry, zero/closure, lifecycle states,
 and 390/768/1440 layouts. Screenshots live in ignored apps/web/test-results; no
 private traces or network payload reports are enabled. GitHub's Compose job installs
 Chromium and runs the same scenarios. A local run is not evidence that hosted CI ran.
@@ -379,16 +384,17 @@ Normal development/production use the PostgreSQL adapter; tests use the isolated
 Cable test adapter. `CABLE_ALLOWED_ORIGINS` is a comma-separated exact origin list.
 Development defaults allow localhost/127.0.0.1 port 3000; production defaults deny
 all origins. Add the actual frontend origin for another port. Do not disable origin
-checks. `NEXT_PUBLIC_CABLE_URL` is public build-time configuration (Compose defaults
-to ws://localhost:3001/cable); production needs WSS and a proxy supporting WebSocket
+checks. `NEXT_PUBLIC_CABLE_URL` is optional public build-time configuration.
+The local default uses the browser host with port 3001, so host-only session
+cookies reach Cable from both `localhost` and `127.0.0.1`. Production needs WSS and a proxy supporting WebSocket
 upgrade, or the client's default same-origin `/cable` route. Rebuild after changing
 NEXT_PUBLIC variables. Never put credentials in the URL.
 
 The earlier `verify-realtime.mjs` script accepts two direct Rails origins and
-tests a socket on one process after a mutation on another. Phase 17 Session 2
-will adapt and rerun that proof against the current Compose replicas. The
-[Session 1 report](multi-instance/session-1.md) covers command distribution;
-cross-instance Cable delivery is not yet claimed. Browser tests additionally cover two users,
+tests a socket on one process after a mutation on another. The
+[Phase 17 evidence](multi-instance/session-1.md) covers command distribution;
+the [Phase 20 final browser run](security/phase-20-final.md) verifies authenticated
+cross-replica Cable delivery and recovery. Browser tests additionally cover two users,
 proxy contests, 90-second extension, ordinary closer publication and missed-message
 reconnect recovery. The closure scenario intentionally waits for a real deadline.
 Cable defaults to two workers; each Rails listener also uses a dedicated PostgreSQL

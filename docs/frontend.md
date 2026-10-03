@@ -1,4 +1,4 @@
-# Frontend — through Phase 20 Session 1
+# Frontend — through Phase 20
 
 Hammerfall is a text-focused auction interface backed entirely by Rails. It uses
 Next.js App Router, React, TypeScript, Tailwind v4 and shadcn Base UI primitives.
@@ -79,10 +79,11 @@ Vitest/Testing Library cover money, public data validation, clocks, sequence pag
 revision-based stale-read rejection, refresh coalescing, empty/not-found states,
 privacy, immutable retries, reload
 recovery, terminal refresh, errors, actor switching and storage failure. Playwright
-uses the real running API for browsing, user selection, bids/maxima, stale rejection,
-a real committed response deliberately dropped before safe recovery, closing, and
-390/768/1440 layouts with long titles and large prices. See progress.md for actual
-results, installed-browser fallback and screenshots inspected.
+uses the real running API for browsing, login/logout, bids/maxima, stale rejection,
+a real committed response deliberately dropped before same-user reauthentication
+and safe recovery, closing, seller protection, cross-client Cable recovery and
+390/768/1440 layouts with long titles and large prices. See the
+[Phase 20 final review](security/phase-20-final.md) for actual results and limits.
 
 Phase 7 adds actual server-pushed invalidations and reconnect recovery while
 preserving these client command guarantees. See [realtime](realtime.md) and ADR-008.

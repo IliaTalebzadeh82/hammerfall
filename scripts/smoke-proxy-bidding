@@ -1,44 +1,31 @@
 #!/usr/bin/env ruby
 require "json"
 require "securerandom"
-require "net/http"
 require "time"
+require(File.exist?("./script/authenticated_smoke.rb") ? "./script/authenticated_smoke" : File.expand_path("../apps/api/script/authenticated_smoke", __dir__))
 
 bases = ENV.fetch("API_BASE_URLS", ENV.fetch("API_BASE_URL", "http://127.0.0.1:3001")).split(",")
-request = lambda do |method, path, body = nil, base = bases.first, expected = nil|
-  uri = URI.join(base, path)
-  message = { get: Net::HTTP::Get, post: Net::HTTP::Post, put: Net::HTTP::Put }.fetch(method).new(uri)
-  message["Idempotency-Key"] = SecureRandom.uuid if method != :get && path.match?(%r{/(?:bids|maximum-bid)\z})
-  if body
-    message["Content-Type"] = "application/json"
-    message.body = JSON.generate(body)
-  end
-  response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 20) { |http| http.request(message) }
-  status = response.code.to_i
-  raise "Unexpected HTTP #{status}" unless expected ? status == expected : [ 200, 201 ].include?(status)
-  JSON.parse(response.body)
-end
-users = %w[Alice Bob].map do |name|
-  request.call(:post, "/api/v1/users", { user: { name: "Proxy smoke #{name} #{Time.now.utc.iso8601}" } }).dig("data", "id")
-end
+operator = AuthenticatedSmoke.new(base: bases.first, login: "demo-operator")
+users = %w[demo-alice demo-bob].map { |login| AuthenticatedSmoke.new(base: bases.first, login: login) }
 create = lambda do |scenario|
   now = Time.now.utc
-  auction = request.call(:post, "/api/v1/auctions", {
+  auction = operator.expect(:post, "/api/v1/auctions", status: 201, body: {
     auction: { title: "Proxy smoke #{scenario} #{now.iso8601}", starting_price: 10_000, minimum_increment: 1_000,
                starts_at: (now - 60).iso8601, ends_at: (now + 3600).iso8601 }
   }).fetch("data")
   path = "/api/v1/auctions/#{auction.fetch('id')}"
-  request.call(:post, "#{path}/schedule")
-  request.call(:post, "#{path}/activate")
+  operator.expect(:post, "#{path}/schedule", status: 200)
+  operator.expect(:post, "#{path}/activate", status: 200)
   path
 end
 maximum = lambda do |path, user, amount, base = bases.first|
-  result = request.call(:put, "#{path}/maximum-bid", { maximum_bid: { bidder_id: user, maximum_amount: amount } }, base)
+  result = user.expect(:put, "#{path}/maximum-bid", status: 200,
+    body: { maximum_bid: { maximum_amount: amount } }, key: SecureRandom.uuid, base: base)
   raise "Private acknowledgement" unless result.fetch("data").keys.sort == %w[accepted auction_id bidder_id]
 end
 inspect_public = lambda do |path, price, leader, amounts|
-  state = request.call(:get, path).fetch("data")
-  history = request.call(:get, "#{path}/bids?limit=100").fetch("data")
+  state = operator.expect(:get, path, status: 200).fetch("data")
+  history = operator.expect(:get, "#{path}/bids?limit=100", status: 200).fetch("data")
   all = JSON.generate([ state, history ])
   raise "Private metadata leaked" if all.match?(/"(?:maximum_amount|priority_sequence|origin)"\s*:|"automatic"/)
   raise "Wrong price/leader" unless state.values_at("current_price", "current_leader_id", "winner_id") == [ price, leader, nil ]
@@ -48,16 +35,16 @@ inspect_public = lambda do |path, price, leader, amounts|
 end
 path = create.call("A")
 maximum.call(path, users[0], 30_000)
-request.call(:post, "#{path}/bids", { bid: { bidder_id: users[1], amount: 20_000 } })
-inspect_public.call(path, 21_000, users[0], [ 10_000, 20_000, 21_000 ])
+users[1].expect(:post, "#{path}/bids", status: 201, body: { bid: { amount: 20_000 } }, key: SecureRandom.uuid)
+inspect_public.call(path, 21_000, users[0].actor_id, [ 10_000, 20_000, 21_000 ])
 path = create.call("B")
 maximum.call(path, users[0], 30_000)
 maximum.call(path, users[1], 40_000)
-inspect_public.call(path, 31_000, users[1], [ 10_000, 30_000, 31_000 ])
+inspect_public.call(path, 31_000, users[1].actor_id, [ 10_000, 30_000, 31_000 ])
 path = create.call("C")
 maximum.call(path, users[0], 30_000)
 maximum.call(path, users[1], 30_000)
-inspect_public.call(path, 30_000, users[0], [ 10_000, 30_000, 30_000 ])
+inspect_public.call(path, 30_000, users[0].actor_id, [ 10_000, 30_000, 30_000 ])
 path = create.call("D concurrent")
 ready = Queue.new
 start = Queue.new
@@ -71,5 +58,5 @@ end
 2.times { raise "Barrier timed out" unless ready.pop(timeout: 10) }
 2.times { start << true }
 threads.each(&:value)
-inspect_public.call(path, 31_000, users[1], [ 10_000, 30_000, 31_000 ])
+inspect_public.call(path, 31_000, users[1].actor_id, [ 10_000, 30_000, 31_000 ])
 puts "Proxy smoke passed across #{bases.join(', ')}; labelled rows retained."

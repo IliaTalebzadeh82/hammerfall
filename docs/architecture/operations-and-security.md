@@ -2,11 +2,11 @@
 
 ## Current limit
 
-Phase 20 Sessions 1–2 use authenticated HTTP identity, owner/operator policy, a post-lock seller self-bid guard, shared Redis rate limits, early Rails and local nginx body limits, and versioned HMAC command-key digests. Auction correctness remains in PostgreSQL. Final Phase 20 regression and production ingress proof are still outstanding; this is not a public real-money service. Local Compose credentials and named volumes are development conveniences, not backups. [Security](../security.md) and [production readiness](../production-readiness.md) state current risks.
+Phase 20 uses authenticated HTTP identity, owner/operator policy, a post-lock seller self-bid guard, shared Redis rate limits, early Rails and local nginx body limits, and versioned HMAC command-key digests. Auction correctness remains in PostgreSQL. Final local regression passed; production ingress proof remains outstanding; this is not a public real-money service. Local Compose credentials and named volumes are development conveniences, not backups. [Security](../security.md) and [production readiness](../production-readiness.md) state current risks.
 
 ## Security and data handling
 
-Phase 20 Sessions 1–2 implement first-party authentication and authorization, bounded command/login/Cable admission and a per-endpoint Redis failure policy. Rate limiting is not auction authority. The HMAC keyring must be distributed to all Rails replicas and kept through physical pruning; production boot rejects a missing keyring. Do not commit credentials or log tokens, raw idempotency keys, passwords, private maxima or unnecessary personal data. Metrics avoid unbounded user, auction, bid, IP or login labels. Review production origin/WSS/proxy settings, cloud edge body enforcement and connection budgets before deployment.
+Phase 20 implements first-party authentication and authorization, bounded command/login/Cable admission and a per-endpoint Redis failure policy. Rate limiting is not auction authority. The HMAC keyring must be distributed to all Rails replicas and kept through physical pruning; production boot rejects a missing keyring. Do not commit credentials or log tokens, raw idempotency keys, passwords, private maxima or unnecessary personal data. Metrics avoid unbounded user, auction, bid, IP or login labels. Review production origin/WSS/proxy settings, cloud edge body enforcement and connection budgets before deployment.
 
 ## Observability and failure response
 

@@ -1,37 +1,31 @@
 # Run with bin/rails runner script/phase17_session1.rb in the api container.
 # Each HTTP request uses a fresh connection to the normal Compose proxy.
-require "net/http"
 require "json"
 require "securerandom"
+require "./script/authenticated_smoke"
 
 abort "development only" unless Rails.env.development?
 base = ENV.fetch("API_BASE_URL", "http://api-proxy:3000")
 run_id = SecureRandom.hex(4)
+operator = AuthenticatedSmoke.new(base: base, login: "demo-operator")
+clients = %w[demo-alice demo-bob demo-carol].map { |login| AuthenticatedSmoke.new(base: base, login: login) }
+users = clients.map(&:actor_id)
+clients_by_id = clients.to_h { |client| [ client.actor_id, client ] }
 
-request = lambda do |method, path, payload = nil, key = nil|
-  uri = URI.join(base, path)
-  klass = { get: Net::HTTP::Get, post: Net::HTTP::Post, put: Net::HTTP::Put }.fetch(method)
-  message = klass.new(uri)
-  message["Connection"] = "close"
-  message["Idempotency-Key"] = key if key
-  if payload
-    message["Content-Type"] = "application/json"
-    message.body = JSON.generate(payload)
+request = lambda do |method, path, payload = nil, key = nil, client = operator|
+  result = client.request(method, path, body: payload, key: key, base: base)
+  if result[:status] == 429
+    sleep(Integer(result.fetch(:retry_after)))
+    result = client.request(method, path, body: payload, key: key, base: base)
   end
-  response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 30) { |client| client.request(message) }
-  { status: response.code.to_i, body: JSON.parse(response.body), instance: response["X-Hammerfall-Instance"],
-    replayed: response["Idempotency-Replayed"] == "true" }
-end
-
-ok = lambda do |method, path, payload = nil, key = nil|
-  result = request.call(method, path, payload, key)
-  raise "#{method} #{path}: HTTP #{result[:status]} #{result[:body]}" unless [ 200, 201 ].include?(result[:status])
-  raise "missing instance label" unless %w[a b].include?(result[:instance])
   result
 end
 
-users = Array.new(12) do |i|
-  ok.call(:post, "/api/v1/users", { user: { name: "P17 #{run_id} user #{i}" } })[:body].fetch("data").fetch("id")
+ok = lambda do |method, path, payload = nil, key = nil, client = operator|
+  result = request.call(method, path, payload, key, client)
+  raise "#{method} #{path}: HTTP #{result[:status]} #{result[:body]}" unless [ 200, 201 ].include?(result[:status])
+  raise "missing instance label" unless %w[a b].include?(result[:instance])
+  result
 end
 
 create = lambda do |label|
@@ -48,10 +42,10 @@ create = lambda do |label|
 end
 
 bid = lambda do |path, user, amount, key = SecureRandom.uuid|
-  ok.call(:post, "#{path}/bids", { bid: { bidder_id: user, amount: amount } }, key)
+  ok.call(:post, "#{path}/bids", { bid: { amount: amount } }, key, clients_by_id.fetch(user))
 end
 maximum = lambda do |path, user, amount, key = SecureRandom.uuid|
-  ok.call(:put, "#{path}/maximum-bid", { maximum_bid: { bidder_id: user, maximum_amount: amount } }, key)
+  ok.call(:put, "#{path}/maximum-bid", { maximum_bid: { maximum_amount: amount } }, key, clients_by_id.fetch(user))
 end
 
 verify = lambda do |id, expected_price, expected_leader, expected_amounts, expected_revision|
@@ -87,7 +81,7 @@ threads = 10.times.map do |i|
   Thread.new do
     barrier << true
     start.pop
-    request.call(:post, "#{path}/bids", { bid: { bidder_id: users[i], amount: 10_000 + i * 500 } }, SecureRandom.uuid)
+    request.call(:post, "#{path}/bids", { bid: { amount: 10_000 + i * 500 } }, SecureRandom.uuid, clients[i % clients.length])
   end
 end
 10.times { barrier.pop }
@@ -102,7 +96,7 @@ rows = auction.bids.order(:sequence).pluck(:id, :sequence, :amount, :bidder_id)
 raise "lost/extra bid" unless rows.map(&:first).sort == accepted.map { |row| row[:body].dig("data", "id") }.sort
 raise "bad SQL sequence" unless rows.map { |row| row[1] } == (1..rows.length).to_a
 raise "bad SQL price/leader/revision" unless auction.current_price == 14_500 &&
-  auction.current_leader_id == users[9] && auction.public_revision == 2 + accepted.length
+  auction.current_leader_id == users[9 % users.length] && auction.public_revision == 2 + accepted.length
 puts JSON.generate(scenario: "concurrent", instances: results.map { |row| row[:instance] },
   accepted: accepted.length, rejected: rejected.length, auction_id: id,
   sql: { price: auction.current_price, leader: auction.current_leader_id, revision: auction.public_revision, history: rows })
@@ -132,7 +126,7 @@ threads = 2.times.map do
   Thread.new do
     barrier << true
     start.pop
-    request.call(:post, "#{path}/bids", { bid: { bidder_id: users[0], amount: 10_000 } }, key)
+    request.call(:post, "#{path}/bids", { bid: { amount: 10_000 } }, key, clients.first)
   end
 end
 2.times { barrier.pop }
@@ -143,7 +137,7 @@ raise "same-key responses differ" unless results.map { |row| row[:body] }.uniq.l
   results.map { |row| row[:status] } == [ 201, 201 ] && results.count { |row| row[:replayed] } == 1
 replay = nil
 4.times do
-  replay = request.call(:post, "#{path}/bids", { bid: { bidder_id: users[0], amount: 10_000 } }, key)
+  replay = request.call(:post, "#{path}/bids", { bid: { amount: 10_000 } }, key, clients.first)
   break if replay[:instance] != results.find { |row| !row[:replayed] }[:instance]
 end
 raise "completed replay failed" unless replay[:replayed] && replay[:body] == results.first[:body] &&

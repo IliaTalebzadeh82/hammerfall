@@ -2310,3 +2310,53 @@ and [ExecPlan](plans/phase-20-execplan.md) retain detailed methods and limits.
 Full legacy smoke/Playwright/hosted CI adaptation and the Phase 20 final gate
 remain for Session 3. No GCP apply or paid resource occurred. Phase 20 remains
 active; Phase 21 has not started.
+
+### Phase 20 Session 3 — full integration and closure (2026-10-04)
+
+Migrated the active sequential/concurrent/proxy/idempotency/closing smoke clients,
+Phase 17 cross-replica CI proof and Playwright scenarios from public user creation
+and caller-selected `bidder_id` to seeded identities, real login cookies, CSRF and
+explicit retained command keys. CI now seeds identities before smokes. A browser
+failure found a local host-only cookie mismatch: the configured Cable URL was
+`localhost` while the test browser used `127.0.0.1`. The local default now follows
+the browser host; a full browser rerun passed. No actor-selection API was restored.
+
+The Compose images and services were rebuilt/recreated from repository state, with
+only the shared development Rails secret volume regenerated. bcrypt loaded,
+migrations were current, four demo identities were present, the A/B Rails secret
+fingerprints matched, and expected API/web/PostgreSQL/Redis/Kafka/background
+services reached health/running checks. Authenticated lifecycle, manual, proxy,
+soft-close, closer race, public history, Kafka outbox/consumer and ten-way
+idempotency smokes passed. The Phase 17 A/B script proved competing bid
+serialization, equal-ceiling priority and same-key replay; a separate direct A/B
+proof logged in through A, resolved through B, replayed A's bid through B,
+revoked through B and observed A reject the old session.
+
+The final local backend suite passed **494 examples, 0 failures, 4 documented
+pending**, seed **28252**, using Redis DB 15 and a 15-thread pool. Focused
+identity/HMAC rotation/concurrency/body tests passed **29 examples, 0 failures**,
+seed **11889**. Frontend passed **76 tests** plus typecheck, lint, format and
+production build. Full real Chrome/Playwright passed **8 scenarios** with **1
+opt-in worker-outage scenario skipped**; the skipped scenario was run separately
+and passed. Ruby quality passed RuboCop **162 files/0 offenses**, Zeitwerk,
+Brakeman **0 warnings** and bundler-audit **0 known vulnerabilities**.
+
+A/B wrong-login attempts alternated across replicas and reached one shared quota:
+five 401 responses followed by 429. During a controlled Redis stop, new login
+returned 503, an existing authenticated bid committed under per-process fallback,
+and a new Cable connection remained unavailable while the existing session
+resolved. Redis recovered healthy. A 33,052-byte request through Next returned
+413 before domain mutation. The GCP overlay rendered and passed static validation
+for 29 resources, including secret mounts and routes; Terraform remained unavailable
+locally, and no GCP apply/paid resource occurred. The
+[Phase 20 final review](security/phase-20-final.md) records the adversarial matrix,
+requirement-by-requirement evidence and accepted limits.
+
+Phase 20 closes only with a successful hosted `CI` run whose `head_sha` equals the
+closure commit. The exact closure SHA and run ID are reported in the final closure
+response because a commit cannot embed its own hash or a future Actions run ID.
+Production readiness remains separate: no professional penetration test or live
+cloud deployment; GKE Gateway upstream byte buffering is unproven; Redis outage
+fallback quota is per process; an already established Cable socket may receive
+public hints after revocation; Phase 22 owns durability/release exercises. Phase 21
+has not started.

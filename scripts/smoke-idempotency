@@ -1,22 +1,22 @@
 #!/usr/bin/env ruby
 # Development-only HTTP/SQL correctness demonstration; retains labelled records.
-require_relative "../apps/api/config/environment"
+require(File.exist?("./config/environment.rb") ? "./config/environment" : File.expand_path("../apps/api/config/environment", __dir__))
 require "json"
-require "net/http"
 require "securerandom"
+require(File.exist?("./script/authenticated_smoke.rb") ? "./script/authenticated_smoke" : File.expand_path("../apps/api/script/authenticated_smoke", __dir__))
 $stdout.sync = true
 abort "Idempotency smoke requires development" unless Rails.env.development?
 bases = ENV.fetch("API_BASE_URLS", "http://127.0.0.1:3001,http://127.0.0.1:3002").split(",")
 abort "Supply two independent API URLs" unless bases.uniq.size >= 2
+clients = {
+  "demo-alice" => AuthenticatedSmoke.new(base: bases.first, login: "demo-alice"),
+  "demo-bob" => AuthenticatedSmoke.new(base: bases.first, login: "demo-bob")
+}
 request = lambda do |index, auction, operation, actor, amount, key|
   manual = operation == "place_bid"
-  uri = URI.join(bases[index % bases.size], "/api/v1/auctions/#{auction.id}/#{manual ? 'bids' : 'maximum-bid'}")
-  req = (manual ? Net::HTTP::Post : Net::HTTP::Put).new(uri)
-  req["Content-Type"] = "application/json"
-  req["Idempotency-Key"] = key
-  req.body = JSON.generate(manual ? { bid: { bidder_id: actor.id, amount: amount } } : { maximum_bid: { bidder_id: actor.id, maximum_amount: amount } })
-  response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 20) { |http| http.request(req) }
-  { status: response.code.to_i, raw: response.body, body: JSON.parse(response.body), replayed: response["Idempotency-Replayed"] == "true" }
+  actor.request(manual ? :post : :put, "/api/v1/auctions/#{auction.id}/#{manual ? 'bids' : 'maximum-bid'}",
+    body: manual ? { bid: { amount: amount } } : { maximum_bid: { maximum_amount: amount } },
+    key: key, base: bases[index % bases.size])
 end
 make = lambda do |label, seconds = 3600|
   now = AuctionClock.now
@@ -49,12 +49,12 @@ race = lambda do |auction, operation, actor, amounts, key|
   workers.map(&:value)
 end
 verify_duplicates = lambda do |outcomes, status|
-  raise "Wrong terminal statuses" unless outcomes.map { |o| o[:status] }.uniq == [ status ]
+  raise "Wrong terminal statuses: #{outcomes.map { |o| [ o[:status], o[:body].dig('error', 'code') ] }.inspect}" unless outcomes.map { |o| o[:status] }.uniq == [ status ]
   raise "Different snapshots" unless outcomes.map { |o| o[:raw] }.uniq.size == 1
   raise "More than one execution" unless outcomes.count { |o| !o[:replayed] } == 1
 end
-alice = User.create!(name: "Phase 5 smoke Alice")
-bob = User.create!(name: "Phase 5 smoke Bob")
+alice = clients.fetch("demo-alice")
+bob = clients.fetch("demo-bob")
 
 manual = make.call("A manual duplicates", 30)
 manual_key = SecureRandom.uuid
@@ -81,6 +81,9 @@ raise "Proxy repeated" unless proxy.bids.order(:sequence).pluck(:amount) == [ 10
 puts JSON.generate(scenario: "B proxy", auction_id: proxy.id, executions: 1, replays: 9,
   history: proxy.bids.order(:sequence).pluck(:id, :sequence, :amount), ends_at: proxy.ends_at.iso8601(6))
 
+# The admission quota is deliberately non-authoritative; keep independent
+# ten-worker races in separate limiter windows without reducing contention.
+sleep 11
 maximum = make.call("C maximum duplicates", 30)
 max_key = SecureRandom.uuid
 old_end = maximum.ends_at
@@ -95,6 +98,7 @@ raise "Increase repeated" unless maximum.maximum_bids.first.priority_sequence ==
 puts JSON.generate(scenario: "C maximum+increase", auction_id: maximum.id, executions_per_key: 1, replays_per_key: 9,
   final_priority: 2, history: maximum.bids.order(:sequence).pluck(:id, :sequence, :amount), ends_at: maximum.ends_at.iso8601(6))
 
+sleep 11
 %w[place_bid set_maximum_bid].each do |operation|
   auction = make.call("D conflicting #{operation}")
   outcomes = race.call(auction, operation, alice, [ 30_000, 40_000 ], SecureRandom.uuid)

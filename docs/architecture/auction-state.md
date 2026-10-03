@@ -14,4 +14,4 @@ User is a deliberately simple bidder identity. Auction stores title/description,
 
 ## Interfaces and decisions
 
-The API uses `/api/v1` REST, bounded pagination and consistent public error envelopes. [ADR-002](../adr/002-core-auction-state.md) and [ADR-003](../adr/003-auction-concurrency-control.md) record the model and lock choice. [Invariants](../invariants.md) is the implementation-level inventory and must evolve with the schema. There is no authentication yet; supplied bidder IDs are demo identity, not authority.
+The API uses `/api/v1` REST, bounded pagination and consistent public error envelopes. [ADR-002](../adr/002-core-auction-state.md) and [ADR-003](../adr/003-auction-concurrency-control.md) record the model and lock choice. [Invariants](../invariants.md) is the implementation-level inventory and must evolve with the schema. Phase 20 derives command actors from revocable PostgreSQL sessions and rejects supplied bidder IDs.

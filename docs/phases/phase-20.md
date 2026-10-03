@@ -1,6 +1,7 @@
 # Phase 20 — Identity & Security
 
-Status: Active after explicit request; Sessions 1–2 checkpointed, final gate pending
+Status: Complete after Sessions 1–3; final local and hosted evidence in the
+[Phase 20 final review](../security/phase-20-final.md). Phase 21 has not started.
 
 ## Goal
 

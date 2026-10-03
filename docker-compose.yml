@@ -327,7 +327,7 @@ services:
     environment:
       NEXT_TELEMETRY_DISABLED: "1"
       API_ORIGIN: http://api-proxy:3000
-      NEXT_PUBLIC_CABLE_URL: ${NEXT_PUBLIC_CABLE_URL:-ws://localhost:3001/cable}
+      NEXT_PUBLIC_CABLE_URL: ${NEXT_PUBLIC_CABLE_URL:-}
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
     volumes:

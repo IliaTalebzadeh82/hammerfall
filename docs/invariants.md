@@ -49,8 +49,9 @@ All 15 original master invariants remain requirements. Their current status is:
    serializes the stored winner. The explicit Phase 11 Redis read may lag and
    reports its derived source.
 8. **Automatic bid maxima are private:** explicit public presenters/acknowledgements
-   omit maxima/priority/origin; request/SQL/inspection filters are tested. No complete
-   authorization secrecy exists with supplied unauthenticated bidder IDs.
+   omit maxima/priority/origin; request/SQL/inspection filters are tested. Phase 20
+   derives actors from authenticated sessions and rejects supplied bidder IDs;
+   operators with database access can still inspect plaintext maxima.
 9. **Concurrent requests cannot lose updates:** enforced by the row lock and atomic bid/price writes.
 10. **Closure and bid acceptance serialize correctly:** current commands share a row lock;
     post-lock DB time, autonomous closer and atomic extensions are implemented.
@@ -194,8 +195,9 @@ These are client behavior guarantees, not replacements for the database invarian
 | Money input cannot silently round fractional cents | Decimal digit parsing and safe bounded integers | money.test.ts |
 | Late read completion cannot overwrite a later refresh | Abort and generation guards | reads.test.tsx |
 
-Actor IDs are still unauthenticated. Browser storage/clock loss, separate GET
-snapshots and absence of realtime remain explicit limits. See ADR-007.
+Phase 20 authenticates actor IDs and Phase 7 adds best-effort realtime hints.
+Browser storage/clock loss and separate GET snapshots remain explicit limits.
+See ADR-007 and ADR-016.
 
 ## Public observation ordering — Phase 7
 

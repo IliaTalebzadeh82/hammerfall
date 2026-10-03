@@ -6,12 +6,14 @@ auction can queue requests and exhaust connection capacity. Phase 14 measured
 short local Compose workloads, but established no production throughput or
 capacity target. Long outer transactions retain locks longer.
 
-Phase 20 Sessions 1–2 added first-party authentication, authorization, shared
+Phase 20 added first-party authentication, authorization, shared
 Redis rate limits, an early Rails request-body guard, local nginx limit,
-versioned HMAC idempotency digests and structured security events. Final
-Phase 20 regression and hosted verification remain. No production backup/restore procedure,
+versioned HMAC idempotency digests and structured security events. The
+[final review](security/phase-20-final.md) records regression and hosted
+closure evidence. No production backup/restore procedure,
 production deployment or production-grade operating program exists; durability,
 release and operating policy are assigned to [Phase 22](phases/phase-22.md).
+No professional penetration test or live cloud deployment was performed.
 Local runbooks cover specific failures.
 Production Rails boot requires an explicit `API_ALLOWED_HOSTS` allowlist, but
 host filtering and the initial identity controls do not make the API safe to expose.
@@ -20,6 +22,14 @@ and local nginx enforces the same bound. Content-Length, chunked and Next rewrit
 paths were tested locally. Puma or Next may buffer bytes before this Rack guard;
 the static GKE Gateway reference has no separately verified edge body limit.
 Choose and prove a supported cloud enforcement point before public ingress.
+Production replicas must share one `SECRET_KEY_BASE` and byte-identical validated
+HMAC keyring content for each key ID. Initial rollout must drain old executor code
+before any HMAC-version write because old code lacks the advisory lock; mixed
+old/new writers are not supported. Previous HMAC keys remain configured until
+every row using them is
+physically pruned. Redis-outage fallback quotas are per process and can be
+multiplied by replica switching. An already established Cable socket may keep
+receiving public invalidation hints after session revocation until disconnect.
 Reads spanning multiple queries are not snapshot-consistent.
 Local Compose credentials are disposable; services bind to loopback. Named volumes
 provide local persistence, not backups. The sequence migration requires stopping
@@ -53,11 +63,11 @@ lifetime; cleanup and API snapshot compatibility need operational ownership. No
 performance improvement is claimed without measurement. See ADR-006.
 
 Phase 6 now provides a working browser auction UI with session-based retry recovery
-and real-API browser evidence. Phase 20 Session 1 adds authentication and initial
-authorization, but the service is not ready for real-money use. Reads become stale between explicit/visibility/command/expiry
-refreshes; Phase 7 also adds best-effort Cable invalidations. Browser storage can
-be lost and clocks
-can move. The one-hour client retry horizon is conservative, not a durability SLA.
+and real-API browser evidence. Phase 20 adds authentication and authorization, but
+the service is not ready for real-money use. Reads become stale between explicit,
+visibility, command and expiry refreshes; Phase 7 also adds best-effort Cable
+invalidations. Browser storage can be lost and clocks can move. The one-hour client
+retry horizon is conservative, not a durability SLA.
 Separate auction/history GETs are not one consistent snapshot. No exhaustive
 accessibility audit, cross-browser certification or performance benchmark is claimed.
 

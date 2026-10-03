@@ -167,9 +167,9 @@ Public presenters omit maximum, priority and origin. Maximum PUT returns only an
 acknowledgement. No maximum GET/list/DELETE exists. Parameters, SQL binds and model
 inspection filter private fields. Reaching a visible ceiling can inherently reveal
 an amount through bidding; it is never labelled as a ceiling or automatic origin.
-This provides representation/data privacy, **not authorization-based secrecy**:
-unauthenticated supplied bidder IDs permit impersonation/probing. Operators can
-read plaintext private database records. Authentication is not redesigned here.
+This provides representation/data privacy. Phase 20 separately authenticates the
+actor, rejects supplied bidder IDs and protects seller self-bids. Operators with
+database access can still read plaintext private records. See [security](security.md).
 
 One hot auction serializes work and queues database connections. No fairness,
 throughput guarantee or arbitrary multi-query snapshot guarantee is made. Messaging and later infrastructure remain deferred. Phase 6 now presents the

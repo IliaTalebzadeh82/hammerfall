@@ -1,65 +1,69 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Page,
-} from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { authenticatePage, loginApi, loginBrowser, type AuthApi } from "./auth";
+
+let operator: AuthApi;
+let alice: AuthApi;
+let bob: AuthApi;
+test.beforeAll(async ({ baseURL }) => {
+  test.setTimeout(180000);
+  const url = baseURL ?? "http://127.0.0.1:3000";
+  operator = await loginApi(url, "demo-operator");
+  alice = await loginApi(url, "demo-alice");
+  bob = await loginApi(url, "demo-bob");
+});
+test.afterAll(async () => {
+  await Promise.all(
+    [operator, alice, bob].filter(Boolean).map((api) => api.context.dispose()),
+  );
+});
 
 // These tests create labelled development records through the real Rails API.
 // Run only against a local disposable/demo stack. No fixtures replace API responses.
 async function createAuction(
-  request: APIRequestContext,
+  api: AuthApi,
   title: string,
   seconds = 7200,
   startingPrice = 10000,
 ) {
   const now = Date.now();
-  const response = await request.post("/api/v1/auctions", {
-    data: {
-      auction: {
-        title,
-        description:
-          "Browser verification · An original piece of considered design, with a carefully preserved finish and a documented auction history.",
-        starting_price: startingPrice,
-        minimum_increment: 1000,
-        starts_at: new Date(now - 60000).toISOString(),
-        ends_at: new Date(now + seconds * 1000).toISOString(),
-      },
+  const response = await api.post("/api/v1/auctions", {
+    auction: {
+      title,
+      description:
+        "Browser verification · An original piece of considered design, with a carefully preserved finish and a documented auction history.",
+      starting_price: startingPrice,
+      minimum_increment: 1000,
+      starts_at: new Date(now - 60000).toISOString(),
+      ends_at: new Date(now + seconds * 1000).toISOString(),
     },
   });
   expect(response.status()).toBe(201);
   return (await response.json()).data.id as number;
 }
-async function activate(request: APIRequestContext, id: number) {
-  expect((await request.post(`/api/v1/auctions/${id}/schedule`)).status()).toBe(
+async function activate(api: AuthApi, id: number) {
+  expect((await api.post(`/api/v1/auctions/${id}/schedule`)).status()).toBe(
     200,
   );
-  expect((await request.post(`/api/v1/auctions/${id}/activate`)).status()).toBe(
+  expect((await api.post(`/api/v1/auctions/${id}/activate`)).status()).toBe(
     200,
   );
 }
-async function browseAs(page: Page, id: number, actor: number) {
-  await page.addInitScript(
-    (value) => localStorage.setItem("hammerfall.actor", String(value)),
-    actor,
-  );
+async function browseAs(page: Page, id: number, api: AuthApi) {
+  await authenticatePage(page, api);
   await page.goto(`/auctions/${id}`);
   await expect(page.getByLabel("Your bid (EUR)")).toBeEnabled();
 }
 
 test("browse, manual bid, private maximum, stale rejection and response-loss recovery", async ({
   page,
-  request,
 }) => {
-  const users = await (await request.get("/api/v1/users?limit=100")).json();
-  const actor = users.data[0].id;
-  const other = users.data[1].id;
   const id = await createAuction(
-    request,
+    operator,
     `Browser study · Braun Atelier ${Date.now()}`,
   );
-  await activate(request, id);
+  await activate(operator, id);
   await page.goto("/auctions");
+  await loginBrowser(page, "demo-alice");
   await expect(
     page.getByRole("heading", { name: "All auctions", exact: true }),
   ).toBeVisible();
@@ -68,12 +72,8 @@ test("browse, manual bid, private maximum, stale rejection and response-loss rec
   await expect(
     page.getByRole("heading", { name: "Accepted bid history" }),
   ).toBeVisible();
-  await browseAs(page, id, actor);
-  await page.getByLabel("Demo bidder").selectOption(String(other));
-  await page.getByLabel("Demo bidder").selectOption(String(actor));
-  expect(
-    await page.evaluate(() => localStorage.getItem("hammerfall.actor")),
-  ).toBe(String(actor));
+  await page.goto(`/auctions/${id}`);
+  await expect(page.getByLabel("Your bid (EUR)")).toBeEnabled();
   await page.getByLabel("Your bid (EUR)").fill("100");
   await page.getByRole("button", { name: "Place bid", exact: true }).click();
   await expect(
@@ -91,10 +91,11 @@ test("browse, manual bid, private maximum, stale rejection and response-loss rec
   await expect(page.getByLabel("Your maximum (EUR)")).toHaveValue("");
   await expect(page.locator("body")).not.toContainText("9,876.54");
   // Another actor changes public state while this browser remains stale.
-  const competing = await request.post(`/api/v1/auctions/${id}/bids`, {
-    headers: { "Idempotency-Key": crypto.randomUUID() },
-    data: { bid: { bidder_id: other, amount: 20000 } },
-  });
+  const competing = await bob.post(
+    `/api/v1/auctions/${id}/bids`,
+    { bid: { amount: 20000 } },
+    crypto.randomUUID(),
+  );
   expect(competing.status()).toBe(201);
   await page.getByLabel("Your bid (EUR)").fill("110");
   await page.getByRole("button", { name: "Place bid", exact: true }).click();
@@ -122,6 +123,16 @@ test("browse, manual bid, private maximum, stale rejection and response-loss rec
   await expect(
     page.getByText("We couldn’t confirm whether this attempt was processed."),
   ).toBeVisible();
+  const crossActor = await bob.post(
+    `/api/v1/auctions/${id}/bids`,
+    JSON.parse(lostBody),
+    lostKey,
+  );
+  expect(crossActor.status()).toBe(422);
+  expect(crossActor.headers()["idempotency-replayed"]).toBeUndefined();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await loginBrowser(page, "demo-alice");
   const retried = page.waitForRequest(
     (req) =>
       req.method() === "POST" && req.url().endsWith(`/auctions/${id}/bids`),
@@ -150,11 +161,11 @@ test("countdown reaches zero, refreshes closed state, and never offers a new bid
   request,
 }) => {
   const id = await createAuction(
-    request,
+    operator,
     `Browser closing study ${Date.now()}`,
     8,
   );
-  await activate(request, id);
+  await activate(operator, id);
   let auctionReads = 0;
   page.on("request", (req) => {
     if (req.method() === "GET" && req.url().endsWith(`/api/v1/auctions/${id}`))
@@ -186,18 +197,15 @@ test("countdown reaches zero, refreshes closed state, and never offers a new bid
 
 test("responsive forms, long title, errors, history and keyboard focus", async ({
   page,
-  request,
 }, info) => {
-  const users = await (await request.get("/api/v1/users")).json();
-  const actor = users.data[0].id;
   const id = await createAuction(
-    request,
+    operator,
     `Browser layout · A beautifully preserved mid-century collection of studio instruments with original brushed aluminium detailing ${Date.now()}`,
     7200,
     100000000000,
   );
-  await activate(request, id);
-  await browseAs(page, id, actor);
+  await activate(operator, id);
+  await browseAs(page, id, alice);
   await page.getByLabel("Your bid (EUR)").fill("1000000000");
   await page.getByRole("button", { name: "Place bid", exact: true }).click();
   await expect(page.locator("tbody tr")).toHaveCount(1);
@@ -233,10 +241,9 @@ test("responsive forms, long title, errors, history and keyboard focus", async (
 
 test("draft, scheduled and cancelled auctions expose no new bidding controls", async ({
   page,
-  request,
 }) => {
   const id = await createAuction(
-    request,
+    operator,
     `Browser lifecycle study ${Date.now()}`,
   );
   await page.goto(`/auctions/${id}`);
@@ -244,9 +251,9 @@ test("draft, scheduled and cancelled auctions expose no new bidding controls", a
   await expect(
     page.getByRole("button", { name: "Place bid", exact: true }),
   ).toHaveCount(0);
-  expect((await request.post(`/api/v1/auctions/${id}/schedule`)).status()).toBe(
-    200,
-  );
+  expect(
+    (await operator.post(`/api/v1/auctions/${id}/schedule`)).status(),
+  ).toBe(200);
   await page
     .getByRole("button", { name: "Refresh auction", exact: true })
     .click();
@@ -254,7 +261,7 @@ test("draft, scheduled and cancelled auctions expose no new bidding controls", a
   await expect(
     page.getByRole("button", { name: "Place bid", exact: true }),
   ).toHaveCount(0);
-  expect((await request.post(`/api/v1/auctions/${id}/cancel`)).status()).toBe(
+  expect((await operator.post(`/api/v1/auctions/${id}/cancel`)).status()).toBe(
     200,
   );
   await page

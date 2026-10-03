@@ -1,9 +1,10 @@
 #!/usr/bin/env ruby
 require "./config/environment"
 
-bidder = User.create!(name: "Kafka Compose smoke")
+bidder = User.find_by!(login: "demo-alice")
+operator = User.find_by!(login: "demo-operator")
 now = AuctionClock.now
-auction = Auction.create_draft!(title: "Kafka smoke", description: "Public", starting_price: 10_000,
+auction = Auction.create_draft!(seller: operator, title: "Kafka smoke", description: "Public", starting_price: 10_000,
   minimum_increment: 500, starts_at: now - 60, ends_at: now + 1200)
 auction.schedule!
 auction.activate!
