@@ -851,3 +851,17 @@ The independent-connection race also showed that both lock orders can yield
 one acceptance: after either €105 or €110 is accepted, the next minimum jumps
 past the other bid. The test now asserts both valid serial outcomes and the
 fresh rejection details. See [ADR-018](adr/018-stepped-bid-increments.md).
+
+## 2026-10-04 — Hidden reserve changes the meaning of winner
+
+Reserve could not be implemented as a nullable column alone. The old model,
+SQL check, PostgreSQL consistency sweep and strict public snapshot validator
+all treated a closed leader as sale winner. The reserve slice now separates
+competition state (`current_leader_id`) from sale outcome (`winner_id`), and
+keeps the distinction through Kafka, Redis, reconciliation and the browser.
+The v1 Kafka snapshot was intentionally closed to new fields, so reserve
+status required v2; retained v1 events normalize as historical unreserved
+state when replayed to the v2 projection. A test migration rollback/reapply
+also confirmed the downgrade guard rather than promising to discard a
+configured reserve. See [ADR-019](adr/019-hidden-reserve-policy.md) and the
+[Session 2 report](marketplace/phase-21-session-2.md).

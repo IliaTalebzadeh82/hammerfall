@@ -86,15 +86,23 @@ or `stepped` while draft; old auctions remain fixed. For stepped auctions the
 required `minimum_increment` input is retained for compatibility but does not
 affect pricing. The published [stepped schedule](adr/018-stepped-bid-increments.md)
 is selected from the current visible price. PATCH uses the same allowlist with partial fields.
+Optional `reserve_price` is a private integer EUR-cent threshold at least as large
+as `starting_price`; null means no reserve. The authenticated seller or operator
+may set/change/remove it only while draft. Existing auctions have no reserve.
+The configured amount is write-only in this ordinary auction API: even a seller's
+GET receives only the public reserve status.
 Unknown fields, nested objects, and arrays within resource attributes are rejected.
 Do not submit status, current_price, winner_id, ID, or timestamps of record creation.
 The server initializes current_price to starting_price and chooses draft status.
 
 Responses contain id, title, description, status, currency, starting_price,
-current_price, minimum_increment, starts_at, original_ends_at, ends_at, closed_at, current_leader_id, winner_id,
+current_price, minimum_increment, reserve_status, starts_at, original_ends_at, ends_at, closed_at, current_leader_id, winner_id,
 created_at, updated_at. Datetimes are UTC ISO 8601. No model internals are dumped.
 `minimum_increment` in every public response and public event is the effective
 increment at that snapshot's visible price; the policy name is not public.
+`reserve_status` is `none` without a reserve, `not_met` with a reserve and no
+accepted bid or a visible price below it, and `met` after an accepted visible
+price reaches it. No public response or bid history exposes `reserve_price`.
 Lifecycle actions take no body and never accept client time as authoritative.
 
 ## Bid input and representation
@@ -113,6 +121,7 @@ bidder_id, amount, sequence, currency, created_at. There is no bid edit/delete A
 require an idempotency key. A manual response is the caller’s accepted Bid;
 proxy counterbids may already have changed the leader by the same commit. Fetch
 auction/history to observe the settled state. Origin is never a public field.
+Below-reserve manual bids remain valid when they satisfy the normal minimum.
 
 Bids validate fresh status, time and minimum after acquiring the auction row lock.
 A stale waiter receives ordinary 422 bid_too_low with the price/minimum observed
@@ -206,6 +215,11 @@ current leader's own visible price. Partial final increments are allowed for
 proxies. A nonleader increase at/below public price is rejected as
 maximum_bid_too_low without changing private state or priority. Same amount
 preserves priority; a valid increase resets it.
+With a reserve, a new ceiling below the threshold becomes fully visible; one
+at/above it initially advances only to the reserve if no competition requires
+more. An existing leader's raised ceiling advances toward an unmet reserve,
+never beyond that ceiling. Competing maxima still use the loser's increment
+band and durable equal-ceiling priority.
 
 Additional 422 errors: maximum_bid_cannot_decrease and maximum_bid_too_low. They
 contain no stored private amount. The latter may contain public current_price.
@@ -239,7 +253,9 @@ can leave active status visible temporarily without permitting any late bid/max.
 original_ends_at follows draft edits and freezes on scheduling. ends_at includes
 all +90 extensions. closed_at is null until finalization and then records its DB
 decision time; it can be later than ends_at. current_leader_id remains visible after
-closure, alongside winner_id (both equal, or both null with no bids). These are
+closure, alongside winner_id. With no reserve or a met reserve the leader becomes
+the winner; with an unmet reserve, the leader remains the highest bidder but
+winner_id is null. With no bids both are null. These are
 public intentional fields, not exposure of private maxima. PATCH remains draft-only;
 original_ends_at and closed_at are never writable request fields.
 
@@ -346,9 +362,9 @@ delayed or duplicated and never confirms a command result.
 
 `GET /api/v1/auctions/:id/public-state` returns `{"data": {...}, "meta": {...}}`
 with `Cache-Control: no-store`. `data` contains the auction ID, public revision,
-currency and the Kafka v1 public snapshot fields: title, description, starting
+currency and the current Kafka v2 public snapshot fields: title, description, starting
 price, minimum increment, status, current price, current leader ID, original/end
-times, closed time and winner ID. It omits bid history, `created_at` and
+times, closed time, winner ID and reserve status. It omits bid history, `created_at` and
 `updated_at`. It never includes private maximum, priority, origin or key data.
 
 When a valid Redis projection exists, `meta.source` is `redis` and metadata

@@ -6,7 +6,7 @@ PostgreSQL is the single auction authority. The browser renders REST observation
 
 ## Phase 11 projection contract
 
-`hammerfall.projection.v1` consumes committed public Kafka v1 snapshots into `hammerfall:auction-public:v1:<auction_id>`. Each value includes the public revision, source, event/write times, public data and digest. An atomic Redis revision check rejects stale replay and equal-revision conflicts; equal content is a duplicate. The explicit `/public-state` GET discloses Redis source and age or uses PostgreSQL fallback. Existing GET and commands remain PostgreSQL-backed. Operators can manually rebuild current state from PostgreSQL; no automatic freshness bound or drift repair is promised. See [the runbook](../runbooks/redis-projection.md).
+`hammerfall.projection.v1` consumes committed public Kafka v1 and v2 snapshots into `hammerfall:auction-public:v2:<auction_id>`. Retained v1 events are normalized to `reserve_status=none`; old v1 Redis keys are ignored. Each value includes the public revision, source, event/write times, public data and digest. An atomic Redis revision check rejects stale replay and equal-revision conflicts; equal content is a duplicate. The explicit `/public-state` GET discloses Redis source and age or uses PostgreSQL fallback. Existing GET and commands remain PostgreSQL-backed. Operators can manually rebuild current state from PostgreSQL; no automatic freshness bound or drift repair is promised. See [the runbook](../runbooks/redis-projection.md).
 
 ## Phase 12 reconciliation
 

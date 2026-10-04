@@ -9,7 +9,7 @@ RSpec.describe "Auction API", :domain, type: :request do
     expect(response).to have_http_status(:created)
     data = json.fetch("data")
     expect(data).to include("title" => "Vintage camera", "status" => "draft", "currency" => "EUR", "current_price" => 10_000, "current_leader_id" => nil, "winner_id" => nil)
-    expect(data.keys).to match_array(%w[id public_revision title description status currency starting_price current_price minimum_increment starts_at ends_at original_ends_at closed_at current_leader_id winner_id created_at updated_at])
+    expect(data.keys).to match_array(%w[id public_revision title description status currency starting_price current_price minimum_increment reserve_status starts_at ends_at original_ends_at closed_at current_leader_id winner_id created_at updated_at])
     expect(data["starts_at"]).to end_with("Z")
     get "#{path}/#{data.fetch('id')}", headers: auth_headers, as: :json
     expect(response).to have_http_status(:ok)

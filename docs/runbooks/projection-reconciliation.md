@@ -74,7 +74,7 @@ scheduler command for routine recovery.
 If an equal-conflicting, ahead or corrupt key persists, preserve the key and
 relevant PostgreSQL/outbox evidence for review. Confirm the authoritative
 public row and Kafka history before any targeted intervention. A corrupt key
-may require deletion of only `hammerfall:auction-public:v1:<auction_id>` and
+may require deletion of only `hammerfall:auction-public:v2:<auction_id>` and
 reseed after review, as detailed in the projection recovery runbook. Never
 alter an auction row, bid, outbox event or idempotency record to make Redis
 look healthy. No fixed convergence time or exactly-once execution is promised.

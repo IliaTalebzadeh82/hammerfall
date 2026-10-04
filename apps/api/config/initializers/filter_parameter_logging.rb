@@ -5,5 +5,5 @@
 # See the ActiveSupport::ParameterFilter documentation for supported notations and behaviors.
 Rails.application.config.filter_parameters += [
   :auction, :bid, :maximum_bid, :user, :title, :description, :amount, :name, :payload, :body,
-  :key_digest, :token_digest, :password_digest, :request_fingerprint, :response_body, :maximum_amount, :priority_sequence, :origin, :passw, :login, :email, :secret, :token, :csrf, :cookie, :_key, :crypt, :salt, :certificate, :otp, :ssn, :cvv, :cvc
+  :key_digest, :token_digest, :password_digest, :request_fingerprint, :response_body, :maximum_amount, :reserve_price, :priority_sequence, :origin, :passw, :login, :email, :secret, :token, :csrf, :cookie, :_key, :crypt, :salt, :certificate, :otp, :ssn, :cvv, :cvc
 ]

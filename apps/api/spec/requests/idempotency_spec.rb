@@ -243,4 +243,44 @@ RSpec.describe "Idempotent bidding API", type: :request do
       Rails.logger, ActiveRecord::Base.logger, ActionController::Base.logger = previous
     end
   end
+
+  context "with a hidden reserve" do
+    let(:auction) { create_auction(state: "active", reserve_price: 50_000, minimum_increment: 1_000) }
+
+    it "replays a below-reserve acceptance and rejection as historical outcomes" do
+      bid(20_000)
+      accepted = response.body
+      expect(response.status).to eq(201)
+      bid(20_999, key_value: "reserve-low")
+      rejected = response.body
+      expect(response.status).to eq(422)
+      bid(50_000, key_value: key, user: bob)
+      expect(auction.reload.reserve_status).to eq("met")
+      bid(20_000)
+      expect(response.body).to eq(accepted)
+      expect(response.headers["Idempotency-Replayed"]).to eq("true")
+      bid(20_999, key_value: "reserve-low")
+      expect(response.body).to eq(rejected)
+      expect(response.headers["Idempotency-Replayed"]).to eq("true")
+      expect(auction.bids.count).to eq(2)
+    end
+
+    it "replays an above-reserve maximum without recomputing after competition or closure" do
+      maximum(70_000)
+      accepted = response.body
+      expect(auction.reload.current_price).to eq(50_000)
+      bid(60_000, key_value: "contest", user: bob)
+      expect(auction.reload.current_price).to eq(61_000)
+      expire_fixture(auction).close!
+      before = auction.reload.attributes
+      maximum(70_000)
+      expect(response.body).to eq(accepted)
+      expect(response.headers["Idempotency-Replayed"]).to eq("true")
+      expect(auction.reload.attributes).to eq(before)
+      maximum(71_000)
+      expect(json.dig("error", "code")).to eq("idempotency_key_conflict")
+      bid(62_000, user: bob)
+      expect(json.dig("error", "code")).to eq("invalid_auction_state")
+    end
+  end
 end

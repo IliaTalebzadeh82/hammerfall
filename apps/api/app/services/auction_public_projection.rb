@@ -4,7 +4,7 @@ require "digest"
 class AuctionPublicProjection
   class InvalidProjection < StandardError; end
 
-  KEY_PREFIX = "hammerfall:auction-public:v1:".freeze
+  KEY_PREFIX = "hammerfall:auction-public:v2:".freeze
   SCRIPT = <<~LUA.freeze
     local old = redis.call('GET', KEYS[1])
     local incoming = cjson.decode(ARGV[1])
@@ -31,7 +31,7 @@ class AuctionPublicProjection
   def apply_event(event)
     write(auction_id: event.fetch("aggregate_id"), revision: event.fetch("aggregate_version"),
       event_id: event.fetch("event_id"), occurred_at: event.fetch("occurred_at"),
-      source: "kafka", data: event.fetch("data"))
+      source: "kafka", data: normalized_data(event))
   end
 
   def seed(auction)
@@ -47,7 +47,7 @@ class AuctionPublicProjection
     state = JSON.parse(raw)
     raise InvalidProjection, "invalid projection envelope" unless state.is_a?(Hash) &&
       state.keys.sort == %w[auction_id data data_digest event_id occurred_at projected_at_ms public_revision schema_version source].sort &&
-      state["schema_version"] == 1 && state["auction_id"] == auction_id &&
+      state["schema_version"] == 2 && state["auction_id"] == auction_id &&
       state["public_revision"].is_a?(Integer) && state["public_revision"] >= 0 &&
       state["projected_at_ms"].is_a?(Integer) && state["projected_at_ms"].positive? &&
       %w[kafka postgresql_seed].include?(state["source"]) &&
@@ -69,7 +69,7 @@ class AuctionPublicProjection
   private
 
   def write(auction_id:, revision:, event_id:, occurred_at:, source:, data:)
-    state = { schema_version: 1, auction_id: auction_id, public_revision: revision,
+    state = { schema_version: 2, auction_id: auction_id, public_revision: revision,
       event_id: event_id, occurred_at: occurred_at, source: source, data: data,
       data_digest: digest(data) }
     result = case @redis.call("EVAL", SCRIPT, 1, key(auction_id), JSON.generate(state))
@@ -90,6 +90,13 @@ class AuctionPublicProjection
 
   def digest(data)
     Digest::SHA256.hexdigest(JSON.generate(data.sort.to_h))
+  end
+
+  def normalized_data(event)
+    return event.fetch("data") if event.fetch("schema_version") == 2
+
+    # Every retained v1 event predates reserve configuration.
+    event.fetch("data").merge("reserve_status" => "none")
   end
 
   def key(auction_id)

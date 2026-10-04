@@ -6,7 +6,7 @@ class OutboxEvent < ApplicationRecord
 
   def self.record_auction_change!(auction_id:, revision:, domain_event_type:, domain_payload:)
     trace = Observability.carrier
-    create!(event_type: EVENT_TYPE, schema_version: 1, auction_id: auction_id, public_revision: revision,
+    create!(event_type: EVENT_TYPE, schema_version: 2, auction_id: auction_id, public_revision: revision,
       domain_event_type: domain_event_type, domain_payload: domain_payload,
       traceparent: trace["traceparent"], tracestate: trace["tracestate"])
   end
@@ -28,7 +28,7 @@ class OutboxEvent < ApplicationRecord
   end
 
   def kafka_envelope
-    { event_id: event_id, event_type: domain_event_type, schema_version: 1,
+    { event_id: event_id, event_type: domain_event_type, schema_version: schema_version,
       aggregate_id: auction_id, aggregate_version: public_revision,
       occurred_at: occurred_at.utc.iso8601(6), data: domain_payload }
   end

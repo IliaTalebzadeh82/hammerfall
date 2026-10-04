@@ -72,10 +72,10 @@ RSpec.describe "Kafka domain outbox", type: :model do
     IdempotentBidding.call(key: "kafka-bid", actor_id: @bidder.id, auction_id: auction.id,
       operation: "place_bid", amount: 10_000)
     event = event_for(auction)
-    expect(event).to have_attributes(public_revision: before + 1, domain_event_type: "auction.price_changed.v1",
+    expect(event).to have_attributes(public_revision: before + 1, domain_event_type: "auction.price_changed.v2",
       kafka_published_at: nil, kafka_attempts: 0)
     expect(event.kafka_envelope).to include(event_id: event.event_id, aggregate_id: auction.id,
-      aggregate_version: auction.reload.public_revision, schema_version: 1)
+      aggregate_version: auction.reload.public_revision, schema_version: 2)
     expect(event.domain_payload).to include("status" => "active", "current_price" => 10_000)
     expect(event.kafka_envelope[:data].keys).not_to include("maximum_amount", "priority_sequence", "origin", "key_digest", "request_fingerprint")
     expect(IdempotencyRecord.where(actor_id: @bidder.id).pick(:status)).to eq("completed")
@@ -110,11 +110,29 @@ RSpec.describe "Kafka domain outbox", type: :model do
       .to raise_error(KafkaEventCodec::InvalidEvent, /invalid public data/)
   end
 
+  it "validates v2 reserve closure without accepting a raw reserve field" do
+    auction = active_auction(reserve_price: 50_000)
+    auction.place_bid!(bidder: @bidder, amount: 40_000)
+    expire_fixture(auction).close!
+    event = event_for(auction).kafka_envelope.stringify_keys
+    expect(event.dig("data", "reserve_status")).to eq("not_met")
+    expect(event.dig("data", "current_leader_id")).to eq(@bidder.id)
+    expect(event.dig("data", "winner_id")).to be_nil
+    expect(KafkaEventCodec.decode(JSON.generate(event), key: auction.id.to_s)).to eq(event)
+    [ { "winner_id" => @bidder.id }, { "reserve_status" => "unknown" },
+      { "reserve_price" => 50_000 } ].each do |change|
+      candidate = event.deep_dup
+      candidate.fetch("data").merge!(change)
+      expect { KafkaEventCodec.decode(JSON.generate(candidate), key: auction.id.to_s) }
+        .to raise_error(KafkaEventCodec::InvalidEvent)
+    end
+  end
+
   it "keeps committed event identity and payload immutable while allowing publisher acknowledgments" do
     event = event_for(active_auction)
     { event_id: SecureRandom.uuid, event_type: "auction.other.v1", schema_version: 2,
       auction_id: event.auction_id + 1,
-      public_revision: event.public_revision + 1, domain_event_type: "auction.closed.v1",
+      public_revision: event.public_revision + 1, domain_event_type: "auction.closed.v2",
       domain_payload: event.domain_payload.merge("status" => "closed"),
       occurred_at: event.occurred_at + 1 }.each do |field, value|
       expect { event.update!(field => value) }.to raise_error(ActiveRecord::ReadonlyAttributeError)
@@ -128,7 +146,8 @@ RSpec.describe "Kafka domain outbox", type: :model do
 
   it "rejects unknown domain types and non-object payloads at the database boundary" do
     event = event_for(active_auction)
-    [ { domain_event_type: "auction.unknown.v1" }, { domain_payload: [ "invalid" ] } ].each do |change|
+    [ { domain_event_type: "auction.unknown.v1" }, { domain_event_type: "auction.closed.v1" },
+      { domain_payload: [ "invalid" ] } ].each do |change|
       expect do
         ApplicationRecord.transaction(requires_new: true) { OutboxEvent.where(id: event.id).update_all(change) }
       end.to raise_error(ActiveRecord::StatementInvalid) { |error| expect(error.cause).to be_a(PG::CheckViolation) }
@@ -139,14 +158,14 @@ RSpec.describe "Kafka domain outbox", type: :model do
     auction = create_auction
     @auction_ids << auction.id
     auction.edit_draft!(title: "Updated public title")
-    expect(event_for(auction).domain_event_type).to eq("auction.terms_changed.v1")
+    expect(event_for(auction).domain_event_type).to eq("auction.terms_changed.v2")
     expect(event_for(auction).domain_payload["title"]).to eq("Updated public title")
     auction.schedule!
-    expect(event_for(auction).domain_event_type).to eq("auction.status_changed.v1")
+    expect(event_for(auction).domain_event_type).to eq("auction.status_changed.v2")
     auction.activate!
-    expect(event_for(auction).domain_event_type).to eq("auction.status_changed.v1")
+    expect(event_for(auction).domain_event_type).to eq("auction.status_changed.v2")
     expire_fixture(auction).close!
-    expect(event_for(auction).domain_event_type).to eq("auction.closed.v1")
+    expect(event_for(auction).domain_event_type).to eq("auction.closed.v2")
     expect(event_for(auction).domain_payload).to include("status" => "closed", "winner_id" => nil)
   end
 
@@ -157,7 +176,7 @@ RSpec.describe "Kafka domain outbox", type: :model do
     prior_price = auction.reload.current_price
     auction.set_maximum!(bidder: @bidder, maximum_amount: 30_000)
     expect(auction.reload.current_price).to eq(prior_price)
-    expect(event_for(auction).domain_event_type).to eq("auction.extended.v1")
+    expect(event_for(auction).domain_event_type).to eq("auction.extended.v2")
     expect(event_for(auction).domain_payload["ends_at"]).to eq(auction.ends_at.utc.iso8601(6))
   end
 
@@ -248,7 +267,7 @@ RSpec.describe "Kafka domain outbox", type: :model do
     auction.place_bid!(bidder: @bidder, amount: 10_000)
     event = event_for(auction).kafka_envelope.stringify_keys
     broker = double("consumer", commit: nil)
-    message = Struct.new(:payload, :key, :partition, :offset).new(JSON.generate(event.merge("schema_version" => 2)), auction.id.to_s, 0, 12)
+    message = Struct.new(:payload, :key, :partition, :offset).new(JSON.generate(event.merge("schema_version" => 3)), auction.id.to_s, 0, 12)
     consumer = KafkaAuditConsumer.new(consumer: broker)
     expect { consumer.process(message) }.to raise_error(KafkaEventCodec::InvalidEvent)
     expect(ConsumedKafkaEvent.where(auction_id: auction.id)).to be_empty

@@ -74,6 +74,41 @@ it("handles no auctions and no users", async () => {
   await screen.findByText("No auctions available");
   await screen.findByRole("button", { name: "Sign in" });
 });
+it("shows public reserve status and an unsold highest bid without any hidden amount", async () => {
+  const unsold = {
+    ...auction,
+    status: "closed",
+    current_price: 40000,
+    reserve_status: "not_met",
+    winner_id: null,
+    closed_at: "2026-01-02T00:00:00Z",
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      if (url.includes("/session"))
+        return json({ error: { code: "authentication_required" } }, 401);
+      if (url.includes("/users"))
+        return json({ data: [], meta: { next_after_id: null } });
+      if (url.includes("/bids"))
+        return json({ data: [], meta: { next_after_sequence: null } });
+      return json({ data: unsold });
+    }),
+  );
+  render(
+    <AuctionSession>
+      <ApplicationShell>
+        <AuctionDetail id={42} />
+      </ApplicationShell>
+    </AuctionSession>,
+  );
+  await screen.findByText("Reserve not met");
+  expect(screen.getByText("Highest bid")).toBeInTheDocument();
+  expect(
+    screen.getByText("Closed without a sale; highest bidder retained."),
+  ).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("reserve_price");
+});
 it("coalesces a queued refresh after an older GET; history follows sequence pagination", async () => {
   let auctionReads = 0;
   let releaseOld!: (response: Response) => void;

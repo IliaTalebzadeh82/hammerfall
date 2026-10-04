@@ -1,7 +1,7 @@
 class Auction < ApplicationRecord
   CURRENCY = "EUR"
   STATES = %w[draft scheduled active closed cancelled].freeze
-  EDITABLE_FIELDS = %w[title description starting_price minimum_increment increment_policy starts_at ends_at].freeze
+  EDITABLE_FIELDS = %w[title description starting_price minimum_increment increment_policy reserve_price starts_at ends_at].freeze
   INCREMENT_POLICIES = %w[fixed stepped].freeze
   TRANSITIONS = {
     "scheduled" => %w[draft],
@@ -21,6 +21,7 @@ class Auction < ApplicationRecord
   validates :status, inclusion: { in: STATES }
   validates :increment_policy, inclusion: { in: INCREMENT_POLICIES }
   validates :starting_price, :current_price, :minimum_increment, minor_units: true
+  validates :reserve_price, minor_units: true, unless: -> { reserve_price.nil? && reserve_price_before_type_cast.nil? }
   validates :starts_at, :ends_at, :original_ends_at, presence: true
   validate :valid_time_window
   validate :valid_price_and_winner
@@ -69,7 +70,7 @@ class Auction < ApplicationRecord
       return self unless AuctionDeadline.due?(ends_at, decision_time)
 
       close_lag = [ decision_time - ends_at, 0 ].max
-      self.winner_id = current_leader_id
+      self.winner_id = current_leader_id if current_leader_id && reserve_status != "not_met"
       self.closed_at = decision_time
       self.status = "closed"
       Observability.trace("hammerfall.auction.close") { persist_public_change!(:transition) }
@@ -150,6 +151,12 @@ class Auction < ApplicationRecord
     Bidding::BidIncrementPolicy.new(self)
   end
 
+  def reserve_status
+    return "none" unless reserve_price
+
+    current_leader_id && current_price >= reserve_price ? "met" : "not_met"
+  end
+
   def leading_bid
     bids.where(bidder_id: current_leader_id).order(sequence: :desc).first
   end
@@ -217,20 +224,20 @@ class Auction < ApplicationRecord
     Observability.trace("hammerfall.postgresql.auction_save") { save!(context: context) }
     if changed
       event_type = if saved_change_to_status? && status == "closed"
-        "auction.closed.v1"
+        "auction.closed.v2"
       elsif saved_change_to_status?
-        "auction.status_changed.v1"
+        "auction.status_changed.v2"
       elsif context == :draft_edit
-        "auction.terms_changed.v1"
+        "auction.terms_changed.v2"
       elsif saved_change_to_current_price? || saved_change_to_current_leader_id?
-        "auction.price_changed.v1"
+        "auction.price_changed.v2"
       else
-        "auction.extended.v1"
+        "auction.extended.v2"
       end
       public_data = { title: title, description: description, status: status,
         starting_price: starting_price, minimum_increment: bid_increment_policy.increment_at(current_price),
         starts_at: starts_at.utc.iso8601(6), original_ends_at: original_ends_at.utc.iso8601(6),
-        current_price: current_price, current_leader_id: current_leader_id,
+        current_price: current_price, current_leader_id: current_leader_id, reserve_status: reserve_status,
         ends_at: ends_at.utc.iso8601(6), closed_at: closed_at&.utc&.iso8601(6), winner_id: winner_id }
       Observability.trace("hammerfall.outbox.persist", attributes: { "hammerfall.event_type" => event_type }) do
         OutboxEvent.record_auction_change!(auction_id: id, revision: public_revision,
@@ -250,12 +257,16 @@ class Auction < ApplicationRecord
     errors.add(:ends_at, "must not precede original_ends_at") if ends_at && original_ends_at && ends_at < original_ends_at
     if status == "closed"
       errors.add(:closed_at, "must be present") unless closed_at
-      errors.add(:winner, "must match current leader") unless winner_id == current_leader_id
+      expected_winner = current_leader_id if reserve_status != "not_met"
+      errors.add(:winner, "must match sale outcome") unless winner_id == expected_winner
     elsif closed_at
       errors.add(:closed_at, "is only assigned on closure")
     end
     if current_price && starting_price && current_price < starting_price
       errors.add(:current_price, "must not be below starting_price")
+    end
+    if reserve_price && starting_price && reserve_price < starting_price
+      errors.add(:reserve_price, "must be at least starting_price")
     end
     errors.add(:winner, "is only assigned on closure") if winner_id && status != "closed"
     if new_record?

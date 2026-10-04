@@ -107,7 +107,7 @@ as a general recovery guarantee. See ADR-012 and the projection runbook.
 ## Phase 12 reconciliation consistency
 
 The scheduled checker compares PostgreSQL `public_revision` and the exact
-public presenter fields carried by Kafka v1 `data` with a validated Redis
+public presenter fields carried by Kafka v2 `data` with a validated Redis
 envelope. Missing and valid lower-revision keys can be seeded from current
 PostgreSQL. Equal identical keys cause no write. Equal conflicts, ahead keys,
 malformed envelopes and bad digests remain unchanged for operator review.

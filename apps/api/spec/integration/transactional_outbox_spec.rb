@@ -17,7 +17,7 @@ RSpec.describe "Transactional public outbox", type: :model do
     expect(result.status).to eq(201)
     event = events(auction).last
     expect(events(auction).count).to eq(before + 1)
-    expect(event).to have_attributes(event_type: "auction.changed.v1", schema_version: 1,
+    expect(event).to have_attributes(event_type: "auction.changed.v1", schema_version: 2,
       public_revision: auction.reload.public_revision, published_at: nil, attempts: 0)
     expect(event.event_id).to be_present
     expect(event.attributes.keys + event.domain_payload.keys).not_to include("maximum_amount", "priority_sequence", "origin", "key_digest", "request_fingerprint")

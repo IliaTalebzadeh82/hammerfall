@@ -60,7 +60,7 @@ broker delivery report, then sets `kafka_published_at`. Its retry state is
 independent of Redis acknowledgment. Topic `hammerfall.auction-events.v1` has
 three local partitions, keyed by auction ID. Concurrent publisher claims can
 still place revisions out of order. The initial `hammerfall.audit.v1` consumer
-group validates v1 envelopes, writes a receipt and public audit entry in one
+group validates retained v1 and new reserve-capable v2 envelopes, writes a receipt and public audit entry in one
 PostgreSQL transaction, then commits the Kafka offset. Duplicate IDs are
 harmless; gaps and stale arrivals are classified. Poison events stop the
 consumer at the uncommitted offset for operator review. See the [event model](../event-model.md),
@@ -69,7 +69,7 @@ consumer at the uncommitted offset for operator review. See the [event model](..
 ## Phase 11: Redis public projection
 
 The independent `hammerfall.projection.v1` group validates the same public
-envelope, atomically admits a higher revision into Redis, then commits its
+envelope, normalizes retained v1 `reserve_status=none`, atomically admits a higher revision into the v2 Redis key, then commits its
 Kafka offset. Equal public data is a duplicate; lower revisions are stale;
 equal revision with different data stops processing for review. The Redis key
 holds only public state plus version/freshness metadata. The explicit eventual

@@ -60,7 +60,7 @@ after any skipped history.
 A malformed Redis value makes the endpoint fall back, but can also make Lua
 replay or seeding fail. After identifying the affected auction and preserving
 diagnostic evidence, delete only
-`hammerfall:auction-public:v1:<auction_id>` and run the PostgreSQL rebuild.
+`hammerfall:auction-public:v2:<auction_id>` and run the PostgreSQL rebuild.
 Never delete a PostgreSQL auction, outbox row or idempotency record to repair a
 projection. Check consumer lag and the endpoint again.
 

@@ -14,6 +14,7 @@ export type Auction = {
   starting_price: number;
   current_price: number;
   minimum_increment: number;
+  reserve_status: "none" | "not_met" | "met";
   starts_at: string;
   ends_at: string;
   original_ends_at: string;

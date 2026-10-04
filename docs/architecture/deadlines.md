@@ -4,7 +4,7 @@
 
 After obtaining the auction row lock, a bidding or closing command samples uncached PostgreSQL `clock_timestamp()`. Eligibility is `active` and `starts_at <= decision_time < ends_at`; transaction-start, app, browser and scheduler clocks cannot authorize a bid. All stored API times use UTC. A valid decision can commit after the deadline while still holding the lock.
 
-The explicit `Auction#close!` finalizer and independent Rails closer role share this protocol. Closer discovery of bounded due IDs is only a hint: it locks and rechecks each candidate. Duplicate/stale workers are safe; early or repeated close is a no-op and must not change winner or `closed_at`. The final winner is the already settled leader, or null; closing creates no bid. Delayed polling may leave visible status active after deadline, but cannot admit late bids. A rejected bid does not lazily close.
+The explicit `Auction#close!` finalizer and independent Rails closer role share this protocol. Closer discovery of bounded due IDs is only a hint: it locks and rechecks each candidate. Duplicate/stale workers are safe; early or repeated close is a no-op and must not change winner or `closed_at`. The settled leader becomes sale winner only without a reserve or when reserve is met. An unmet reserve retains the highest bidder as leader with no sale winner; closing creates no bid. Delayed polling may leave visible status active after deadline, but cannot admit late bids. A rejected bid does not lazily close.
 
 ## Soft-close rule
 

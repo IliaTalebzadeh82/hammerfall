@@ -3,11 +3,14 @@
 class PublicAuctionSnapshot
   class InvalidSnapshot < StandardError; end
 
-  DATA_KEYS = %w[title description status starting_price minimum_increment starts_at original_ends_at current_price current_leader_id ends_at closed_at winner_id].freeze
+  V1_DATA_KEYS = %w[title description status starting_price minimum_increment starts_at original_ends_at current_price current_leader_id ends_at closed_at winner_id].freeze
+  DATA_KEYS = (V1_DATA_KEYS + %w[reserve_status]).freeze
+  RESERVE_STATUSES = %w[none not_met met].freeze
   MAXIMUM_AMOUNT = 1_000_000_000_000
 
-  def self.validate!(data)
-    raise InvalidSnapshot, "invalid public fields" unless data.is_a?(Hash) && data.keys.sort == DATA_KEYS.sort
+  def self.validate!(data, version: 2)
+    keys = version == 1 ? V1_DATA_KEYS : DATA_KEYS
+    raise InvalidSnapshot, "invalid public fields" unless data.is_a?(Hash) && data.keys.sort == keys.sort
     raise InvalidSnapshot, "invalid public text" unless data["title"].is_a?(String) && data["title"].length.between?(1, 200) &&
       data["title"].match?(/[^[:space:]]/) && data["description"].is_a?(String) && data["description"].length <= 10_000
     raise InvalidSnapshot, "invalid status" unless Auction::STATES.include?(data["status"])
@@ -24,7 +27,15 @@ class PublicAuctionSnapshot
     raise InvalidSnapshot, "invalid price" if data["current_price"] < data["starting_price"]
     closed = data["status"] == "closed"
     raise InvalidSnapshot, "invalid closure" unless closed == !closed_at.nil? && (!closed || closed_at >= ends_at)
-    winner_valid = closed ? data["winner_id"] == data["current_leader_id"] : data["winner_id"].nil?
+    if version == 2
+      raise InvalidSnapshot, "invalid reserve status" unless RESERVE_STATUSES.include?(data["reserve_status"])
+      raise InvalidSnapshot, "invalid reserve status" if data["reserve_status"] == "met" && data["current_leader_id"].nil?
+    end
+    winner_valid = if closed
+      version == 1 || data["reserve_status"] != "not_met" ? data["winner_id"] == data["current_leader_id"] : data["winner_id"].nil?
+    else
+      data["winner_id"].nil?
+    end
     raise InvalidSnapshot, "invalid winner" unless winner_valid
 
     data

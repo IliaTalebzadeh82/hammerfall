@@ -179,7 +179,9 @@ export function AuctionDetail({ id }: { id: number }) {
           <section className="price-block">
             <span className="eyebrow">
               {auction.status === "closed"
-                ? "Final price"
+                ? auction.winner_id === null && auction.current_leader_id !== null
+                  ? "Highest bid"
+                  : "Final price"
                 : auction.current_leader_id
                   ? "Current price"
                   : "Starting price"}
@@ -187,10 +189,17 @@ export function AuctionDetail({ id }: { id: number }) {
             <p className="hero-price">
               {formatEuroCents(auction.current_price)}
             </p>
+            {auction.reserve_status !== "none" && (
+              <p className="leader-line">
+                {auction.reserve_status === "met" ? "Reserve met" : "Reserve not met"}
+              </p>
+            )}
             {auction.status === "closed" ? (
               <p className="leader-line">
                 {auction.winner_id === null
-                  ? "Closed without a winning bid"
+                  ? auction.reserve_status === "not_met" && auction.current_leader_id !== null
+                    ? "Closed without a sale; highest bidder retained."
+                    : "Closed without a winning bid"
                   : `Winner · ${bidderName(auction.winner_id, session.users)}${auction.winner_id === session.actorId ? " (selected bidder)" : ""}`}
               </p>
             ) : (

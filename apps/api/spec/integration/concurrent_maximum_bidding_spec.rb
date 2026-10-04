@@ -50,6 +50,14 @@ RSpec.describe "PostgreSQL concurrent maximum bidding", type: :model do
     assert_settled(auction, price: 31_000, leader: @other.id)
   end
 
+  it "serializes reserve-qualified maxima with one leader and no ceiling overbid" do
+    auction = active_auction(reserve_price: 50_000, increment_policy: "stepped")
+    results = compete(max_command(auction, @bidder, 70_000), max_command(auction, @other, 60_000))
+    expect(results).to all(be_a(MaximumBid))
+    assert_settled(auction, price: 65_000, leader: @bidder.id)
+    expect(auction.reserve_status).to eq("met")
+  end
+
   it "resolves equal maxima by durable commitment priority" do
     auction = active_auction(minimum_increment: 1_000)
     compete(max_command(auction, @bidder, 30_000), max_command(auction, @other, 30_000))

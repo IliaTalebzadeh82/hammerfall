@@ -20,7 +20,7 @@ class ReconciliationSweepJob
     rows = ApplicationRecord.connection.select_all(
       Auction.sanitize_sql_array([ <<~SQL, cursor, ceiling, BATCH_SIZE ])
         SELECT a.id, a.status, a.starting_price, a.current_price,
-          a.current_leader_id, a.winner_id, b.amount AS last_bid_amount,
+          a.current_leader_id, a.winner_id, a.reserve_price, b.amount AS last_bid_amount,
           b.bidder_id AS last_bidder_id
         FROM auctions a
         LEFT JOIN LATERAL (
@@ -38,7 +38,10 @@ class ReconciliationSweepJob
       expected_price = row["last_bid_amount"] || row["starting_price"]
       expected_leader = row["last_bidder_id"]
       consistent = row["current_price"] == expected_price && row["current_leader_id"] == expected_leader
-      consistent &&= row["winner_id"] == expected_leader if row["status"] == "closed"
+      if row["status"] == "closed"
+        sold = row["reserve_price"].nil? || (expected_leader && expected_price >= row["reserve_price"])
+        consistent &&= row["winner_id"] == (sold ? expected_leader : nil)
+      end
       next if consistent
 
       Rails.logger.error("auction_reconciliation drift auction_id=#{row['id']} kind=postgresql_state")

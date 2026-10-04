@@ -183,14 +183,14 @@ callbacks. See ADR-004's table, written before the implementation.
    Alice's earlier priority wins. Equal visible amounts now have legitimate meaning.
 6. If Alice had 200 and raises to Bob's already established 300, she gets a new
    priority and loses that tie. Old low-ceiling seniority does not carry forward.
-7. A leader raising protection from 300 to 500 emits nothing and does not self-bid.
+7. On an unreserved auction, a leader raising protection from 300 to 500 emits nothing and does not self-bid.
 
 **Why two contenders suffice:** every completed contest leaves previous losers
 exhausted at/below visible price or behind an equal-ceiling priority winner. A new
 command only changes its caller's offer/protection. Comparing that caller to the
 current leader therefore accounts for all stored instructions without repeatedly
-incrementing against every historical bidder. This assumption must be reviewed if
-future policy permits reductions, retractions or reserve prices.
+incrementing against every historical bidder. The Phase 21 reserve floor does
+not revive exhausted maxima; reductions or retractions would require review.
 
 **Leader and price:** explicit leader state is selected by ceiling and priority,
 not last-row luck. The final visible row represents that selected leader and its
@@ -1105,3 +1105,21 @@ The public snapshot can carry the effective increment without exposing the
 unused ceiling. A repeated rejected command still returns its historical
 minimum through the idempotency record. See [ADR-018](adr/018-stepped-bid-increments.md)
 and the focused tests; live transport verification is still pending.
+
+## Phase 21 hidden reserve lesson
+
+A private reserve changes the meaning of closing: a visible highest bidder
+may remain after close even when no sale winner exists. The auction row lock
+serializes reserve-sensitive proxy prices and closure with the same PostgreSQL
+decision clock. A €700 maximum against a €500 reserve first appears as €500;
+a €400 maximum appears fully at €400. Neither rule permits an automatic bid
+above its owner's ceiling. When competition raises the losing visible ceiling
+to €600, the winner may need €650 under the stepped schedule. Earlier
+equal-ceiling priority still decides the leader.
+
+The public `reserve_status` is derived in the domain transaction and emitted
+with a v2 snapshot, while `reserve_price` stays out of GET, outbox, Kafka,
+Redis and Cable. Retained v1 events can be replayed as historical unreserved
+state into a v2 Redis projection. A retry still returns its saved historical
+command result. See [ADR-019](adr/019-hidden-reserve-policy.md), the
+[Session 2 report](marketplace/phase-21-session-2.md) and focused tests.

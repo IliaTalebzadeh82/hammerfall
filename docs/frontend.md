@@ -1,4 +1,4 @@
-# Frontend — through Phase 20
+# Frontend — Phase 21 reserve slice
 
 Hammerfall is a text-focused auction interface backed entirely by Rails. It uses
 Next.js App Router, React, TypeScript, Tailwind v4 and shadcn Base UI primitives.
@@ -21,6 +21,11 @@ and lifecycle status. Accepted commands never imply leadership. An active leader
 is never labelled winner. Draft/scheduled/cancelled/closed disable new bidding;
 expired-looking active state shows Checking status and asks Rails again. The browser
 never submits a close command or declares closure itself.
+Public `reserve_status` renders no reserve notice for `none`, or "Reserve not
+met"/"Reserve met" for reserved auctions. A closed auction with an unmet
+reserve labels its amount as highest bid and states no sale, while retaining
+the highest bidder separately from `winner_id`. No raw reserve amount enters
+the browser through ordinary GET or the typed `Auction` representation.
 
 ## Intentions and recovery
 

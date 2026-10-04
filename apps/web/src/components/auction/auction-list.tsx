@@ -134,12 +134,19 @@ export function AuctionList() {
               <div className="card-price">
                 <span className="eyebrow">
                   {auction.status === "closed"
-                    ? "Final price"
+                    ? auction.winner_id === null && auction.current_leader_id !== null
+                      ? "Highest bid"
+                      : "Final price"
                     : auction.current_leader_id
                       ? "Current price"
                       : "Starting price"}
                 </span>
                 <p>{formatEuroCents(auction.current_price)}</p>
+                {auction.reserve_status !== "none" && (
+                  <span className="fine-print">
+                    {auction.reserve_status === "met" ? "Reserve met" : "Reserve not met"}
+                  </span>
+                )}
               </div>
               <AuctionTiming
                 auction={auction}

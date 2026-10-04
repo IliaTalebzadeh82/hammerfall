@@ -9,6 +9,7 @@ export const auction: Auction = {
   starting_price: 10000,
   current_price: 30000,
   minimum_increment: 1000,
+  reserve_status: "none",
   starts_at: "2026-01-01T00:00:00Z",
   ends_at: "2099-01-01T00:00:00Z",
   original_ends_at: "2099-01-01T00:00:00Z",

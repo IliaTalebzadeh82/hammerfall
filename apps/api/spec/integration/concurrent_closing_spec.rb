@@ -5,6 +5,54 @@ RSpec.describe "PostgreSQL deadline races", type: :model do
   self.use_transactional_tests = false
   include_context "committed auction concurrency"
 
+  it "lets a reserve-meeting bid win the lock, extending before a stale closer can finalize" do
+    auction = active_auction(reserve_price: 50_000)
+    auction.place_bid!(bidder: @bidder, amount: 40_000)
+    deadline_fixture(auction, AuctionClock.now + 1)
+    original = auction.ends_at
+    ready = Queue.new
+    closing = nil
+    ApplicationRecord.transaction do
+      auction.reload(lock: true)
+      auction.place_bid!(bidder: @bidder, amount: 50_000)
+      expect(auction.reserve_status).to eq("met")
+      wait_until_database_time(original)
+      closing = worker do |connection|
+        stale = Auction.find(auction.id)
+        expect(stale.reserve_status).to eq("not_met")
+        ready << connection.select_value("SELECT pg_backend_pid()")
+        stale.close!
+      end
+      wait_for_lock(take(ready))
+    end
+    expect(result(closing)).to be_a(Auction)
+    expect(auction.reload).to have_attributes(status: "active", current_price: 50_000, winner_id: nil)
+    expire_fixture(auction).close!
+    expect(auction.reload).to have_attributes(status: "closed", current_leader_id: @bidder.id, winner_id: @bidder.id)
+  end
+
+  it "closes below reserve before a waiting bid and rejects the post-close bid" do
+    auction = active_auction(reserve_price: 50_000)
+    auction.place_bid!(bidder: @bidder, amount: 40_000)
+    expire_fixture(auction)
+    ready = Queue.new
+    waiting = nil
+    ApplicationRecord.transaction do
+      auction.close!
+      waiting = worker do |connection|
+        stale = Auction.find(auction.id)
+        expect(stale.status).to eq("active")
+        ready << connection.select_value("SELECT pg_backend_pid()")
+        stale.place_bid!(bidder: User.find(@bidder.id), amount: 50_000)
+      end
+      wait_for_lock(take(ready))
+    end
+    expect(result(waiting)).to have_attributes(code: "invalid_auction_state")
+    expect(auction.reload).to have_attributes(status: "closed", current_price: 40_000,
+      current_leader_id: @bidder.id, winner_id: nil)
+    expect(auction.bids.order(:sequence).pluck(:amount)).to eq([ 40_000 ])
+  end
+
   %i[manual maximum].each do |kind|
     it "rechecks a stale due candidate after a #{kind} action extends under the first lock" do
       auction = active_auction

@@ -45,6 +45,25 @@ RSpec.describe "Core domain database constraints", :domain do
     expect_database_rejection(PG::ForeignKeyViolation) { Auction.where(id: id).update_all(status: "closed", winner_id: -1, current_leader_id: -1, closed_at: auction.ends_at) }
   end
 
+  it "permits a closed highest bidder without a sale and rejects reserve-inconsistent winners" do
+    unsold = create_auction(state: "active", reserve_price: 50_000)
+    unsold.place_bid!(bidder: bidder, amount: 40_000)
+    expire_fixture(unsold).close!
+    expect(unsold.reload).to have_attributes(current_leader_id: bidder.id, winner_id: nil)
+    expect_database_rejection(PG::CheckViolation) { Auction.where(id: unsold.id).update_all(winner_id: bidder.id) }
+
+    sold = create_auction(state: "active", reserve_price: 50_000)
+    sold.place_bid!(bidder: bidder, amount: 50_000)
+    expire_fixture(sold).close!
+    expect_database_rejection(PG::CheckViolation) { Auction.where(id: sold.id).update_all(winner_id: nil) }
+  end
+
+  it "bounds reserve in SQL relative to the auction starting price" do
+    id = auction.id
+    expect_database_rejection(PG::CheckViolation) { Auction.where(id: id).update_all(reserve_price: 9_999) }
+    expect_database_rejection(PG::CheckViolation) { Auction.where(id: id).update_all(reserve_price: MinorUnitsValidator::MAXIMUM + 1) }
+  end
+
   it "enforces nonblank, non-null user names independently of validation" do
     id = bidder.id
     expect_database_rejection(PG::CheckViolation) { User.where(id: id).update_all(name: "\t  ") }

@@ -9,8 +9,8 @@ RSpec.describe "Redis public auction projection", type: :request do
     redis.close
   end
 
-  def tracked_auction
-    auction = create_auction(state: "active")
+  def tracked_auction(**attributes)
+    auction = create_auction(state: "active", **attributes)
     (@auction_ids ||= []) << auction.id
     auction
   end
@@ -41,6 +41,45 @@ RSpec.describe "Redis public auction projection", type: :request do
     expect(json.fetch("meta")).to include("source" => "redis", "event_occurred_at" => event.fetch("occurred_at"))
     expect(json.dig("meta", "age_seconds")).to be >= 0
     expect(broker).to have_received(:commit).once
+  end
+
+  it "replays retained v1 snapshots into the v2 projection before later v2 state" do
+    auction = tracked_auction
+    legacy = event_for(auction)
+    legacy["schema_version"] = 1
+    legacy["event_type"] = legacy.fetch("event_type").sub(/\.v2\z/, ".v1")
+    legacy.fetch("data").delete("reserve_status")
+    expect(KafkaEventCodec.decode(JSON.generate(legacy), key: auction.id.to_s)).to eq(legacy)
+    expect(projection.apply_event(legacy)).to eq(:applied)
+    expect(projection.read(auction.id)).to include("schema_version" => 2)
+    expect(projection.read(auction.id).dig("data", "reserve_status")).to eq("none")
+    auction.place_bid!(bidder: User.create!(name: "Later bidder"), amount: 10_000)
+    expect(projection.apply_event(event_for(auction))).to eq(:applied)
+    expect(projection.read(auction.id).dig("data", "current_price")).to eq(10_000)
+  end
+
+  it "projects reserve status from PostgreSQL events and rebuilds it without copying the private amount" do
+    auction = tracked_auction(reserve_price: 52_345)
+    initial = event_for(auction)
+    expect(initial.fetch("data")).to include("reserve_status" => "not_met")
+    expect(JSON.generate(initial)).not_to include("reserve_price", "52345")
+    expect(projection.apply_event(initial)).to eq(:applied)
+    expect(projection.read(auction.id).dig("data", "reserve_status")).to eq("not_met")
+
+    auction.set_maximum!(bidder: User.create!(name: "Reserve bidder"), maximum_amount: 70_000)
+    expect(projection.apply_event(event_for(auction))).to eq(:applied)
+    expect(projection.read(auction.id).dig("data", "reserve_status")).to eq("met")
+    expect(projection.read(auction.id).dig("data")).not_to have_key("reserve_price")
+    get "/api/v1/auctions/#{auction.id}/public-state"
+    expect(json.fetch("data")).to include("reserve_status" => "met")
+    expect(json.dig("meta", "source")).to eq("redis")
+
+    redis.call("DEL", "#{AuctionPublicProjection::KEY_PREFIX}#{auction.id}")
+    get "/api/v1/auctions/#{auction.id}/public-state"
+    expect(json.fetch("data")).to include("reserve_status" => "met")
+    expect(json.dig("meta", "source")).to eq("postgresql")
+    expect(AuctionProjectionReconciler.new(projection: projection).check(auction.reload)).to eq(:repaired)
+    expect(projection.read(auction.id).dig("data", "reserve_status")).to eq("met")
   end
 
   it "ignores duplicate and older revisions, including concurrent arrivals" do
@@ -115,7 +154,7 @@ RSpec.describe "Redis public auction projection", type: :request do
     event = event_for(auction)
     broker = double("broker", store_offset: nil, commit: nil)
     consumer = KafkaProjectionConsumer.new(consumer: broker, projection: projection)
-    expect { consumer.process(message(event.merge("schema_version" => 2), 1)) }.to raise_error(KafkaEventCodec::InvalidEvent)
+    expect { consumer.process(message(event.merge("schema_version" => 3), 1)) }.to raise_error(KafkaEventCodec::InvalidEvent)
     failed = AuctionPublicProjection.new(redis: RedisClient.config(url: "redis://127.0.0.1:1/0", timeout: 0.1, reconnect_attempts: 0).new_client)
     expect { KafkaProjectionConsumer.new(consumer: broker, projection: failed).process(message(event, 2)) }.to raise_error(RedisClient::Error)
     expect(broker).not_to have_received(:commit)

@@ -18,7 +18,7 @@ Privileged validation-bypassing writes remain outside the workflow contract.
 | Accepted bids cannot be edited or destroyed through normal model operations | Bid readonly?; no mutation API | bid_spec.rb |
 | Auction terms freeze after draft; cancellation cannot discard accepted bids | Auction validations and cancel! | auction_spec.rb |
 | At most one stored winner, and none outside closed state | One nullable winner_id; SQL FK and status CHECK | auction_spec.rb, domain_constraints_spec.rb |
-| Close copies the explicit priority-resolved leader, or no winner with no bids | close!; repeated close is a no-op | auction_spec.rb, bids_spec.rb |
+| Close copies the priority-resolved leader only when no reserve exists or reserve is met; an unmet reserve retains leader but no winner | close!, model and SQL winner check; repeated close is a no-op | reserve_policy_spec.rb, domain_constraints_spec.rb, concurrent_closing_spec.rb |
 | History has unique increasing auction-local sequence, excluding client ordering | Locked MAX(sequence)+1; SQL positive/NOT NULL/unique index; sequence pagination | concurrent_bidding_spec.rb, domain_constraints_spec.rb, bids_spec.rb |
 | Fresh validation and price/history mutation serialize per auction | SELECT FOR UPDATE before decisions; same lock for lifecycle/draft commands | concurrent_bidding_spec.rb stale waiter, same amount, many bidders, lifecycle and close cases |
 | Other auctions can progress while one is locked | Independent aggregate rows | concurrent_bidding_spec.rb independent-auction case |
@@ -37,7 +37,17 @@ increment, never a private maximum. A retained rejected command replays its
 original minimum even after a band transition. Evidence: `bid_increment_policy_spec.rb`,
 `requests/idempotency_spec.rb`, `integration/concurrent_bidding_spec.rb` and
 [ADR-018](adr/018-stepped-bid-increments.md). Reserve and rapid closing are
-selected but not yet implemented.
+selected; reserve is implemented in Session 2, while rapid closing remains pending.
+
+Phase 21 reserve slice: nullable private reserve is at least starting price,
+editable only while draft, and absent on historical auctions. A reserved
+auction starts `not_met` without an accepted bid. The locked resolver keeps
+automatic prices at/below the relevant ceiling, uses the reserve floor without
+discarding loser-based increments or priority, and closes unsold with its
+highest bidder retained if unmet. v2 public snapshots expose status only;
+retained v1 Kafka events normalize as no-reserve when projected to the v2
+Redis key. Evidence: `reserve_policy_spec.rb`, `reserve_privacy_spec.rb`,
+`concurrent_closing_spec.rb`, `redis_projection_spec.rb` and [ADR-019](adr/019-hidden-reserve-policy.md).
 
 ## Master requirements and remaining work
 
@@ -114,7 +124,7 @@ contract promises monotonicity, not gaplessness after privileged changes.
 
 Kafka decoding and Redis projection reads share `PublicAuctionSnapshot`: exact
 public fields, bounded money, ordered deadlines, price floor, closed-at iff
-closed, and winner matching the leader only on closure. Invalid derived state
+closed, and version-specific winner/leader consistency on closure. Invalid derived state
 stops consumer progress or triggers operator review without changing auction
 truth. New outbox occurrence timestamps use PostgreSQL insertion wall time;
 historical rows retain their old transaction-start value. Active Record treats
@@ -164,7 +174,7 @@ maximum by the required algorithm; no API labels it as that user's maximum.
 | Proxy row count does not multiply extension; protection-only increases can extend | Both Auction entry points own extension | models/soft_close_spec.rb |
 | Price, leader, visible bids, max/priority and deadline commit or roll back together | One savepoint and final auction UPDATE | integration/concurrent_closing_spec.rb SQL rejection of calculated extension for manual and maximum |
 | Stale/duplicate closers recheck fresh state and do not shorten extended deadlines | Auction#close! uses the same lock/time protocol | integration/concurrent_closing_spec.rb both bid/max lock orders and eight closers |
-| Closure emits no bid; winner equals final leader, including nil; closed_at never changes on repeat | close! and SQL null-safe equality, timestamp iff closed and >= end | deadline_constraints_spec.rb, concurrent_closing_spec.rb, soft_close_spec.rb |
+| Closure emits no bid; winner equals final leader only if no reserve or reserve met; closed_at never changes on repeat | close! and SQL reserve-aware winner check, timestamp iff closed and >= end | deadline_constraints_spec.rb, concurrent_closing_spec.rb, reserve_policy_spec.rb |
 | Repeated external actions may extend again in later windows without a cap | Pure extension arithmetic on effective end | integration/repeated_soft_close_spec.rb real roughly 32-second wait, no clock/deadline changes between commands |
 
 These are decision-time guarantees, not a requirement that physical COMMIT occur

@@ -1,5 +1,18 @@
 # Code map
 
+## Phase 21 hidden reserve slice
+
+`Auction#reserve_status` derives only public status from private nullable
+`reserve_price` and accepted leader/price. The locked `Bidding::ProxyResolver`
+advances eligible maxima toward reserve without exceeding their ceilings;
+`Auction#close!` keeps the highest bidder but no sale winner when reserve is
+unmet. Migration `20261004020000` updates the SQL winner constraint.
+`PublicAuctionSnapshot` and `KafkaEventCodec` validate retained v1 and new v2
+snapshots; `AuctionPublicProjection` writes a v2 Redis key, normalizing v1 as
+unreserved. Reconciliation and the frontend use public status only. See
+[ADR-019](adr/019-hidden-reserve-policy.md) and
+`apps/api/spec/models/reserve_policy_spec.rb`.
+
 ## Phase 21 increment policy slice
 
 `apps/api/app/models/bidding/bid_increment_policy.rb` holds the current-price
@@ -194,7 +207,7 @@ Phase 10 extends the transactional public outbox with Kafka domain events and an
   ID discovery against a sampled DB cutoff; `#run_once` invokes domain close;
   `#run` polls, releases connections, logs/retries known transient failures.
 - `apps/api/app/models/auction.rb#close!`: lock/reload, DB decision time, closed or
-  not-due no-op, due active -> closed/winner=current_leader/closed_at in one save.
+  not-due no-op, due active -> closed/conditional sale winner/closed_at in one save.
 - `apps/api/app/controllers/api/v1/auctions_controller.rb#close` uses that same method;
   early close returns the unchanged active representation. No force-close operation.
 - Schema: `apps/api/db/migrate/20260924030000_add_auction_deadlines.rb` backfills

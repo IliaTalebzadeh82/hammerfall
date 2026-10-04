@@ -1,11 +1,38 @@
-# Current handoff — Phase 21 Session 1 checkpoint
+# Current handoff — Phase 21 Session 2 reserve checkpoint
 
-Updated: 2026-10-04. Phase 20 Identity & Security is complete. Phase 21 Marketplace Trust & Auction Policy is active, with one coherent increment-policy slice implemented. Phase 22 has not started. Resume in a **fresh Codex conversation** from the [Phase 21 ExecPlan](../plans/phase-21-execplan.md), [Session 1 report](../marketplace/phase-21-session-1.md) and `docs/phases/phase-21.md`; use [context map](../context-map.md) for targeted source.
+Updated: 2026-10-04. Phase 20 is complete. Phase 21 Marketplace Trust &
+Auction Policy remains active; Phase 22 has not started. Resume in a fresh
+Codex conversation from the [ExecPlan](../plans/phase-21-execplan.md),
+[Session 2 report](../marketplace/phase-21-session-2.md),
+`docs/phases/phase-21.md` and [context map](../context-map.md).
 
-First-party public research selected stepped minimum increments, hidden reserve and a rapid closing policy. [ADR-018](../adr/018-stepped-bid-increments.md) records the implemented increment rule; [ADR-019](../adr/019-hidden-reserve-policy.md) and [ADR-020](../adr/020-auction-closing-policies.md) record designs awaiting implementation. Seller self-bidding is already enforced by Phase 20. Account/category/country restrictions and card bid reservations are deferred; a bidding-panel analytics experiment is rejected for this phase.
+Adopted policies are stepped minimum increments (implemented in Session 1),
+hidden reserve (implemented in Session 2) and rapid closing (ADR-020 design,
+pending). Seller self-bidding is already covered by Phase 20. Account/country/
+category restrictions and payment reservations are deferred; the bidding-panel
+experiment is rejected for this phase.
 
-Implementation: new auction `increment_policy` defaults existing/new rows to `fixed`, with opt-in `stepped` only during draft. A domain policy holds the published euro bands; manual validation uses locked current price, and proxy counters use the loser's newly visible price while preserving private ceilings and tie priority. API/outbox/Redis snapshot contract keeps v1 shape and publishes the effective current `minimum_increment`. `reserve_price` and rapid closing remain unimplemented. Required `minimum_increment` create input has no pricing effect on stepped auctions; this compatibility quirk is documented.
+Reserve implementation: nullable private integer-cent `reserve_price` is
+configured through owner/operator draft create/edit and freezes on scheduling.
+Manual bids below reserve remain valid. The locked proxy resolver advances
+maxima toward reserve without exceeding a bidder's ceiling or replacing
+stepped competition/priority. Closing below reserve retains the highest
+bidder in `current_leader_id` with no sale winner; SQL and PostgreSQL
+reconciliation match this rule. Public `reserve_status` exposes only
+`none`/`not_met`/`met`. New outbox/Kafka domain snapshots are v2; readers can
+decode retained v1, and Redis uses a v2 key rebuilt from PostgreSQL. Cable
+remains a v1 invalidation. Frontend list/detail show public reserve status.
+See [ADR-019](../adr/019-hidden-reserve-policy.md).
 
-Evidence: migration succeeded on local test PostgreSQL; 95 focused examples/0 failures; wider affected backend 264 examples/0 failures/1 preexisting opt-in live-Kafka pending; final changed tests 36 examples/0 failures; 9 changed Ruby files linted with 0 offenses. The first wider run on shared Redis DB 0 had 14 projection/reconciliation failures from old keys with reused test auction IDs. The 20 affected examples and complete 264-example selection passed on empty Redis DB 15. No Phase 21 full-suite, Compose/browser, multi-instance, real Kafka delivery or hosted CI proof yet. Details and local log paths are in the ExecPlan Evidence Index.
+Evidence: test PostgreSQL migrate/rollback/reapply; 311 affected backend
+examples/0 failures/2 opt-in pending with Redis DB 15 and pool 15; 5
+independent reserve race seeds/0 failures; 33 frontend tests, typecheck,
+lint and build; 20 changed Ruby files linted/0 offenses; Zeitwerk passed.
+Logs and commands are in the ExecPlan Evidence Index. No real broker or
+multi-instance rollout, full Phase 21 suite, browser gate or hosted CI proof
+is claimed. Active reserve edits, seller UI and payment/post-auction offers
+remain deferred.
 
-Next: implement reserve under the auction lock and update SQL closed-winner and public snapshot semantics with privacy and contention tests; then rapid closing, combined cases, frontend, live infrastructure and final gates. Do not start Phase 22.
+Next: implement rapid closing from [ADR-020](../adr/020-auction-closing-policies.md),
+then combined reserve/rapid contention and the remaining live/final Phase 21
+gates. Do not start Phase 22.

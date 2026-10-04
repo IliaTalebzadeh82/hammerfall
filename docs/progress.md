@@ -2387,3 +2387,23 @@ DB 0 failed 14 projection/reconciliation examples due to stale keys for reused
 test auction IDs; 20 affected examples and the complete selection passed on
 isolated DB 15. No full Phase 21, browser, Compose, real Kafka or hosted CI
 completion claim is made. See [the ExecPlan](plans/phase-21-execplan.md).
+
+## 2026-10-04 — Phase 21 Session 2 reserve checkpoint (phase in progress)
+
+Implemented nullable private reserve configuration with draft freeze,
+locked manual/proxy/closing semantics and the conditional SQL winner rule.
+Unmet closure retains the highest bidder without a sale winner. New v2
+public domain snapshots carry only reserve status; retained v1 events
+normalize as unreserved into a v2 Redis projection. The API and frontend
+show public status without the amount. The [Session 2 report](marketplace/phase-21-session-2.md)
+records proxy examples, privacy and rollout.
+
+Test PostgreSQL migration and rollback/reapply passed. The affected backend
+selection passed **311 examples, 0 failures, 2 opt-in pending** against
+isolated Redis DB 15 with pool 15. Five independent reserve maximum race
+seeds passed; 33 frontend tests, typecheck, lint and build passed. RuboCop
+found 0 offenses in 20 changed Ruby files; Zeitwerk eager load passed.
+The [ExecPlan Evidence Index](plans/phase-21-execplan.md) gives commands and
+logs. Rapid closing, combined cases, live broker/multi-instance proof,
+full Phase 21 regression/browser and hosted CI remain; Phase 21 is not
+complete and Phase 22 has not started.

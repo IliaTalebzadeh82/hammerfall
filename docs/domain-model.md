@@ -9,7 +9,8 @@ table, for the proxy rules. ADR-003's auction row lock remains authoritative.
 
 - User: ID and nonblank name (up to 100 characters); names are not credentials.
 - Auction: title (nonblank, up to 200), description (up to 10000, default empty),
-  status, starting_price, current_price, minimum_increment, starts_at, original_ends_at, ends_at, closed_at,
+  status, starting_price, current_price, minimum_increment, private nullable reserve_price,
+  starts_at, original_ends_at, ends_at, closed_at,
   current_leader_id, winner_id, timestamps.
 - Bid: accepted visible fact with auction_id, bidder_id, amount, sequence,
   created_at and internal origin (manual/automatic). No normal edit/delete path.
@@ -20,7 +21,9 @@ table, for the proxy rules. ADR-003's auction row lock remains authoritative.
 All money is **integer EUR cents**, inclusive range 1..1000000000000. Numeric strings,
 floats (including 100.0), booleans and out-of-range input are rejected before Rails
 coercion. SQL range checks independently protect storage. There is no conversion,
-fractional-cent value or reserve price yet. Existing auctions use their fixed positive
+fractional-cent value or currency abstraction. Reserve, when present, is at least
+the starting price and freezes on scheduling; existing auctions remain unreserved.
+Existing auctions use their fixed positive
 auction.minimum_increment. An opt-in stepped policy chooses the band from the
 current visible price; see [ADR-018](adr/018-stepped-bid-increments.md). Price-plus-
 increment stays in JavaScript's exact integer range; an offer itself must fit the
@@ -40,8 +43,10 @@ Use create_draft! and edit_draft!; terms freeze after draft. No reopen/reschedul
 
 Repeating the target state is a no-op. Closed/cancelled are terminal. Existing
 lifecycle and draft commands lock/reload the same auction row used by bidding.
-Close copies current_leader_id into winner_id, including equal-price priority
-winners; without bids both remain null. Already closed and active-not-due close
+Close copies current_leader_id into winner_id only when no reserve exists or the
+accepted visible price meets reserve. An unmet reserve closes without a winner
+but retains the highest bidder as current leader. Without bids both IDs remain
+null. Already closed and active-not-due close
 calls return unchanged. Other states reject close. Activation remains explicit.
 
 Every manual/maximum/close command captures one uncached PostgreSQL
@@ -89,7 +94,8 @@ is unsupported in the API and rejected by normal model destruction. An exhausted
 instruction remains stored; a later competitive increase can compete again. A
 nonleader increase at/below current price is rejected without changing protection
 or priority. A leader’s increased ceiling must cover its current price. An already-leading bidder setting
-or increasing protection never raises its own visible price.
+or increasing protection advances toward an unmet reserve up to the lesser of
+its ceiling and reserve; without reserve it does not raise its own visible price.
 
 Lowest priority_sequence wins equal ceilings. A raise gets new priority at its new
 ceiling, not its original lower commitment's priority. Example: Bob establishes

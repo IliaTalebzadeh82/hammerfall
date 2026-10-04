@@ -1,16 +1,18 @@
 # ADR-019 — Hidden reserve as auction state
 
-Status: Design selected in Phase 21 Session 1; implementation and combined tests pending.
+Status: Adopted for the Phase 21 reserve slice, 2026-10-04. Live transport and final phase gates remain pending.
 
 ## Context and public behavior
 
 Catawiki [describes a hidden minimum sale price](https://www.catawiki.com/en/help/reserve-prices/i-d-like-to-place-a-bid-on-an-object-with-a-reserve-price-what-does-this-mean-and-how-do-i-know-what-the-reserve-price-is). It accepts manual bids below reserve, shows them in history, and tells the bidder when reserve is unmet. An initial maximum below reserve is fully placed; one above reserve first matches the reserve. An unmet reserve means [the object does not sell](https://www.catawiki.com/en/help/estimates-and-reserve-prices/can-i-set-a-minimum-selling-price-reserve-price). Catawiki also [allows qualified lowering/removal](https://www.catawiki.com/en/help/during-auction-changes-to-removal-of-lots/can-i-edit-my-reserve-price) during an auction. These are public product statements, not evidence of internal implementation.
 
-Hammerfall's current SQL and model rule requires a closed auction's `winner_id` to equal `current_leader_id`. That is wrong for an unmet reserve: the highest bidder is visible, but no sale winner exists. Existing public snapshots have no reserve status.
+Before this change, Hammerfall's SQL and model rule required a closed auction's `winner_id` to equal `current_leader_id`. That is wrong for an unmet reserve: the highest bidder is visible, but no sale winner exists. Historical public snapshots had no reserve status.
 
 ## Hammerfall decision and invariants
 
 Add nullable private integer-cent `reserve_price` to Auction, configurable by the authenticated seller on draft create/edit and frozen when scheduled. Null means no reserve. Existing rows remain null. Do not introduce estimates, expert review, auction-time reserve editing, post-auction offers or payments. The fixed-after-scheduling choice deliberately differs from Catawiki's public rule.
+
+The reserve must be at least `starting_price` and no greater than the established money bound. The existing operator can manage a draft under the Phase 20 authorization model. Ordinary GET, including a seller's GET, returns only public status; draft configuration is write-only through create/PATCH. No seller-management UI is introduced.
 
 - Keep reserve amount out of public serializers, domain payloads, Kafka, Redis, Cable, errors, logs, metrics and bid history metadata. A visible proxy bid may equal the reserve because that price action is an intended public effect of the chosen rule; it does not authorize a raw reserve field.
 - Expose public reserve status as `none`, `not_met`, or `met`. With a reserve, `met` requires an accepted visible bid at/above the private amount. First bid and subsequent changes derive status from PostgreSQL while holding the auction lock; public revision and outbox must change together. The amount remains private even to the seller through ordinary public GET.
@@ -28,4 +30,6 @@ Representative no-competition results for reserve €500/start €100: manual �
 
 ## Consequences, risks and revisit condition
 
-This changes an SQL winner invariant, public API and async snapshot schema; all consumers and reconciliation must evolve deliberately. Do not deploy a writer before schema/reader compatibility is established. A new public status can reveal that a known bid crossed the hidden threshold, which is allowed by the selected public approximation; no raw number is emitted. The implementation must test contention, ties, partial increments, retries, unsold close and privacy across every representation. Revisit when implementing live reserve edits or seller-only private inspection.
+This changes an SQL winner invariant, public API and async snapshot schema. The old snapshot validator has exact v1 fields and old winner semantics, so new outbox/Kafka domain events use `.v2` types and schema version 2. Readers accept retained v1 snapshots as historical no-reserve state and normalize them to `reserve_status=none` when writing a new v2 Redis projection key. Reconciliation seeds current v2 public state directly from PostgreSQL. Cable's `auction.changed.v1` remains a minimal invalidation; the Kafka topic and group offsets stay unchanged. Deploy readers and migration before enabling reserve writers; old application bid writers must be drained.
+
+A public status transition and a visible proxy bid can let observers infer a threshold from price action; that is an intentional effect. Raw reserve configuration never enters public representations, logs or metrics. The database column is not encrypted from administrators. Revisit when implementing live reserve edits or seller-only private inspection.

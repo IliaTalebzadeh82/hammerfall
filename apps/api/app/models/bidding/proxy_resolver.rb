@@ -12,7 +12,11 @@ module Bidding
     end
 
     def maximum(instruction)
-      return if @auction.current_leader_id == instruction.bidder_id
+      if @auction.current_leader_id == instruction.bidder_id
+        floor = reserve_floor(instruction.maximum_amount)
+        emit(instruction.bidder_id, floor, "automatic") if floor > @auction.current_price
+        return
+      end
 
       resolve(instruction.bidder, instruction.maximum_amount, priority: instruction.priority_sequence)
     end
@@ -22,7 +26,7 @@ module Bidding
     def resolve(bidder, ceiling, manual: false, priority: nil)
       incumbent_id = @auction.current_leader_id
       if incumbent_id.nil? || incumbent_id == bidder.id
-        bid = emit(bidder.id, manual ? ceiling : @auction.starting_price, manual ? "manual" : "automatic")
+        bid = emit(bidder.id, manual ? ceiling : [ @auction.starting_price, reserve_floor(ceiling) ].max, manual ? "manual" : "automatic")
         finish(bidder.id)
         return bid
       end
@@ -35,12 +39,12 @@ module Bidding
       if incoming_wins
         # Exhaust the incumbent before recording a larger incoming amount.
         emit(incumbent_id, incumbent_ceiling, "automatic") if incumbent_ceiling > @auction.current_price
-        visible = manual ? ceiling : [ ceiling, @auction.bid_increment_policy.next_after(incumbent_ceiling) ].min
+        visible = manual ? ceiling : [ [ ceiling, @auction.bid_increment_policy.next_after(incumbent_ceiling) ].min, reserve_floor(ceiling) ].max
         incoming_bid = emit(bidder.id, visible, manual ? "manual" : "automatic")
         finish(bidder.id)
       else
         incoming_bid = emit(bidder.id, ceiling, manual ? "manual" : "automatic")
-        visible = [ incumbent_ceiling, @auction.bid_increment_policy.next_after(ceiling) ].min
+        visible = [ [ incumbent_ceiling, @auction.bid_increment_policy.next_after(ceiling) ].min, reserve_floor(incumbent_ceiling) ].max
         emit(incumbent_id, visible, "automatic")
         finish(incumbent_id)
       end
@@ -53,6 +57,12 @@ module Bidding
       bid.save!(context: :placement)
       @auction.current_price = amount
       bid
+    end
+
+    def reserve_floor(ceiling)
+      return 0 unless @auction.reserve_price
+
+      [ ceiling, @auction.reserve_price ].min
     end
 
     def finish(leader_id)
