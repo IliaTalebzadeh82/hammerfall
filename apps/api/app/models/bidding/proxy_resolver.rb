@@ -35,12 +35,12 @@ module Bidding
       if incoming_wins
         # Exhaust the incumbent before recording a larger incoming amount.
         emit(incumbent_id, incumbent_ceiling, "automatic") if incumbent_ceiling > @auction.current_price
-        visible = manual ? ceiling : [ ceiling, incumbent_ceiling + @auction.minimum_increment ].min
+        visible = manual ? ceiling : [ ceiling, @auction.bid_increment_policy.next_after(incumbent_ceiling) ].min
         incoming_bid = emit(bidder.id, visible, manual ? "manual" : "automatic")
         finish(bidder.id)
       else
         incoming_bid = emit(bidder.id, ceiling, manual ? "manual" : "automatic")
-        visible = [ incumbent_ceiling, ceiling + @auction.minimum_increment ].min
+        visible = [ incumbent_ceiling, @auction.bid_increment_policy.next_after(ceiling) ].min
         emit(incumbent_id, visible, "automatic")
         finish(incumbent_id)
       end

@@ -156,6 +156,20 @@ RSpec.describe "Idempotent bidding API", type: :request do
     expect(json.dig("error", "details", "minimum_bid")).to eq(10_000)
   end
 
+  it "replays a stepped-minimum rejection after the price crosses a band" do
+    stepped = create_auction(state: "active", increment_policy: "stepped", starting_price: 10_000)
+    stepped.place_bid!(bidder: bob, amount: 10_000)
+    bid(10_499, target: "/api/v1/auctions/#{stepped.id}/bids")
+    original = response.body
+    expect(response.status).to eq(422)
+    expect(json.dig("error", "details", "minimum_bid")).to eq(10_500)
+    stepped.place_bid!(bidder: bob, amount: 20_001)
+    bid(10_499, target: "/api/v1/auctions/#{stepped.id}/bids")
+    expect(response.body).to eq(original)
+    expect(response.headers["Idempotency-Replayed"]).to eq("true")
+    expect(stepped.reload.current_price).to eq(20_001)
+  end
+
   it "persists expired, decrease, validation and missing-auction terminal outcomes" do
     maximum
     maximum(20_000, key_value: "decrease")

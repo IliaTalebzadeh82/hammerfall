@@ -15,7 +15,7 @@ module Api
           currency: Auction::CURRENCY,
           starting_price: @auction.starting_price,
           current_price: @auction.current_price,
-          minimum_increment: @auction.minimum_increment,
+          minimum_increment: @auction.bid_increment_policy.increment_at(@auction.current_price),
           starts_at: @auction.starts_at.iso8601(6),
           ends_at: @auction.ends_at.iso8601(6),
           original_ends_at: @auction.original_ends_at.iso8601(6),

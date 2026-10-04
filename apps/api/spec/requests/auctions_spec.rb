@@ -16,6 +16,18 @@ RSpec.describe "Auction API", :domain, type: :request do
     expect(json.fetch("data")).to eq(data)
   end
 
+  it "lets an owner opt into stepped bidding before scheduling and exposes the current increment" do
+    post path, params: { auction: auction_attributes(starting_price: 20_001, increment_policy: "stepped") },
+      headers: auth_headers, as: :json
+    expect(response).to have_http_status(:created)
+    auction = Auction.find(json.dig("data", "id"))
+    expect(auction.increment_policy).to eq("stepped")
+    expect(json.dig("data", "minimum_increment")).to eq(2_000)
+    get "#{path}/#{auction.id}"
+    expect(response).to have_http_status(:ok)
+    expect(json.dig("data", "minimum_increment")).to eq(2_000)
+  end
+
   it "lists auctions in bounded pages without duplicating the cursor row" do
     records = Array.new(3) { create_auction }
     get path, params: { limit: 2 }

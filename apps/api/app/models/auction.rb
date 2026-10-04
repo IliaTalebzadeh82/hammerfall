@@ -1,7 +1,8 @@
 class Auction < ApplicationRecord
   CURRENCY = "EUR"
   STATES = %w[draft scheduled active closed cancelled].freeze
-  EDITABLE_FIELDS = %w[title description starting_price minimum_increment starts_at ends_at].freeze
+  EDITABLE_FIELDS = %w[title description starting_price minimum_increment increment_policy starts_at ends_at].freeze
+  INCREMENT_POLICIES = %w[fixed stepped].freeze
   TRANSITIONS = {
     "scheduled" => %w[draft],
     "active" => %w[scheduled],
@@ -18,6 +19,7 @@ class Auction < ApplicationRecord
   validates :title, presence: true, length: { maximum: 200 }
   validates :description, length: { maximum: 10_000 }, exclusion: { in: [ nil ] }
   validates :status, inclusion: { in: STATES }
+  validates :increment_policy, inclusion: { in: INCREMENT_POLICIES }
   validates :starting_price, :current_price, :minimum_increment, minor_units: true
   validates :starts_at, :ends_at, :original_ends_at, presence: true
   validate :valid_time_window
@@ -141,7 +143,11 @@ class Auction < ApplicationRecord
   end
 
   def minimum_bid
-    bids.exists? ? current_price + minimum_increment : starting_price
+    bids.exists? ? bid_increment_policy.next_after(current_price) : starting_price
+  end
+
+  def bid_increment_policy
+    Bidding::BidIncrementPolicy.new(self)
   end
 
   def leading_bid
@@ -222,7 +228,7 @@ class Auction < ApplicationRecord
         "auction.extended.v1"
       end
       public_data = { title: title, description: description, status: status,
-        starting_price: starting_price, minimum_increment: minimum_increment,
+        starting_price: starting_price, minimum_increment: bid_increment_policy.increment_at(current_price),
         starts_at: starts_at.utc.iso8601(6), original_ends_at: original_ends_at.utc.iso8601(6),
         current_price: current_price, current_leader_id: current_leader_id,
         ends_at: ends_at.utc.iso8601(6), closed_at: closed_at&.utc&.iso8601(6), winner_id: winner_id }

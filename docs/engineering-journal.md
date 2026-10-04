@@ -836,3 +836,18 @@ test pool: four ten-worker idempotency examples timed out. Reproducing the same
 focused failure locally and rerunning with a 15-connection pool isolated the
 runner configuration error. CI now sets `RAILS_MAX_THREADS=15` explicitly;
 the concurrency tests retain their original worker count.
+
+## 2026-10-04 — Phase 21 policy research and stepped increments
+
+The current Catawiki help table chooses increments from the visible price and
+explicitly warns that experiments can change individual lots. That made a
+single global replacement of Hammerfall's fixed increment inappropriate:
+historical auctions need their existing policy, while a new opt-in policy can
+model the published schedule. The proxy resolver must look up the increment at
+the losing bidder's newly visible ceiling, which can cross a price band.
+The first focused test run caught mistaken test expectations at €105 and €200.01;
+the current-price band, not the bid's earlier band, yields the correct increment.
+The independent-connection race also showed that both lock orders can yield
+one acceptance: after either €105 or €110 is accepted, the next minimum jumps
+past the other bid. The test now asserts both valid serial outcomes and the
+fresh rejection details. See [ADR-018](adr/018-stepped-bid-increments.md).

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_03_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_04_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -21,6 +21,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_03_010000) do
     t.bigint "current_price", null: false
     t.text "description", default: "", null: false
     t.datetime "ends_at", null: false
+    t.string "increment_policy", default: "fixed", null: false
     t.bigint "minimum_increment", null: false
     t.datetime "original_ends_at", null: false
     t.bigint "public_revision", default: 0, null: false
@@ -41,6 +42,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_03_010000) do
     t.check_constraint "current_price >= starting_price", name: "auctions_price_floor"
     t.check_constraint "ends_at > starts_at", name: "auctions_time_window"
     t.check_constraint "ends_at >= original_ends_at", name: "auctions_original_deadline"
+    t.check_constraint "increment_policy::text = ANY (ARRAY['fixed'::character varying, 'stepped'::character varying]::text[])", name: "auctions_valid_increment_policy"
     t.check_constraint "minimum_increment >= 1 AND minimum_increment <= '1000000000000'::bigint", name: "auctions_minimum_increment_range"
     t.check_constraint "original_ends_at > starts_at", name: "auctions_original_window"
     t.check_constraint "public_revision >= 0", name: "auctions_public_revision_nonnegative"

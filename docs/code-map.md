@@ -1,5 +1,15 @@
 # Code map
 
+## Phase 21 increment policy slice
+
+`apps/api/app/models/bidding/bid_increment_policy.rb` holds the current-price
+band schedule. `Auction#minimum_bid` validates manual commands after the row
+lock; `Bidding::ProxyResolver` asks the same policy for the smallest counter
+after a loser's visible amount. `AuctionPresenter` and the outbox snapshot
+publish only the effective current increment. The new auction column defaults
+to `fixed`, preserving old rows. See [ADR-018](adr/018-stepped-bid-increments.md)
+and `spec/models/bid_increment_policy_spec.rb`.
+
 ## Phase 20 Session 2 security path
 
 `apps/api/lib/request_body_limit.rb` bounds API input before Rails parameter

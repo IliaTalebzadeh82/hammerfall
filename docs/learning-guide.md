@@ -1094,3 +1094,14 @@ clients must honor 429 `Retry-After` without changing the intended key/payload;
 shortening or mocking the concurrent database race would hide the correctness
 property. The final ten-worker idempotency smoke keeps real contention in
 separate limiter windows. See the [final review](security/phase-20-final.md).
+
+## Phase 21 increment-policy lesson
+
+A price band must be selected from an authoritative visible price, not from a
+browser's old minimum or a private maximum. The manual command samples the
+band after the PostgreSQL auction lock. During proxy resolution the smallest
+counter depends on the loser's newly visible amount, which may cross a band.
+The public snapshot can carry the effective increment without exposing the
+unused ceiling. A repeated rejected command still returns its historical
+minimum through the idempotency record. See [ADR-018](adr/018-stepped-bid-increments.md)
+and the focused tests; live transport verification is still pending.

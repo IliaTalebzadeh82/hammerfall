@@ -2364,3 +2364,26 @@ cloud deployment; GKE Gateway upstream byte buffering is unproven; Redis outage
 fallback quota is per process; an already established Cable socket may receive
 public hints after revocation; Phase 22 owns durability/release exercises. Phase 21
 has not started.
+
+## 2026-10-04 — Phase 21 Session 1 checkpoint (phase in progress)
+
+Current first-party Catawiki research and candidate comparison are recorded in
+[the Session 1 report](marketplace/phase-21-session-1.md). The phase selected
+stepped increments, hidden reserve and rapid closing, with seller self-bidding
+already satisfied by Phase 20; account/payment risk policies were deferred and
+the product experiment rejected. ADR-018 captures the implemented stepped
+increment architecture. ADR-019 and ADR-020 record reserve and rapid-closing
+designs for the next session.
+
+The increment slice added a persisted fixed/stepped choice with `fixed` as the
+historical default, a single integer-cent band policy for locked manual and
+proxy resolution, effective public increment serialization, and boundary,
+retry/privacy and real PostgreSQL contention tests. Local test migration
+passed. Affected backend regression passed **264 examples, 0 failures, 1 existing
+opt-in live Kafka pending** with Redis DB 15 and pool 15, seed **11240**.
+Final changed tests passed **36 examples, 0 failures**, seed **6380**; RuboCop
+inspected 9 changed Ruby files with 0 offenses. An earlier run on shared Redis
+DB 0 failed 14 projection/reconciliation examples due to stale keys for reused
+test auction IDs; 20 affected examples and the complete selection passed on
+isolated DB 15. No full Phase 21, browser, Compose, real Kafka or hosted CI
+completion claim is made. See [the ExecPlan](plans/phase-21-execplan.md).

@@ -12,7 +12,7 @@ Privileged validation-bypassing writes remain outside the workflow contract.
 | Every accepted bid references one existing auction and bidder | SQL NOT NULL and foreign keys; model validations | bid_spec.rb, domain_constraints_spec.rb |
 | New auctions are draft; only documented edges and preconditions are allowed | Auction lifecycle methods and managed-field validation | auction_spec.rb transition matrix, auctions_spec.rb |
 | Only active auctions within starts_at <= now < ends_at accept bids | place_bid! | bid_spec.rb, bids_spec.rb |
-| Manual bids meet starting price or price + increment; automatic rows may use a final partial increment or equal-price priority tie | place_bid! | bid_spec.rb, bids_spec.rb |
+| Manual bids meet starting price or the locked current price plus its fixed/stepped increment; automatic rows may use a final partial increment or equal-price priority tie | place_bid!, BidIncrementPolicy | bid_spec.rb, bids_spec.rb, bid_increment_policy_spec.rb |
 | Price equals starting price with no bids and the last accepted amount otherwise | create_draft!, edit_draft!, transactional place_bid! | auction_spec.rb, bid_spec.rb, injected-failure rollback example |
 | Rejected operations persist neither bid nor price changes | validation before writes and transaction rollback | bid_spec.rb, bids_spec.rb |
 | Accepted bids cannot be edited or destroyed through normal model operations | Bid readonly?; no mutation API | bid_spec.rb |
@@ -27,6 +27,17 @@ The API returns the persisted winner; it does not promote an active leader into 
 winner. The frontend renders that public state and never promotes a leader locally.
 Actual files are mapped in [code-map.md](code-map.md). Tests reside under
 `apps/api/spec/models`, `spec/requests`, and `spec/integration`.
+
+Phase 21 increment slice: historical auctions retain `fixed`; `stepped` is
+selected while draft and never changed after scheduling. The selected band comes
+from authoritative visible price after the auction lock. A proxy counter uses
+the loser's new visible amount, clamps to the winner's ceiling, and retains
+existing tie priority. The public snapshot contains only the effective current
+increment, never a private maximum. A retained rejected command replays its
+original minimum even after a band transition. Evidence: `bid_increment_policy_spec.rb`,
+`requests/idempotency_spec.rb`, `integration/concurrent_bidding_spec.rb` and
+[ADR-018](adr/018-stepped-bid-increments.md). Reserve and rapid closing are
+selected but not yet implemented.
 
 ## Master requirements and remaining work
 

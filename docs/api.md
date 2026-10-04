@@ -81,7 +81,11 @@ Sequence represents serialized accepted-bid order, not request arrival order.
 Use current/future dates when exercising this example. The executable smoke script
 constructs dates automatically. All money is integer EUR cents (1..1000000000000).
 Description is optional on create and defaults to empty. All other shown fields
-except description are required. PATCH uses the same allowlist with partial fields.
+except description are required. Optional `increment_policy` is `fixed` by default
+or `stepped` while draft; old auctions remain fixed. For stepped auctions the
+required `minimum_increment` input is retained for compatibility but does not
+affect pricing. The published [stepped schedule](adr/018-stepped-bid-increments.md)
+is selected from the current visible price. PATCH uses the same allowlist with partial fields.
 Unknown fields, nested objects, and arrays within resource attributes are rejected.
 Do not submit status, current_price, winner_id, ID, or timestamps of record creation.
 The server initializes current_price to starting_price and chooses draft status.
@@ -89,6 +93,8 @@ The server initializes current_price to starting_price and chooses draft status.
 Responses contain id, title, description, status, currency, starting_price,
 current_price, minimum_increment, starts_at, original_ends_at, ends_at, closed_at, current_leader_id, winner_id,
 created_at, updated_at. Datetimes are UTC ISO 8601. No model internals are dumped.
+`minimum_increment` in every public response and public event is the effective
+increment at that snapshot's visible price; the policy name is not public.
 Lifecycle actions take no body and never accept client time as authoritative.
 
 ## Bid input and representation
@@ -101,7 +107,8 @@ Both POST bids and PUT maximum-bid require `Idempotency-Key`; see the contract b
 
 The bidder is the authenticated user; `bidder_id` is rejected if supplied. Money must be an integer JSON number: `10500.5`,
 `10500.0`, and `"10500"` are invalid. A bid must meet starting_price if first;
-otherwise current_price + minimum_increment. Responses contain id, auction_id,
+otherwise current_price + its effective fixed or stepped increment, recalculated
+after the auction lock. Responses contain id, auction_id,
 bidder_id, amount, sequence, currency, created_at. There is no bid edit/delete API or rejected-bid table. The protected endpoints
 require an idempotency key. A manual response is the caller’s accepted Bid;
 proxy counterbids may already have changed the leader by the same commit. Fetch

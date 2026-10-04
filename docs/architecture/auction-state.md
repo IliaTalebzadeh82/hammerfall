@@ -2,7 +2,7 @@
 
 ## Core model
 
-User is a deliberately simple bidder identity. Auction stores title/description, draft/scheduled/active/closed/cancelled status, starting/current integer-cent price, minimum increment, start/effective/original end, current leader, final winner and public revision. Bid is an accepted immutable public-price fact with auction/bidder, amount, auction-local sequence and timestamp; internal origin is manual/automatic. MaximumBid is a private per-bidder ceiling and priority. IdempotencyRecord and OutboxEvent exist now. The outbox stores public publication intent in the same transaction as each public revision. See [domain model](../domain-model.md), [schema](../../apps/api/db/schema.rb) and [API](../api.md).
+User is a deliberately simple bidder identity. Auction stores title/description, draft/scheduled/active/closed/cancelled status, starting/current integer-cent price, fixed minimum increment plus selected increment policy, start/effective/original end, current leader, final winner and public revision. Bid is an accepted immutable public-price fact with auction/bidder, amount, auction-local sequence and timestamp; internal origin is manual/automatic. MaximumBid is a private per-bidder ceiling and priority. IdempotencyRecord and OutboxEvent exist now. The outbox stores public publication intent in the same transaction as each public revision. See [domain model](../domain-model.md), [schema](../../apps/api/db/schema.rb) and [API](../api.md).
 
 ## Invariants and transaction semantics
 

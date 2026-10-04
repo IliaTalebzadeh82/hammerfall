@@ -20,8 +20,9 @@ table, for the proxy rules. ADR-003's auction row lock remains authoritative.
 All money is **integer EUR cents**, inclusive range 1..1000000000000. Numeric strings,
 floats (including 100.0), booleans and out-of-range input are rejected before Rails
 coercion. SQL range checks independently protect storage. There is no conversion,
-fractional-cent value, reserve price or dynamic increment table. Fixed positive
-auction.minimum_increment applies, with the proxy exceptions below. Price-plus-
+fractional-cent value or reserve price yet. Existing auctions use their fixed positive
+auction.minimum_increment. An opt-in stepped policy chooses the band from the
+current visible price; see [ADR-018](adr/018-stepped-bid-increments.md). Price-plus-
 increment stays in JavaScript's exact integer range; an offer itself must fit the
 bound. Times use UTC, with ends_at strictly greater than starts_at.
 
@@ -99,7 +100,7 @@ Priority is independent of public bid sequence, clocks, row IDs or HTTP arrival.
 ## Proxy resolution and visible history
 
 Auction#place_bid! retains the manual minimum: starting_price without bids,
-otherwise current_price + minimum_increment. Manual offers are accepted at exactly
+otherwise current_price + the effective fixed or stepped increment. Manual offers are accepted at exactly
 the submitted amount. They may be immediately outbid in the same transaction;
 the returned Bid is the caller's accepted offer, not a promise of leadership.
 
@@ -110,7 +111,7 @@ maximum, whichever is greater. A manual-only incumbent has ceiling=current_price
 
 - Without a leader, first maximum produces starting_price, not its ceiling.
 - Lower challenger: emit challenger at its ceiling/offer, then incumbent at the
-  smaller of its ceiling and challenger + increment.
+  smaller of its ceiling and the next allowed amount calculated from that challenger amount.
 - Higher challenger: first exhaust the incumbent's proxy ceiling if above public
   price; then emit the manual offer or minimum winning automatic amount.
 - Equal ceilings: emit challenger then priority winner at the same amount.

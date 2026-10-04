@@ -65,6 +65,20 @@ RSpec.describe "PostgreSQL concurrent bidding", type: :model do
     expect(auction.current_price).to eq(12_000)
   end
 
+  it "recomputes a stepped minimum after a contending bidder crosses the next band" do
+    auction = active_auction(increment_policy: "stepped", starting_price: 10_000)
+    auction.place_bid!(bidder: @bidder, amount: 10_000)
+    outcomes = simultaneous(auction, [ 10_500, 11_000 ])
+    expect(outcomes.map(&:first).uniq.length).to eq(2)
+    expect(auction.reload.current_price).to eq(10_500).or eq(11_000)
+    expect(auction.minimum_bid).to eq(auction.current_price + 1_000)
+    expect(outcomes.map(&:last).count { |value| value.is_a?(Bid) }).to eq(1)
+    rejected = outcomes.map(&:last).grep(DomainError)
+    expect(rejected.map(&:code)).to eq([ "bid_too_low" ])
+    expect(rejected.first.details).to eq(current_price: auction.current_price, minimum_bid: auction.minimum_bid)
+    expect(auction.bids.order(:sequence).pluck(:amount)).to eq([ 10_000, auction.current_price ])
+  end
+
   it "rejects a lower waiter using fresh state even with a preloaded stale Auction" do
     auction = active_auction
     ready = Queue.new
