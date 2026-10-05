@@ -82,6 +82,7 @@ services:
       PERFORMANCE_CPU_PROFILE: ${PERFORMANCE_CPU_PROFILE:-false}
       PERFORMANCE_DISABLE_RELOADING: ${PERFORMANCE_DISABLE_RELOADING:-false}
       HAMMERFALL_INSTANCE: a
+      RECOVERY_FENCE: ${RECOVERY_FENCE:-false}
       RAILS_ENV: development
       CABLE_WORKER_THREADS: ${CABLE_WORKER_THREADS:-2}
       CABLE_ALLOWED_ORIGINS: ${CABLE_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
@@ -115,6 +116,7 @@ services:
       PERFORMANCE_CPU_PROFILE: ${PERFORMANCE_CPU_PROFILE:-false}
       PERFORMANCE_DISABLE_RELOADING: ${PERFORMANCE_DISABLE_RELOADING:-false}
       HAMMERFALL_INSTANCE: b
+      RECOVERY_FENCE: ${RECOVERY_FENCE:-false}
       RAILS_ENV: development
       CABLE_WORKER_THREADS: ${CABLE_WORKER_THREADS:-2}
       CABLE_ALLOWED_ORIGINS: ${CABLE_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
@@ -356,6 +358,7 @@ services:
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
     volumes:
       - ./infrastructure/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/observability/hammerfall-alerts.yml:/etc/prometheus/hammerfall-alerts.yml:ro
       - prometheus_data:/prometheus
     expose: ["9090"]
     restart: unless-stopped

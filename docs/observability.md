@@ -6,6 +6,13 @@ telemetry review and hosted CI. Implementation and live evidence are tracked in 
 PostgreSQL remains the sole auction authority. A missing signal never changes a
 bid, closing, outbox, consumer or reconciliation decision.
 
+Phase 22 adds four provisional local Prometheus alert rules in
+`infrastructure/observability/hammerfall-alerts.yml`; see the
+[alert response runbook](runbooks/observability.md#phase-22-alert-response)
+and [operations policy](operations/phase-22-final.md). Their syntax is
+validated, but live firing/clearing remains a Phase 22 game-day gate. They do
+not establish production SLOs or reliable stopped-consumer lag detection.
+
 ## Resources and routes
 
 Rails processes emit OpenTelemetry with service name `hammerfall-api`,

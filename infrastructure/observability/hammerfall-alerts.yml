@@ -1,0 +1,39 @@
+groups:
+  - name: hammerfall-operations
+    rules:
+      - alert: OutboxBacklogOld
+        expr: max by (channel) (hammerfall_outbox_oldest_event_age_seconds) > 90
+        for: 2m
+        labels:
+          severity: sev3
+          owner: async-operator
+        annotations:
+          summary: "{{ $labels.channel }} outbox has an old unpublished event"
+          runbook: "docs/runbooks/observability.md#phase-22-alert-response"
+      - alert: ProjectionOperatorReview
+        expr: sum(increase(hammerfall_projection_operator_review_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: sev3
+          owner: async-operator
+        annotations:
+          summary: "Projection reconciliation found a case requiring review"
+          runbook: "docs/runbooks/projection-reconciliation.md"
+      - alert: MutationServerErrorsHigh
+        expr: sum(increase(hammerfall_http_requests_total{method=~"POST|PUT|PATCH",route=~"/api/v1/auctions.*",status_class="5xx"}[5m])) >= 5
+        for: 1m
+        labels:
+          severity: sev2
+          owner: api-operator
+        annotations:
+          summary: "Auction mutation requests have repeated server failures"
+          runbook: "docs/runbooks/observability.md#phase-22-alert-response"
+      - alert: AuctionCloseLagHigh
+        expr: sum(increase(hammerfall_auction_close_lag_seconds_count[10m])) - sum(increase(hammerfall_auction_close_lag_seconds_bucket{le="10"}[10m])) > 0
+        for: 1m
+        labels:
+          severity: sev2
+          owner: auction-operator
+        annotations:
+          summary: "An auction closed more than 10 seconds after its deadline"
+          runbook: "docs/runbooks/observability.md#phase-22-alert-response"

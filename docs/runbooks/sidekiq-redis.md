@@ -43,3 +43,23 @@ path seems stalled, and account for every publisher process in database pool and
 connection budgets. Do not infer a lost event from one skipped cycle.
 
 The scheduler is not an exact cadence or singleton guarantee. Its `--once` command exits nonzero on Redis enqueue failure. The sweep reads bounded PostgreSQL batches and logs `auction_reconciliation drift auction_id=… kind=postgresql_state`; it never repairs data. Investigate the auction and latest accepted Bid under a consistent read, preserve evidence and plan a deliberate repair. Repeated or duplicate sweep logs are possible. Phase 12's separate projection scan compares Redis and repairs only safe missing or stale public keys; see the [reconciliation runbook](projection-reconciliation.md).
+
+## Full PITR queue replacement
+
+Inspect notification/maintenance queue, Retry and Dead class counts before
+isolating old Redis. After PostgreSQL PITR, do not bulk retry old queue entries:
+they may refer to discarded future revisions. `AuctionChangedJob` is a
+PostgreSQL-backed invalidation hint. Requeue retained outbox intents in reviewed
+ID ranges, then let the ordinary publisher regenerate notification jobs. A
+lost hint can leave a browser stale; current REST GET remains authoritative.
+
+Both `ReconciliationSweepJob` and `AuctionProjectionReconciliationJob` are
+lease-owned scans. Discard stale cursor/token jobs; after restoring Redis, let
+the PostgreSQL lease expire (at most ten minutes after its last renewal) and
+run the one-shot scheduler or wait for its next tick. The first job reads
+PostgreSQL and logs inconsistencies; the second compares PostgreSQL with Redis
+and only repairs safe missing/behind public projections. Retry an individual
+job only after checking its arguments against the restored authority and
+fixing the failing dependency. Record the class, reason and decision in the
+incident log. No accepted auction command has its only durable result in
+Sidekiq. See the [Phase 22 inventory](../operations/phase-22-final.md).

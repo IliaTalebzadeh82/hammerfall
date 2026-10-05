@@ -913,3 +913,15 @@ IDs; the fourth event created one new receipt. Older projection events were
 stale and the equal current event was a duplicate. This is a timeline
 isolation procedure, not an exactly-once property or a filter in the
 consumer. Accidentally reconnecting the old broker remains unsafe.
+
+## 2026-10-05 — Operational work is recoverable, but detection can be stale
+
+The Sidekiq inventory found one public invalidation hint and two lease-owned
+scans. Their authority is PostgreSQL outbox or current auction rows, so
+recovery should regenerate work from those sources, not replay an old Redis
+queue indiscriminately. The existing Kafka lag gauge advances only after a
+consumer commit; a stopped consumer can therefore leave a deceptively healthy
+lag sample. The initial alert set uses measured outbox age and reconciliation
+review instead, with broker offsets as a protected diagnostic. Static alert
+syntax and focused API tests do not prove an incident can be detected and
+cleared; the integrated game day must exercise that transition.

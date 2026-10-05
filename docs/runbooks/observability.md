@@ -65,3 +65,24 @@ Structured boundary logs carry bounded operation/result fields and, when
 sampled, trace/span IDs. Control access to logs containing auction/event IDs.
 Do not copy raw commands, private maximums, Kafka payloads or credentials into
 incident reports.
+
+## Phase 22 alert response
+
+The provisioned Prometheus evaluates four local rules every 15 seconds.
+Thresholds and durations are provisional detection settings; production SLOs
+are unset. [The final operations report](../operations/phase-22-final.md)
+records the rationale, limits and incident severity policy. Verify the series
+is fresh and the relevant process is running before interpreting a clear rule.
+
+| Alert | Signal, threshold, duration | Severity / owner / impact / response |
+| --- | --- | --- |
+| `OutboxBacklogOld` | Maximum oldest pending age by channel >90 seconds for two minutes | SEV-3, async operator. Public hints or Kafka events are delayed. Check publisher health and both backlog channels; follow [Sidekiq](sidekiq-redis.md) or [Kafka](kafka.md). Escalate if authority is affected. |
+| `ProjectionOperatorReview` | Any increase in operator-review counter over five minutes, sustained one minute | SEV-3, async operator. Redis public state may disagree with PostgreSQL; inspect the affected auction and [reconciliation runbook](projection-reconciliation.md). Do not erase an ahead key before timeline review. |
+| `MutationServerErrorsHigh` | At least five auction POST/PUT/PATCH 5xx responses in five minutes, sustained one minute | SEV-2, API operator. User commands may fail. Check API, PostgreSQL and dependencies; establish whether any command committed before retrying with the same key. Valid 4xx rejections do not count. |
+| `AuctionCloseLagHigh` | At least one successful close >10 seconds after authoritative deadline in ten minutes, sustained one minute | SEV-2, auction operator. Inspect closer process, PostgreSQL pressure and due auctions. The histogram cannot detect a completely stopped closer; verify process health and query due active auctions. |
+
+Each alert points to this or its specific runbook. The local setup has no
+pager/Alertmanager routing or staffed on-call rotation; Prometheus rule state
+is the observed alert behavior. Do not treat absent/stale telemetry as healthy
+service. Kafka lag gauge updates only on successful commits, so inspect broker
+group offsets before diagnosing a stopped or idle consumer.

@@ -10,9 +10,13 @@ Phase 20 added first-party authentication, authorization, shared
 Redis rate limits, an early Rails request-body guard, local nginx limit,
 versioned HMAC idempotency digests and structured security events. The
 [final review](security/phase-20-final.md) records regression and hosted
-closure evidence. No production backup/restore procedure,
-production deployment or production-grade operating program exists; durability,
-release and operating policy are assigned to [Phase 22](phases/phase-22.md).
+closure evidence. Phase 22 has locally proved PostgreSQL physical PITR,
+domain-correct restore, retained idempotency replay, Kafka timeline
+quarantine/retained-outbox republish, Redis rebuild and selected release
+compatibility boundaries. Sidekiq, live fencing/alert/operator game day, final
+regression and hosted closure CI remain. No production Cloud SQL/managed Kafka
+restore, deployment or production-grade operating program exists; see
+[Phase 22](phases/phase-22.md) and its [evidence](operations/phase-22-final.md).
 No professional penetration test or live cloud deployment was performed.
 Local runbooks cover specific failures.
 Phase 21 adds persisted stepped increments, hidden reserve and regular/rapid

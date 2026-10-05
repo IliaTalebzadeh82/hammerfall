@@ -1,7 +1,8 @@
 # Phase 22 — Durability, Release & Operations
 
-Status: In progress — Session 1 durability and release milestone verified;
-operating policy and game day remain for Session 2.
+Status: In progress — local PITR, release compatibility and isolated Kafka
+recovery verified; operating policy and focused operator/fence tests complete.
+Integrated game day, final regression and hosted exact-SHA CI remain.
 
 ## Goal
 

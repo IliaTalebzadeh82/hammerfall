@@ -2489,3 +2489,17 @@ replay and excluded T3 also passed. See the
 [ExecPlan](plans/phase-22-execplan.md). The first attempt exposed unrelated
 demo seeds in `db:prepare`; migrating without seeds produced the passing run.
 Phase 22 remains in progress; operations/game day/final gates are outstanding.
+
+## 2026-10-05 — Phase 22 operations implementation checkpoint
+
+Code review classified all three Sidekiq jobs as regenerable notification or
+maintenance work; no accepted command truth exists only in Redis/Sidekiq.
+Added a controlled versioned-API recovery 503 guard, a disabled-by-default
+internal operator diagnostic/one-auction public-projection repair API with
+durable actor/target/result audit, and four provisional Prometheus alert rules.
+Seven focused request examples passed with no failures (seed 58571); the audit
+migration rolled back/reapplied, targeted RuboCop and Zeitwerk passed, and
+Prometheus/Compose syntax checks passed. The [operations report](operations/phase-22-final.md)
+and [ExecPlan](plans/phase-22-execplan.md) record policy and evidence. Live
+Sidekiq/fence/alert game day, full regression and exact-SHA hosted CI remain;
+Phase 22 is **not complete**.

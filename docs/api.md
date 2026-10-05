@@ -25,6 +25,19 @@ Use JSON request bodies with Content-Type: application/json. See
 | GET | /auctions/:auction_id/bids | List accepted bid history |
 | POST | /auctions/:auction_id/bids | Place an idempotent serialized manual bid; key required |
 
+The Phase 22 internal operator API is disabled by default
+(`OPERATOR_API_ENABLED` must be explicitly `true` on an isolated internal API
+process). `GET /operator/auctions/:id` returns bounded authority, outbox,
+Kafka receipt and Redis revision diagnostics. `POST
+/operator/auctions/:id/reconcile` checks one PostgreSQL auction against its
+public Redis projection and repairs only a safe missing or lower revision.
+Both require a Phase 20 operator session; the POST requires CSRF. A durable
+operator-action row records actor, target, result and time. They never return
+private maximum, reserve amount, raw idempotency key or Kafka payload, and
+cannot change auction authority. The ordinary public Compose API keeps this
+feature disabled. During a recovery fence, both endpoints return 503 along
+with all other versioned API routes.
+
 Create returns 201; reads, edits, and lifecycle actions return 200. Single resources
 use `{"data": {...}}`. Lists use `{"data": [...], "meta": {"next_after_id": null}}`.
 User/auction lists are ordered by ascending ID, default limit 20, maximum 100. Pass positive

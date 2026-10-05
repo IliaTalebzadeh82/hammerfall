@@ -2,6 +2,7 @@ module Api
   module V1
     class BaseController < ApplicationController
       wrap_parameters false
+      before_action :reject_recovery_traffic
       before_action :verify_authenticated_csrf, if: :unsafe_request?
       # Presentation calibration only; bidding still uses post-lock PostgreSQL time.
       after_action :set_presentation_time
@@ -31,6 +32,14 @@ module Api
       end
 
       private
+
+      def reject_recovery_traffic
+        return unless ENV["RECOVERY_FENCE"] == "true"
+
+        response.set_header("Retry-After", "60")
+        response.set_header("Cache-Control", "no-store")
+        render_error("recovery_in_progress", "Service recovery is in progress. Please retry later.", :service_unavailable)
+      end
 
       def session_token
         @session_token ||= cookies.encrypted[UserSession::COOKIE_NAME]

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_05_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_020000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -40,7 +40,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_010000) do
     t.index ["winner_id"], name: "index_auctions_on_winner_id"
     t.check_constraint "(status::text = 'closed'::text) = (closed_at IS NOT NULL)", name: "auctions_closure_timestamp"
     t.check_constraint "closed_at IS NULL OR closed_at >= ends_at", name: "auctions_closure_after_deadline"
-    t.check_constraint "closing_policy::text = ANY (ARRAY['regular'::character varying, 'rapid'::character varying]::text[])", name: "auctions_valid_closing_policy"
+    t.check_constraint "closing_policy::text = ANY (ARRAY['regular'::character varying::text, 'rapid'::character varying::text])", name: "auctions_valid_closing_policy"
     t.check_constraint "current_price >= 1 AND current_price <= '1000000000000'::bigint", name: "auctions_current_price_range"
     t.check_constraint "current_price >= starting_price", name: "auctions_price_floor"
     t.check_constraint "ends_at > starts_at", name: "auctions_time_window"
@@ -138,6 +138,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_010000) do
     t.check_constraint "priority_sequence > 0", name: "maximum_bids_priority_positive"
   end
 
+  create_table "operator_action_audits", force: :cascade do |t|
+    t.string "action", limit: 40, null: false
+    t.bigint "actor_id", null: false
+    t.bigint "auction_id", null: false
+    t.datetime "created_at", null: false
+    t.string "result", limit: 40, null: false
+    t.index ["actor_id", "created_at"], name: "index_operator_action_audits_on_actor_id_and_created_at"
+    t.index ["auction_id", "created_at"], name: "index_operator_action_audits_on_auction_id_and_created_at"
+    t.check_constraint "action::text = 'reconcile_projection'::text", name: "operator_action_audits_action"
+    t.check_constraint "result::text = ANY (ARRAY['started'::character varying, 'healthy'::character varying, 'repaired'::character varying, 'raced'::character varying, 'operator_review'::character varying, 'repair_failed_review'::character varying, 'failed'::character varying]::text[])", name: "operator_action_audits_result"
+  end
+
   create_table "outbox_events", force: :cascade do |t|
     t.integer "attempts", default: 0, null: false
     t.bigint "auction_id", null: false
@@ -210,5 +222,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_010000) do
   add_foreign_key "idempotency_records", "users", column: "actor_id"
   add_foreign_key "maximum_bids", "auctions"
   add_foreign_key "maximum_bids", "users", column: "bidder_id"
+  add_foreign_key "operator_action_audits", "auctions"
+  add_foreign_key "operator_action_audits", "users", column: "actor_id"
   add_foreign_key "user_sessions", "users"
 end

@@ -160,6 +160,15 @@ compare revisions. These protections do not make an ahead Kafka event safe.
 
 ## Rebuild Redis, queues and traffic
 
+During a declared full PITR, fence **reads and writes** at ingress and stop
+all API replicas and background writers. `RECOVERY_FENCE=true` on a recreated
+Rails API process gives a controlled versioned-API JSON 503 for direct local
+probes, but it does not coordinate replicas or replace ingress isolation. Do
+not serve a PostgreSQL read during restore or a Redis read from an ahead
+timeline. Verify a mutation attempt receives 503 and creates no
+bid/idempotency/outbox row before the destructive step. Keep public traffic
+fenced until all validation below passes; `up`/`ready` alone are insufficient.
+
 Use a fresh Redis instance for a full PITR, or preserve unrelated keys while
 deleting the **entire** `hammerfall:auction-public:v2:*` namespace after
 confirming the restored authority. A valid ahead key must be removed before
@@ -186,6 +195,19 @@ outbox review and Redis replacement/seed. Verify publisher backlog, audit
 receipt counts, consumer lag, projection equality and reconciliation results.
 Then resume closer/scheduler/Sidekiq and finally mutation ingress. Watch for
 new bids, retries and stale browser views through PostgreSQL-backed REST.
+
+For a protected single-auction diagnosis after PostgreSQL promotion, start an
+isolated internal API process with `OPERATOR_API_ENABLED=true`, keep it off the
+public ingress, sign in with a Phase 20 operator account and use
+`GET /api/v1/operator/auctions/:id`. It reports status/revision, pending
+Sidekiq/Kafka outbox counts, audit receipt count and Redis presence/revision
+without hidden reserve or private maximum. After confirming the broker
+timeline and Redis namespace, `POST .../:id/reconcile` (with the session CSRF
+token) runs one bounded projection check; it may seed a missing/behind public
+key but will leave ahead/conflicting/corrupt keys for review. The action has a
+PostgreSQL actor/target/result/time audit row. Neither endpoint changes auction
+authority. Avoid a repair call before the old broker and Redis timeline have
+been quarantined.
 
 ## Recovery objectives and limits
 

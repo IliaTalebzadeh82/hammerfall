@@ -1,7 +1,7 @@
 # Phase 22 ExecPlan — Durability, Release & Operations
 
-Status: Session 2 Kafka-recovery milestone verified; Phase 22 remains in progress.
-Current milestone: checkpoint after the isolated-broker proof. Next session owns operational policy and integrated game day.
+Status: Operations implementation/focused-test milestone verified; Phase 22 remains in progress.
+Current milestone: checkpoint before the integrated live game day and final regression.
 
 ## Decisions
 
@@ -20,7 +20,11 @@ Current milestone: checkpoint after the isolated-broker proof. Next session owns
 | Migration / old-new app / worker compatibility | ADOPT | Old app writes fixed data on expanded schema but misprices stepped row. V2 readers first; policy/HMAC writer drain required. [Matrix](../operations/release-compatibility.md). |
 | Schema/application rollback | ADOPT | Keep expanded schema and revert image only before incompatible data/events; after policy data, forward fix. Rapid downgrade guard verified. |
 | Artifact promotion / failed rollout | ADOPT | Record Git SHA, immutable image digests, schema/event/config versions; same digest promotion is policy, pipeline not implemented. Failed readiness path follows matrix. |
-| Operator requirements / game day | REMAINING | Next session owns SLOs, alerts, secured workflow, Sidekiq classification and integrated recovery/deploy game day. |
+| Integrated game day / closure | REMAINING | Live Sidekiq, fence, alert, operator, resume and normal-user proof; then final regression, docs and exact-SHA hosted CI. |
+| Sidekiq authority and recovery | ADOPT, CODE REVIEW | Three job classes only: outbox-backed notification hint, PostgreSQL read-only sweep, and PostgreSQL/Redis projection scan. No auction truth exists only in Sidekiq. Regenerate retained hints from outbox and scans from scheduler/leases; do not bulk retry old Redis. [Policy](../operations/phase-22-final.md). Live queue/Retry/Dead proof pending. |
+| Recovery traffic fence | ADOPT, FOCUSED TEST | All versioned API reads/writes return controlled 503 with `RECOVERY_FENCE=true`; both Compose replicas receive setting. Ingress isolation and stopped writers are still mandatory. Read traffic is fenced during PITR because PG and Redis may be unavailable/ahead. Live request during game day pending. |
+| Indicators and alerts | ADOPT, STATIC CHECK | Four Prometheus rules use actual outbox age, operator-review, mutation 5xx and close-lag series. Thresholds provisional; production SLO/RPO/RTO unset. Kafka lag gauge is stale when idle, so diagnostic only. `promtool check config` passes. Live alert transition pending. |
+| Operator boundary | ADOPT, FOCUSED TEST | Disabled-by-default internal API, Phase 20 operator role/session/CSRF, bounded diagnosis and one-auction derived projection reconciliation. PostgreSQL audit rows record actor/target/action/result/time; no authority mutation. Seven focused request examples pass. Live operator workflow pending. |
 | Production RPO/RTO and Cloud SQL restore | NEEDS EVIDENCE | No deployed infrastructure, representative data size or secret-store recovery exercise. |
 
 ## Progress
@@ -31,15 +35,17 @@ Verified: final sanitized/credentialed run at LSN `0/400C3D0`; `pg_verifybackup`
 
 Session 2 Kafka milestone: `PHASE22_KAFKA_DRILL=1 scripts/recovery/phase22-pitr` passed using isolated old/fresh Kafka brokers and PostgreSQL/Redis. Old Kafka and Redis reached revision 5; PITR restored PostgreSQL to 4. Old broker stayed stopped. Fresh broker received only retained events 1–4. Restored audit receipts returned three duplicates and one new effect; projection replay returned three stale and one duplicate. Redis matched the PostgreSQL presenter and reconciliation was healthy. The first attempt exposed `db:prepare` seeding unrelated demo auctions; the harness now migrates without seeds and the full drill passed. [Checkpoint report](../operations/phase-22-kafka-recovery.md).
 
-Remaining: Sidekiq queue classification/replay, actual traffic fence/resume, SLI/SLO and alert policy, ownership/secured operator workflow, integrated production-style game day, adversarial review, full backend/frontend/static/Compose/browser gates, final Phase 22 closure docs and exact-SHA hosted CI. Do not start Phase 23.
+Operations implementation milestone: classified all three Sidekiq jobs by authority; added a request-level 503 recovery guard for both API replicas, disabled-by-default role-gated operator diagnostic/one-auction projection repair with durable action audit, four Prometheus alerts, and provisional SLI/severity/ownership/runbook policy. Seven focused request examples passed; migration rollback/reapply, targeted RuboCop, Zeitwerk, Prometheus config/rules, Compose config and diff whitespace checks passed. Initial focused test failed because a Redis projection key from another test remained for a reused auction ID; key setup/cleanup fixed it. Editing the already applied test migration caused a local redo failure; the isolated test table/version were reset and fresh migration plus subsequent rollback/reapply passed. No domain failure was suppressed.
 
-Known limitations: Cloud SQL PITR, managed Kafka DR, secret-store retrieval, Sidekiq recovery, end-to-end traffic freeze/resume, representative data volumes and production RPO/RTO are unverified. Current consumer will accept future Kafka revisions after PG PITR if old broker is resumed; the tested procedure depends on strict old-broker quarantine and distinct endpoint configuration. No application-level timeline guard was added.
+Remaining: live Sidekiq queue/Retry/Dead classification, actual ingress/API fence attempt and safe resume, integrated isolated PITR game day with live alert healthy→firing→cleared, operator path, release mini-drill, adversarial review, full backend/frontend/static/Compose/browser gates, affected final documentation, closure commit and exact-SHA hosted CI. Do not start Phase 23.
 
-Relevant files: `scripts/recovery/`, `apps/api/script/phase22_recovery_fixture.rb`, `docs/operations/phase-22-session-1.md`, `docs/operations/release-compatibility.md`, `docs/runbooks/database-recovery.md`, `docs/runbooks/release.md`.
+Known limitations: Cloud SQL PITR, managed Kafka DR, secret-store retrieval, live Sidekiq recovery, end-to-end traffic freeze/resume, representative data volumes and production RPO/RTO are unverified. Current consumer will accept future Kafka revisions after PG PITR if old broker is resumed; the tested procedure depends on strict old-broker quarantine and distinct endpoint configuration. No application-level timeline guard was added. `RECOVERY_FENCE` is a per-process defense, not a distributed lock; every ingress and writer replica must still be controlled. Existing Kafka lag metrics may be stale when consumers stop; the alert set deliberately omits a lag rule. Prometheus rules have syntax proof but no live firing/clearing proof yet.
+
+Relevant files: `scripts/recovery/`, `apps/api/script/phase22_recovery_fixture.rb`, `apps/api/app/controllers/api/v1/operator_auctions_controller.rb`, `apps/api/app/controllers/api/v1/base_controller.rb`, `infrastructure/observability/hammerfall-alerts.yml`, `docs/operations/phase-22-final.md`, `docs/operations/phase-22-session-1.md`, `docs/operations/release-compatibility.md`, `docs/runbooks/database-recovery.md`, `docs/runbooks/release.md`.
 
 Relevant ADRs: 003, 006, 010–013, 017–020.
 
-Next-session starting point: Read `AGENTS.md`, handoff, Phase 22 spec and this plan. Inspect the runbooks/report. Plan Session 2 integrated test of the fresh-Kafka/requeued-outbox path before claiming that recovery procedure works; then complete operational policy/game day and final verification.
+Next-session starting point: Read `AGENTS.md`, handoff, Phase 22 spec and this plan. Reuse the verified `PHASE22_KAFKA_DRILL=1 scripts/recovery/phase22-pitr` infrastructure. Extend/run one integrated isolated game day to inspect Sidekiq queue/Retry/Dead before Redis replacement, prove an actual fenced API mutation gets 503 without a write, observe `OutboxBacklogOld` in live Prometheus from healthy to firing to cleared, restore and converge PG/Kafka/Redis/Sidekiq, verify T2 replay/T3 absence and operator diagnostics. Record coarse times and authority snapshots. Then run release mini-drill, adversarial review, broad final gates and closure docs. Do not infer live proof from these focused tests or syntax checks.
 
 ## Evidence Index
 
@@ -56,5 +62,9 @@ Next-session starting point: Read `AGENTS.md`, handoff, Phase 22 spec and this p
 | Kafka/outbox replay and dedupe | Same drill, actual publisher and both consumers | Four requeued rows; audit results duplicate×3/next×1; Redis stale×3/duplicate×1; receipts/audit count 4 | Same log |
 | Redis and reconciliation | Same drill | Ahead 5 rejected lower seed; delete + seed 4; exact public fields; `AuctionProjectionReconciler#check = healthy` | Same log |
 | Session 2 focused lint | `bundle exec rubocop script/phase22_recovery_fixture.rb`; `shellcheck scripts/recovery/phase22-pitr`; `bash -n` | No offenses/findings | This session |
+| Operator/fence focused requests | `bundle exec rspec spec/requests/operator_auctions_spec.rb spec/requests/recovery_fence_spec.rb` | 7 examples, 0 failures; seed 58571 | `apps/api/tmp/phase22-ops-focused.log` (ignored) |
+| Operator action audit migration | `RAILS_ENV=test bundle exec rails db:migrate:redo STEP=1` | Rollback and reapply passed, including FKs/check constraints | Console result, schema.rb |
+| Ops Ruby/static checks | Targeted `bundle exec rubocop`; `bundle exec rails zeitwerk:check` | 7 Ruby files no offenses; eager load passed | This checkpoint |
+| Alert/Compose syntax | `promtool check config`; `docker compose config --quiet`; `git diff --check` | Prometheus config valid, four rules found; Compose and whitespace pass | This checkpoint |
 
 The first local PITR attempt failed on shell quoting in `postgresql.auto.conf` generation before recovery startup; the error was fixed and the complete exercise rerun successfully. The first focused RSpec attempt lacked the local PostgreSQL password; sourcing `.env` and rerunning produced the result above. Neither failure was a domain test failure.

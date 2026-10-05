@@ -660,3 +660,14 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
   to prove old revision 5 quarantine, retained outbox replay, receipt dedupe,
   Redis seed/revision behavior and reconciliation. Evidence is in
   `docs/operations/phase-22-kafka-recovery.md`.
+- `Api::V1::BaseController#reject_recovery_traffic` returns controlled 503 to
+  versioned reads/writes when a process has `RECOVERY_FENCE=true`; ingress and
+  background writer isolation remain operational duties.
+  `Api::V1::OperatorAuctionsController` is disabled unless an isolated process
+  sets `OPERATOR_API_ENABLED=true`. It reuses Phase 20 role/session/CSRF checks,
+  reads bounded PostgreSQL/outbox/Kafka/Redis diagnostics, and invokes one
+  existing `AuctionProjectionReconciler#check`. `OperatorActionAudit` stores
+  actor/auction/action/result/time, not private auction values.
+- `infrastructure/observability/hammerfall-alerts.yml` holds four provisional
+  Prometheus rules; `docs/runbooks/observability.md` maps each to an owner,
+  severity and response. Live transition proof remains a Phase 22 gate.
