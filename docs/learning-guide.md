@@ -1133,3 +1133,20 @@ recheck the extended deadline; a bidder that waits for an already closed row
 must reject. Historic v1 and early v2 events normalize to regular closing in
 Redis, while rebuilds take the current policy from PostgreSQL. The client only
 renders the returned mode and deadline. See [ADR-020](adr/020-auction-closing-policies.md).
+
+## Phase 22 recovery and release lesson
+
+PITR moves only PostgreSQL back to the chosen point. Kafka can still contain
+an event from the discarded future, and Redis's correct revision guard will
+refuse to overwrite a valid ahead key with a lower database seed. The isolated
+exercise restored revision 4 while Redis held revision 5; deleting the derived
+key allowed a PostgreSQL seed. A retained T2 idempotency outcome replayed,
+while the T3 success was absent from restored authority. Backups also extend
+HMAC key-retention obligations: a key must remain recoverable for every row in
+any backup that may still be restored, even if live rows were pruned.
+
+Release safety depends on data and worker versions, not merely column shape.
+Phase 20 code could write fixed data on the expanded schema, yet it accepted
+a stepped bid the new code correctly rejected. V2 event readers must precede
+v2 writers; old policy writers must drain. See the
+[release compatibility matrix](operations/release-compatibility.md).

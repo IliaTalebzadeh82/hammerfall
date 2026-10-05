@@ -1,6 +1,7 @@
 # Phase 22 — Durability, Release & Operations
 
-Status: Planned; begin only on explicit request
+Status: In progress — Session 1 durability and release milestone verified;
+operating policy and game day remain for Session 2.
 
 ## Goal
 

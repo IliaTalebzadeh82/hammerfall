@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$repo_root"
+[[ -n "${PHASE22_WORK_DIR:-}" && -f "$PHASE22_WORK_DIR/db-password" ]] || {
+  echo "Set PHASE22_WORK_DIR to the printed isolated recovery directory" >&2
+  exit 1
+}
+PGPASSWORD="$(cat "$PHASE22_WORK_DIR/db-password")"
+export PGPASSWORD
+old_tree="$(mktemp -d /tmp/hammerfall-phase22-old.XXXXXX)"
+cleanup() { git worktree remove "$old_tree" 2>/dev/null || true; rmdir "$old_tree" 2>/dev/null || true; }
+trap cleanup EXIT
+git worktree add --detach "$old_tree" 6c38b59 >/dev/null
+old=(docker run --rm --network hammerfall_default -e RAILS_ENV=development
+  -e PGHOST=phase22-recovered -e PGPORT=5432 -e PGUSER=hammerfall
+  -e PGPASSWORD -v "$old_tree/apps/api:/app"
+  -v hammerfall_api_bundle:/usr/local/bundle -w /app hammerfall-api bin/rails runner)
+new=(docker compose run --rm --no-deps -e PGHOST=phase22-recovered
+  -e PGPASSWORD api bin/rails runner)
+
+"${old[@]}" 'a=Auction.find_by!(title:"Phase 22 isolated recovery fixture"); abort "unexpected old minimum" unless a.minimum_bid==36_000; before=[a.public_revision,a.bids.count]; Auction.transaction do; b=a.place_bid!(bidder:User.find_by!(name:"Phase 22 Charlie"),amount:36_000); abort "old write not accepted" unless b.amount==36_000; raise ActiveRecord::Rollback; end; abort "old write escaped rollback" unless [a.reload.public_revision,a.bids.count]==before; puts "old stepped writer accepted 36000, then rolled back"'
+"${new[@]}" 'a=Auction.find_by!(title:"Phase 22 isolated recovery fixture"); abort "unexpected new minimum" unless a.minimum_bid==37_000; begin; a.place_bid!(bidder:User.find_by!(name:"Phase 22 Charlie"),amount:36_000); abort "new writer accepted invalid bid"; rescue DomainError => e; raise unless e.code=="bid_too_low"; end; puts "new stepped writer rejected 36000"'
+
+title="Phase 22 compatibility $(date +%s%N)"
+"${old[@]}" "seller=User.find_by!(name:'Phase 22 Seller'); bidder=User.find_by!(name:'Phase 22 Charlie'); a=Auction.create_draft!(seller:seller,title:'$title',description:'expanded schema',starting_price:10_000,minimum_increment:1_000,starts_at:Time.current-60,ends_at:Time.current+3600); a.schedule!; a.activate!; a.place_bid!(bidder:bidder,amount:10_000); puts({old_safe_write:true,auction_id:a.id,revision:a.reload.public_revision}.inspect)"
+"${new[@]}" "a=Auction.find_by!(title:'$title'); abort 'new reader mismatch' unless a.status=='active' && a.current_price==10_000 && a.increment_policy=='fixed' && a.closing_policy=='regular' && a.reserve_status=='none' && a.bids.count==1; puts({new_safe_read:true,auction_id:a.id}.inspect)"
+
+if docker compose run --rm --no-deps -e PGHOST=phase22-recovered -e PGPASSWORD \
+  api bin/rails db:rollback STEP=1 > "$repo_root/apps/api/tmp/phase22-rollback-guard.log" 2>&1; then
+  echo "closing-policy rollback unexpectedly succeeded" >&2
+  exit 1
+fi
+rg -q 'rapid auctions require an explicit policy migration before rollback' apps/api/tmp/phase22-rollback-guard.log
+"${new[@]}" 'abort "schema changed" unless Auction.column_names.include?("closing_policy") && ActiveRecord::Base.connection.select_value("SELECT version FROM schema_migrations WHERE version = '\''20261005010000'\''"); puts "rollback guard preserved schema"'
+
+# Representative post-migration release failure: the new image is missing a
+# required shared keyring. Old image rollback is unsafe after policy data.
+if docker compose run --rm --no-deps -e PGHOST=phase22-recovered -e PGPASSWORD \
+  -e IDEMPOTENCY_HMAC_KEYRING_FILE=/phase22/missing-keyring api \
+  bin/rails runner 'Idempotency::Keyring.current' > "$repo_root/apps/api/tmp/phase22-failed-release.log" 2>&1; then
+  echo "missing keyring unexpectedly passed preflight" >&2
+  exit 1
+fi
+rg -q 'IDEMPOTENCY_HMAC_KEYRING_FILE must name a readable file' apps/api/tmp/phase22-failed-release.log
+echo "failed release preflight rejected missing keyring; old writer remains unsafe"

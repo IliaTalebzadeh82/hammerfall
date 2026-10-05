@@ -10,6 +10,16 @@ Phase 20 implements first-party authentication and authorization, bounded comman
 
 ## Observability and failure response
 
+Phase 22 Session 1 adds an isolated PostgreSQL physical PITR exercise and
+canonical [recovery](../runbooks/database-recovery.md) and
+[release](../runbooks/release.md) procedures. A database restore can place
+Kafka, Redis and Sidekiq on a future timeline. Keep those consumers and all
+writers fenced until PostgreSQL, retained HMAC keys, outbox delivery state and
+derived projections are reconciled. The
+[compatibility matrix](../operations/release-compatibility.md) records
+coordinated drains for policy and HMAC changes. These are local and reviewed
+design results, not a deployed DR or zero-downtime claim.
+
 Phase 13 implements selected OpenTelemetry spans for HTTP, auction lock wait,
 decision/proxy work, outbox publication, Kafka/Sidekiq, server broadcast,
 closing and reconciliation. W3C trace context crosses HTTP, jobs and Kafka

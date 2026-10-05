@@ -267,3 +267,23 @@ actual monthly bill remain unverified. The manifest-based ~70-connection
 planning budget is not measured Cloud SQL usage. A credentialed provider plan,
 secure bootstrap, real network/TLS tests and operational exercises are required
 before claiming deployment readiness.
+
+## Phase 22 Session 1 recovery and release boundary
+
+A disposable PostgreSQL 18.6 cluster now demonstrates physical base backup,
+`pg_verifybackup`, archived-WAL replay to a selected LSN, and a domain-correct
+PITR that retains T1/T2 but excludes T3. The restored command replayed and an
+ahead Redis projection had to be deleted and rebuilt from PostgreSQL. A real
+Phase 20 application worktree wrote fixed data on the expanded schema, but
+accepted an invalid bid on a stepped auction; current code rejected it. The
+closing-policy rollback guard refused rapid data. See the
+[Session 1 report](operations/phase-22-session-1.md),
+[recovery runbook](runbooks/database-recovery.md) and
+[release policy](operations/release-compatibility.md).
+
+This is a local fixture, not production DR. Cloud SQL restore, Kafka reset and
+republish, secret-store retrieval, full service freeze/resume, representative
+data volume, production RPO/RTO, deployment promotion and alerts remain
+unverified. Current Kafka projection consumers do not consult PostgreSQL for
+each event; a pre-PITR broker can be ahead of restored authority and must be
+quarantined or handled under a reviewed recovery plan. Phase 22 remains open.

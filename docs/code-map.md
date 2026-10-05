@@ -641,3 +641,17 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
   CSRF command, Cable, logout and same-user retry. `docker-compose.yml` leaves
   `NEXT_PUBLIC_CABLE_URL` empty locally so the client uses the browser host
   for host-only cookies on port 3001.
+
+## Phase 22 Session 1 operational exercises
+
+- `scripts/recovery/compose.yml` and `phase22-pitr` run a separate PostgreSQL
+  18.6 primary/recovery pair with archived WAL and isolated Redis; ordinary
+  Compose database storage is untouched. The generated password and backup
+  files stay under ignored `apps/api/tmp/phase22-recovery.*`.
+- `apps/api/script/phase22_recovery_fixture.rb` creates the rapid, stepped,
+  reserved auction and verifies restored bids, private maximum, idempotency
+  and outbox state. `scripts/recovery/phase22-compatibility` uses a detached
+  Phase 20 worktree to check the mixed-version migration boundary.
+- `docs/runbooks/database-recovery.md`, `docs/runbooks/release.md` and
+  `docs/operations/release-compatibility.md` own the operator sequence and
+  version matrix; `docs/operations/phase-22-session-1.md` records local evidence.

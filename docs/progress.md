@@ -2451,3 +2451,25 @@ passed. RSpec, frontend tests and build, Phase 21 combined policy smoke, and
 real API browser scenarios were confirmed as completed successful steps. The
 final closure documentation commit is checked on its own exact SHA in the
 final response. Phase 22 has not started.
+
+## 2026-10-05 — Phase 22 Session 1 recovery and release milestone
+
+Phase 22 is in progress. An isolated PostgreSQL 18.6 physical base backup plus
+archived WAL restored to LSN `0/400C3D0`, including T1/T2 and excluding T3 in
+a rapid, stepped, reserved auction. `pg_verifybackup` passed. Restored
+idempotency replay added no bid/outbox row; the private maximum and public
+revision were checked inside PostgreSQL. An ahead Redis revision 5 rejected a
+revision 4 seed until its isolated key was deleted, then rebuilt from the
+restored authority. Local times were 1 second backup/verify, 2 seconds database
+startup/promotion, 1 second domain validation and 3 seconds Redis rebuild;
+these are not production RPO/RTO evidence.
+
+A detached `6c38b59` Phase 20 worktree wrote a fixed auction on new schema,
+which current code read. On a stepped row old code accepted a 36,000-cent bid
+in a rolled-back transaction while current code rejected it at a 37,000-cent
+minimum. The rapid-policy downgrade guard refused rollback and preserved the
+schema. Recovery/release runbooks and a compatibility matrix record the
+required Kafka/worker fencing, secret retention and drained releases. See
+[Session 1 report](operations/phase-22-session-1.md) and
+[ExecPlan](plans/phase-22-execplan.md). Kafka reset and full integrated game
+day remain for Session 2; Phase 22 is not complete.

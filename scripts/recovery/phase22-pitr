@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$repo_root"
+work_dir="${PHASE22_WORK_DIR:-$(mktemp -d "$repo_root/apps/api/tmp/phase22-recovery.XXXXXX")}"
+if [[ ! "$work_dir" = "$repo_root"/apps/api/tmp/phase22-recovery.* ]]; then
+  echo "PHASE22_WORK_DIR must be a dedicated ignored apps/api/tmp/phase22-recovery.* directory" >&2
+  exit 1
+fi
+if [[ -e "$work_dir/base" || -e "$work_dir/restored-data" || -e "$work_dir/db-password" ]]; then
+  echo "Recovery directory already has artifacts; choose a fresh directory" >&2
+  exit 1
+fi
+mkdir -p "$work_dir/wal"
+# The PostgreSQL container writes the archive/base backup; the invoking host
+# group retains read access. No world-readable WAL or private database files.
+docker run --rm --user root -v "$work_dir:/recovery" --entrypoint sh postgres:18.6-bookworm -ec \
+  "chown postgres:$(id -g) /recovery /recovery/wal; chmod 770 /recovery /recovery/wal"
+export PHASE22_WORK_DIR="$work_dir"
+PHASE22_DB_PASSWORD="$(openssl rand -hex 24)"
+export PHASE22_DB_PASSWORD
+export PGPASSWORD="$PHASE22_DB_PASSWORD"
+printf '%s' "$PHASE22_DB_PASSWORD" > "$work_dir/db-password"
+chmod 600 "$work_dir/db-password"
+recovery=(docker compose -f scripts/recovery/compose.yml)
+rails=(docker compose run --rm --no-deps -e PGHOST -e PGPASSWORD -e PHASE22_RECOVERY_FIXTURE=1 -e REDIS_URL=redis://phase22-redis:6379/0 api)
+
+if [[ -n "$("${recovery[@]}" --profile restore ps -q)" ]]; then
+  echo "Isolated recovery containers already exist; inspect them, then run docker compose -f scripts/recovery/compose.yml --profile restore down -v with PHASE22_WORK_DIR set" >&2
+  exit 1
+fi
+
+echo "Recovery artifacts: $work_dir"
+"${recovery[@]}" up -d primary redis
+for _ in {1..30}; do
+  if "${recovery[@]}" exec -T primary pg_isready -U hammerfall -d hammerfall_development >/dev/null 2>&1; then break; fi
+  sleep 1
+done
+export PGHOST=phase22-primary
+"${rails[@]}" bin/rails db:prepare
+"${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb init
+
+start_backup=$(date +%s)
+# The variable is expanded by the shell inside the PostgreSQL container.
+# shellcheck disable=SC2016
+"${recovery[@]}" exec -T -u postgres primary sh -c \
+  'PGPASSWORD="$POSTGRES_PASSWORD" pg_basebackup -h 127.0.0.1 -U hammerfall -D /recovery/base -Fp -X stream -c fast'
+"${recovery[@]}" exec -T -u postgres primary pg_verifybackup /recovery/base
+echo "base_backup_seconds=$(($(date +%s)-start_backup))"
+
+"${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb t1
+"${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb t2
+target_lsn="$("${recovery[@]}" exec -T primary psql -U hammerfall -d hammerfall_development -Atqc 'SELECT pg_current_wal_lsn()' | tr -d '\r')"
+[[ "$target_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ ]] || { echo "invalid target LSN" >&2; exit 1; }
+echo "recovery_target_lsn=$target_lsn"
+"${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb t3
+last_wal="$("${recovery[@]}" exec -T primary psql -U hammerfall -d hammerfall_development -Atqc 'SELECT pg_walfile_name(pg_current_wal_lsn())' | tr -d '\r')"
+"${recovery[@]}" exec -T primary psql -U hammerfall -d hammerfall_development -Atqc 'SELECT pg_switch_wal()' >/dev/null
+for _ in {1..30}; do
+  [[ -s "$work_dir/wal/$last_wal" ]] && break
+  sleep 1
+done
+[[ -s "$work_dir/wal/$last_wal" ]] || { echo "WAL segment was not archived" >&2; exit 1; }
+
+# Simulate a projection that is ahead of the PITR target on an isolated Redis.
+"${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb seed
+"${recovery[@]}" stop primary
+
+docker run --rm --user root -v "$work_dir:/recovery" --entrypoint sh postgres:18.6-bookworm -ec \
+  "mkdir /recovery/restored-data; cp -a /recovery/base/. /recovery/restored-data/; chown -R postgres:postgres /recovery/restored-data; printf '%s\\n' \"restore_command = 'cp /recovery/wal/%f %p'\" \"recovery_target_lsn = '$target_lsn'\" \"recovery_target_inclusive = on\" \"recovery_target_action = 'promote'\" >> /recovery/restored-data/postgresql.auto.conf; touch /recovery/restored-data/recovery.signal; chown postgres:postgres /recovery/restored-data/recovery.signal"
+
+start_restore=$(date +%s)
+"${recovery[@]}" --profile restore up -d recovered
+for _ in {1..45}; do
+  if "${recovery[@]}" exec -T recovered psql -U hammerfall -d hammerfall_development -Atqc 'SELECT NOT pg_is_in_recovery()' 2>/dev/null | rg -q '^t$'; then break; fi
+  sleep 1
+done
+"${recovery[@]}" exec -T recovered psql -U hammerfall -d hammerfall_development -Atqc 'SELECT NOT pg_is_in_recovery()' | rg '^t$'
+echo "restore_start_seconds=$(($(date +%s)-start_restore))"
+export PGHOST=phase22-recovered
+start_validation=$(date +%s)
+"${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb verify
+echo "domain_validation_seconds=$(($(date +%s)-start_validation))"
+"${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb seed
+start_rebuild=$(date +%s)
+"${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb delete_projection
+"${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb seed
+echo "redis_rebuild_seconds=$(($(date +%s)-start_rebuild))"
+echo "PITR verified; isolated artifacts retained at $work_dir"

@@ -883,3 +883,21 @@ Full browser verification also exposed a fixture that could expire during a
 legitimate 60-second lifecycle quota retry. Timed fixtures now leave admission
 headroom, then wait into the real policy window; the production limiter and
 deadline checks remain exercised.
+
+## 2026-10-05 — PITR exposes future transport state
+
+The physical restore itself was straightforward: `pg_basebackup`, archived
+WAL, selected LSN and verification reproduced T2 but excluded T3. The less
+obvious failure was outside PostgreSQL. Redis already held T3's valid revision
+5 and refused to lower it to restored revision 4. That refusal is correct for
+ordinary delayed messages but blocks automatic PITR reconciliation. More
+seriously, the existing Kafka projection consumer would accept a retained T3
+event and rebuild the future state after an operator cleared Redis. The
+recovery order must therefore fence consumers, quarantine the old broker,
+restore authority, then rebuild/replay only events belonging to that authority.
+
+The same exercise made a release boundary concrete: an old app could use the
+expanded schema for fixed auctions, but still misprice a stepped auction.
+Schema compatibility and behavior compatibility are separate tests. A
+post-migration failure can allow an old image only before new policy data or
+v2 events exist; later failures need a compatible forward fix.

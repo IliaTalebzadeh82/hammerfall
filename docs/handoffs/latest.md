@@ -1,41 +1,38 @@
-# Current handoff — Phase 21 complete
+# Current handoff — Phase 22 Session 1 checkpoint
 
-Phase 21 — COMPLETE
+Phase 21 — COMPLETE. Phase 22 — IN PROGRESS. Phase 23 — NOT STARTED.
+Updated: 2026-10-05. Start the next substantial session with
+[Phase 22 spec](../phases/phase-22.md), the active
+[ExecPlan](../plans/phase-22-execplan.md), and targeted recovery/release
+context. Session 1 completed the durability and release milestone; Session 2
+owns operational policy, an integrated game day and Phase 22 closure.
 
-Phase 22 — NOT STARTED
+A dedicated PostgreSQL 18.6 cluster ran `pg_basebackup` plus WAL archiving,
+passed `pg_verifybackup`, and restored to LSN `0/400C3D0` after T2 but before
+T3. The rapid, stepped, reserved auction recovered at revision 4 with bid
+sequence, private maximum, idempotency and outbox state intact. The retained
+T2 command replayed without mutation. Isolated Redis held discarded revision
+5; the lower revision seed was refused until the derived key was removed and
+rebuilt from PostgreSQL. Local backup/verify, restore startup, validation and
+Redis rebuild steps took 1/2/1/3 seconds respectively; no production RPO/RTO
+is claimed. See [Session 1 report](../operations/phase-22-session-1.md) and
+[database recovery runbook](../runbooks/database-recovery.md).
 
-Updated: 2026-10-05. **Phase 21 — Marketplace Trust & Auction Policy is
-complete. Phase 22 has not started.** Continue only on an explicit new request.
+A detached real Phase 20 `6c38b59` app wrote fixed data on expanded Phase 21
+schema and current code read it. On a stepped row the old writer accepted a
+36,000-cent bid in a rolled-back transaction while current code required
+37,000. A rapid-data `db:rollback STEP=1` raised and preserved the schema.
+The [compatibility matrix](../operations/release-compatibility.md) and
+[release runbook](../runbooks/release.md) require reader-first v2 rollout and
+old-writer drain. Focused backend: 73 examples, 0 failures, 1 opt-in pending;
+fixture RuboCop, shellcheck and Bash syntax passed. The ExecPlan Evidence
+Index points to ignored local logs.
 
-Phase 21 implemented opt-in stepped increments (ADR-018), private reserve
-(ADR-019), and persisted regular/rapid closing (ADR-020). PostgreSQL remains
-authoritative: the auction lock and post-lock database clock decide bid legality,
-price, extension and winner. One accepted external command extends once; proxy
-rows and idempotent replays do not multiply the extension. Regular uses final
-60 seconds/+90 seconds; rapid uses final 15 seconds/+10 seconds. An unmet
-reserve can leave a highest bidder without a sale winner.
-
-Public snapshots use v2. Retained v1 and early-v2 events normalize to regular;
-legacy Redis v2 digests upgrade only when equivalent. Cable remains a v1
-invalidation hint. The frontend displays rapid terms and adopts effective
-deadlines from REST. The [final policy report](../marketplace/phase-21-final.md)
-records product approximations and accepted limits.
-
-Final local verification: 554 backend examples, 0 failures, 4 opt-in pending;
-five rapid race seeds (3 examples each), 78 frontend tests plus static/build
-checks, 9 real browser scenarios with 1 opt-in skipped, RuboCop 173 files/0
-offenses, Zeitwerk, Brakeman and bundler-audit. Compose auction 771 closed at
-revision 5 with one rapid extension, cross-replica replay, real Kafka/Redis
-delivery and an exact PostgreSQL projection rebuild. Migration downgrade guards
-passed. The [ExecPlan](../plans/phase-21-execplan.md) holds the Evidence Index.
-
-Hosted GitHub Actions [run 37268740679](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37268740679)
-completed successfully on implementation SHA
-`7da69bc1724710548f6db636b8e02392ba1ade1d`. API, web and Compose jobs
-passed; their RSpec, frontend test/build, Phase 21 combined smoke and real
-browser steps were checked individually. The final documentation closure commit
-is verified against its own exact SHA in the final response.
-
-Accepted limits: no active reserve edits, seller management UI, payments/bid
-reservations, country/category restrictions, livestream infrastructure, exact
-Catawiki internals claim or cloud deployment. Phase 22 remains untouched.
+Critical recovery boundary: the current Kafka projection consumer accepts a
+valid higher revision without a PostgreSQL check. A broker ahead of restored
+PostgreSQL must remain quarantined; clearing Redis alone is insufficient. The
+fresh-broker/requeue design is documented but has **not** been exercised.
+Session 2 should test that integrated path and complete SLIs/SLOs, alerts,
+secured operator workflow, ownership, game day and final regression. Cloud SQL
+restore, secret-store retrieval, representative volume and full traffic
+freeze/resume are unverified. Do not start Phase 23.
