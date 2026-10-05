@@ -660,6 +660,11 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
   to prove old revision 5 quarantine, retained outbox replay, receipt dedupe,
   Redis seed/revision behavior and reconciliation. Evidence is in
   `docs/operations/phase-22-kafka-recovery.md`.
+- `PHASE22_KAFKA_DRILL=1 PHASE22_LIVE_DRILL=1 scripts/recovery/phase22-pitr`
+  adds isolated HTTP replicas/ingress, operator API, Sidekiq and telemetry.
+  The same harness proves a real fence, queue replacement, unchanged-alert
+  transition and authenticated resume; evidence is in
+  `docs/operations/phase-22-final.md`.
 - `Api::V1::BaseController#reject_recovery_traffic` returns controlled 503 to
   versioned reads/writes when a process has `RECOVERY_FENCE=true`; ingress and
   background writer isolation remain operational duties.
@@ -670,4 +675,5 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
   actor/auction/action/result/time, not private auction values.
 - `infrastructure/observability/hammerfall-alerts.yml` holds four provisional
   Prometheus rules; `docs/runbooks/observability.md` maps each to an owner,
-  severity and response. Live transition proof remains a Phase 22 gate.
+  severity and response. The isolated game day observed one live
+  inactive→pending→firing→cleared transition; broad final gates remain.

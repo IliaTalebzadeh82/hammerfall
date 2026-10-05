@@ -73,6 +73,126 @@ services:
     networks:
       ordinary:
         aliases: [phase22-fresh-kafka]
+  api-a:
+    image: hammerfall-api
+    profiles: [live]
+    environment: &live-api-env
+      RAILS_ENV: development
+      PGHOST: ${PHASE22_API_PGHOST:-phase22-primary}
+      PGPORT: 5432
+      PGUSER: hammerfall
+      PGPASSWORD: ${PHASE22_DB_PASSWORD:?Run scripts/recovery/phase22-pitr}
+      REDIS_URL: redis://phase22-redis:6379/0
+      RECOVERY_FENCE: ${PHASE22_RECOVERY_FENCE:-false}
+      OPERATOR_API_ENABLED: "false"
+      HAMMERFALL_INSTANCE: a
+    volumes:
+      - ../../apps/api:/app
+      - phase22_api_tmp:/app/tmp
+    ports:
+      - "127.0.0.1:3903:3000"
+    command: ["bin/rails", "server", "-b", "0.0.0.0", "-P", "/tmp/phase22-api-a.pid"]
+    networks:
+      ordinary:
+        aliases: [phase22-api-a]
+  api-b:
+    image: hammerfall-api
+    profiles: [live]
+    environment:
+      <<: *live-api-env
+      HAMMERFALL_INSTANCE: b
+    volumes:
+      - ../../apps/api:/app
+      - phase22_api_tmp:/app/tmp
+    ports:
+      - "127.0.0.1:3904:3000"
+    command: ["bin/rails", "server", "-b", "0.0.0.0", "-P", "/tmp/phase22-api-b.pid"]
+    networks:
+      ordinary:
+        aliases: [phase22-api-b]
+  ingress:
+    image: nginx:1.29-alpine
+    profiles: [live]
+    ports:
+      - "127.0.0.1:3901:3000"
+    volumes:
+      - ./nginx-phase22.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      ordinary:
+        aliases: [phase22-ingress]
+  operator-api:
+    image: hammerfall-api
+    profiles: [live]
+    environment:
+      <<: *live-api-env
+      RECOVERY_FENCE: "false"
+      OPERATOR_API_ENABLED: "true"
+      HAMMERFALL_INSTANCE: operator
+    ports:
+      - "127.0.0.1:3902:3000"
+    volumes:
+      - ../../apps/api:/app
+      - phase22_api_tmp:/app/tmp
+    command: ["bin/rails", "server", "-b", "0.0.0.0", "-P", "/tmp/phase22-operator.pid"]
+    networks:
+      ordinary:
+        aliases: [phase22-operator-api]
+  kafka-metric-publisher:
+    image: hammerfall-api
+    profiles: [live]
+    environment:
+      RAILS_ENV: development
+      PGHOST: ${PHASE22_API_PGHOST:-phase22-primary}
+      PGPORT: 5432
+      PGUSER: hammerfall
+      PGPASSWORD: ${PHASE22_DB_PASSWORD:?Run scripts/recovery/phase22-pitr}
+      KAFKA_BOOTSTRAP_SERVERS: ${PHASE22_KAFKA_ENDPOINT:-phase22-old-kafka:9092}
+      OTEL_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://phase22-otel-collector:4318
+    volumes:
+      - ../../apps/api:/app
+    command: ["bin/kafka_outbox_publisher"]
+    networks:
+      ordinary:
+        aliases: [phase22-kafka-metric-publisher]
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.136.0
+    profiles: [live]
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./collector-phase22.yaml:/etc/otelcol-contrib/config.yaml:ro
+    networks:
+      ordinary:
+        aliases: [phase22-otel-collector]
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: [live]
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
+    volumes:
+      - ./prometheus-phase22.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../infrastructure/observability/hammerfall-alerts.yml:/etc/prometheus/hammerfall-alerts.yml:ro
+      - phase22_prometheus:/prometheus
+    ports:
+      - "127.0.0.1:3909:9090"
+    networks:
+      ordinary:
+        aliases: [phase22-prometheus]
+  sidekiq-worker:
+    image: hammerfall-api
+    profiles: [live]
+    environment:
+      RAILS_ENV: development
+      PGHOST: phase22-recovered
+      PGPORT: 5432
+      PGUSER: hammerfall
+      PGPASSWORD: ${PHASE22_DB_PASSWORD:?Run scripts/recovery/phase22-pitr}
+      REDIS_URL: redis://phase22-redis:6379/0
+    volumes:
+      - ../../apps/api:/app
+    command: ["bundle", "exec", "sidekiq", "-r", "./config/environment.rb", "-C", "config/sidekiq.yml"]
+    networks:
+      ordinary:
+        aliases: [phase22-sidekiq-worker]
 networks:
   ordinary:
     external: true
@@ -81,3 +201,5 @@ volumes:
   phase22_primary:
   phase22_old_kafka:
   phase22_fresh_kafka:
+  phase22_api_tmp:
+  phase22_prometheus:

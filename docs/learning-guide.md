@@ -1160,3 +1160,12 @@ cannot regress the seeded projection. See the
 [Kafka recovery checkpoint](operations/phase-22-kafka-recovery.md). This
 procedure depends on an explicit broker fence and does not make old Kafka
 history safe to resume.
+
+The integrated game day showed that a database restore alone is not a system
+restore. PostgreSQL moved to revision 4 while old Kafka, Redis and queued
+notification hints still reflected revision 5. Restored outbox rows and leases
+regenerated legitimate work; blindly replaying old queue or broker history
+would cross the PITR boundary. A stopped publisher's last exported age can
+remain visible until Collector metric expiration, so an alert state needs
+process-health and series-freshness context. The live exercise used a clean,
+isolated telemetry store to prove a real inactive→firing→cleared transition.

@@ -2503,3 +2503,24 @@ Prometheus/Compose syntax checks passed. The [operations report](operations/phas
 and [ExecPlan](plans/phase-22-execplan.md) record policy and evidence. Live
 Sidekiq/fence/alert game day, full regression and exact-SHA hosted CI remain;
 Phase 22 is **not complete**.
+
+## 2026-10-06 — Phase 22 integrated local game-day checkpoint
+
+A clean isolated run of `PHASE22_KAFKA_DRILL=1 PHASE22_LIVE_DRILL=1
+scripts/recovery/phase22-pitr` passed after harness-only fixes. It observed
+five queued Sidekiq hints, two scans and empty Retry/Dead/Scheduled sets;
+regenerated four retained hints and both scans after discarding old Redis;
+fenced an authenticated mutation through ingress and both replicas with 503
+and no PostgreSQL authority write; and observed the unchanged Prometheus
+`OutboxBacklogOld` rule at 0/inactive, pending, 216 seconds/firing, then
+0/inactive. Physical PITR retained T2 and excluded acknowledged T3, old Kafka
+and Redis revision 5 were replaced, fresh Kafka consumed only restored
+revisions 1–4 with three duplicate audit receipts and one new effect, and
+reconciliation was healthy. Live operator HTTP authorization/diagnosis,
+missing-projection repair and durable audit passed; a new authenticated bid
+through ingress returned 201 after recovery. `pg_verifybackup`, focused
+RuboCop, shell/Compose/Prometheus syntax and whitespace checks passed. The
+[game-day report](operations/phase-22-final.md) and
+[ExecPlan](plans/phase-22-execplan.md) index evidence and limitations.
+Adversarial review, full regression, ordinary Compose/browser gates and
+exact-SHA hosted CI remain; Phase 22 is **not complete**.

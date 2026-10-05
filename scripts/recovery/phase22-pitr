@@ -18,13 +18,24 @@ mkdir -p "$work_dir/wal"
 docker run --rm --user root -v "$work_dir:/recovery" --entrypoint sh postgres:18.6-bookworm -ec \
   "chown postgres:$(id -g) /recovery /recovery/wal; chmod 770 /recovery /recovery/wal"
 export PHASE22_WORK_DIR="$work_dir"
+export PHASE22_LIVE_DRILL="${PHASE22_LIVE_DRILL:-0}"
+if [[ "$PHASE22_LIVE_DRILL" == 1 && "${PHASE22_KAFKA_DRILL:-0}" != 1 ]]; then
+  echo "PHASE22_LIVE_DRILL requires PHASE22_KAFKA_DRILL=1" >&2
+  exit 1
+fi
+if [[ "$PHASE22_LIVE_DRILL" == 1 ]]; then
+  PHASE22_HTTP_PASSWORD="$(openssl rand -hex 24)"
+  export PHASE22_HTTP_PASSWORD
+  printf '%s' "$PHASE22_HTTP_PASSWORD" > "$work_dir/http-password"
+  chmod 600 "$work_dir/http-password"
+fi
 PHASE22_DB_PASSWORD="$(openssl rand -hex 24)"
 export PHASE22_DB_PASSWORD
 export PGPASSWORD="$PHASE22_DB_PASSWORD"
 printf '%s' "$PHASE22_DB_PASSWORD" > "$work_dir/db-password"
 chmod 600 "$work_dir/db-password"
 recovery=(docker compose -f scripts/recovery/compose.yml)
-rails=(docker compose run --rm --no-deps -e PGHOST -e PGPASSWORD -e PHASE22_RECOVERY_FIXTURE=1 -e PHASE22_KAFKA_DRILL -e KAFKA_BOOTSTRAP_SERVERS -e REDIS_URL=redis://phase22-redis:6379/0 api)
+rails=(docker compose run --rm --no-deps -e PGHOST -e PGPASSWORD -e PHASE22_RECOVERY_FIXTURE=1 -e PHASE22_KAFKA_DRILL -e PHASE22_LIVE_DRILL -e PHASE22_HTTP_PASSWORD -e KAFKA_BOOTSTRAP_SERVERS -e REDIS_URL=redis://phase22-redis:6379/0 api)
 export PHASE22_KAFKA_DRILL="${PHASE22_KAFKA_DRILL:-0}"
 
 if [[ -n "$("${recovery[@]}" --profile restore ps -q)" ]]; then
@@ -38,6 +49,37 @@ if [[ "$PHASE22_KAFKA_DRILL" == 1 ]]; then
 else
   "${recovery[@]}" up -d primary redis
 fi
+
+prom_api() {
+  curl -fsS "http://127.0.0.1:3909/api/v1/$1"
+}
+alert_state() {
+  prom_api rules | jq -r '[.data.groups[].rules[] | select(.name == "OutboxBacklogOld") | .state] | unique | join(",")'
+}
+backlog_metric() {
+  prom_api 'query?query=max(hammerfall_outbox_oldest_event_age_seconds%7Bchannel%3D%22kafka%22%7D)' |
+    jq -r '[.data.result[]?.value[1] | tonumber] | max // "absent"'
+}
+wait_http() {
+  local url="$1"
+  for _ in {1..45}; do
+    if [[ "$(curl -s -o /dev/null -w '%{http_code}' "$url/up" || true)" == 200 ]]; then return; fi
+    sleep 2
+  done
+  echo "HTTP process did not become ready: $url" >&2
+  exit 1
+}
+login_http() {
+  local base="$1" who="$2" label="$3" code
+  code="$(printf '{"session":{"login":"phase22_%s","password":"%s"}}' "$who" "$PHASE22_HTTP_PASSWORD" |
+    curl -sS -o "$work_dir/$label-login.json" -c "$work_dir/$label-cookie" -w '%{http_code}' \
+      -H 'Content-Type: application/json' -H 'X-Hammerfall-Login: 1' --data-binary @- "$base/api/v1/session")"
+  [[ "$code" == 201 ]] || { echo "live login failed for $label: $code" >&2; exit 1; }
+  jq -e '.csrf_token | strings' "$work_dir/$label-login.json" >/dev/null
+}
+authority_counts() {
+  "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb authority_counts | rg '^\{' | tail -1 | jq -cS .
+}
 for _ in {1..30}; do
   if "${recovery[@]}" exec -T primary pg_isready -U hammerfall -d hammerfall_development >/dev/null 2>&1; then break; fi
   sleep 1
@@ -71,16 +113,70 @@ echo "recovery_target_lsn=$target_lsn"
 "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb t3
 if [[ "$PHASE22_KAFKA_DRILL" == 1 ]]; then
   "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb kafka_old_future
+  if [[ "$PHASE22_LIVE_DRILL" == 1 ]]; then
+    "${recovery[@]}" --profile live up -d otel-collector prometheus kafka-metric-publisher
+    for _ in {1..30}; do
+      [[ "$(backlog_metric 2>/dev/null || true)" == 0 && "$(alert_state 2>/dev/null || true)" == inactive ]] && break
+      sleep 2
+    done
+    [[ "$(backlog_metric)" == 0 && "$(alert_state)" == inactive ]] ||
+      { echo "healthy metric/alert baseline missing" >&2; exit 1; }
+    echo "alert_before=$(alert_state) kafka_metric_before=$(backlog_metric)"
+    "${recovery[@]}" --profile live stop kafka-metric-publisher
+    "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb live_prepare
+    "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb sidekiq_state
+    export PHASE22_API_PGHOST=phase22-primary PHASE22_RECOVERY_FENCE=false
+    "${recovery[@]}" --profile live up -d api-a api-b ingress
+    wait_http http://127.0.0.1:3901
+    login_http http://127.0.0.1:3901 charlie public
+    before_fence="$(authority_counts)"
+    export PHASE22_RECOVERY_FENCE=true
+    "${recovery[@]}" --profile live up -d --force-recreate api-a api-b
+    "${recovery[@]}" --profile live up -d --force-recreate ingress
+    wait_http http://127.0.0.1:3901
+    for port in 3901 3903 3904; do
+      status="$(curl -sS -o "$work_dir/fence-body.json" -D "$work_dir/fence-headers" -w '%{http_code}' \
+        -b "$work_dir/public-cookie" -H 'Content-Type: application/json' \
+        -H "X-CSRF-Token: $(jq -r .csrf_token "$work_dir/public-login.json")" \
+        -H 'Idempotency-Key: phase22-fenced-charlie-bid' --data-binary '{"bid":{"amount":60000}}' \
+        "http://127.0.0.1:$port/api/v1/auctions/$(jq -r .auction_id <<<"$before_fence")/bids")"
+      if [[ "$status" != 503 ]] || ! jq -e '.error.code == "recovery_in_progress"' "$work_dir/fence-body.json" >/dev/null; then
+        echo "fenced mutation was not controlled 503: $status" >&2
+        exit 1
+      fi
+      rg -qi '^Retry-After: 60\r?$' "$work_dir/fence-headers"
+      rg -qi '^Cache-Control: no-store\r?$' "$work_dir/fence-headers"
+    done
+    read_status="$(curl -sS -o "$work_dir/fence-read.json" -w '%{http_code}' \
+      "http://127.0.0.1:3901/api/v1/auctions/$(jq -r .auction_id <<<"$before_fence")")"
+    [[ "$read_status" == 503 ]] && jq -e '.error.code == "recovery_in_progress"' "$work_dir/fence-read.json" >/dev/null
+    [[ "$(authority_counts)" == "$before_fence" ]] || { echo "fenced request changed authority" >&2; exit 1; }
+    echo "fence_verified=503 ingress_and_direct_replicas=3901,3903,3904 read=503 authority_unchanged=true"
+    "${recovery[@]}" --profile live stop api-a api-b
+  fi
   "${recovery[@]}" stop old-kafka
   echo "old_kafka_quarantined=stopped"
+  if [[ "$PHASE22_LIVE_DRILL" == 1 ]]; then
+    echo "incident_injected_at=$(date -u +%FT%TZ) severity=SEV-1 owner=database-recovery"
+    "${recovery[@]}" --profile live up -d kafka-metric-publisher
+    for _ in {1..24}; do
+      [[ "$(alert_state)" == firing ]] && break
+      sleep 15
+    done
+    [[ "$(alert_state)" == firing ]] || { echo "outbox alert did not fire; metric=$(backlog_metric) state=$(alert_state)" >&2; exit 1; }
+    echo "alert_firing_at=$(date -u +%FT%TZ) kafka_metric=$(backlog_metric) state=$(alert_state)"
+    "${recovery[@]}" --profile live stop kafka-metric-publisher
+  fi
 fi
-last_wal="$("${recovery[@]}" exec -T primary psql -U hammerfall -d hammerfall_development -Atqc 'SELECT pg_walfile_name(pg_current_wal_lsn())' | tr -d '\r')"
+# The target segment must be archived. A long alert wait can leave the current
+# LSN at a segment boundary, where pg_switch_wal() has nothing new to switch.
+target_wal="$("${recovery[@]}" exec -T primary psql -U hammerfall -d hammerfall_development -Atqc "SELECT pg_walfile_name('$target_lsn'::pg_lsn)" | tr -d '\r')"
 "${recovery[@]}" exec -T primary psql -U hammerfall -d hammerfall_development -Atqc 'SELECT pg_switch_wal()' >/dev/null
 for _ in {1..30}; do
-  [[ -s "$work_dir/wal/$last_wal" ]] && break
+  [[ -s "$work_dir/wal/$target_wal" ]] && break
   sleep 1
 done
-[[ -s "$work_dir/wal/$last_wal" ]] || { echo "WAL segment was not archived" >&2; exit 1; }
+[[ -s "$work_dir/wal/$target_wal" ]] || { echo "target WAL segment was not archived" >&2; exit 1; }
 
 # Simulate a projection that is ahead of the PITR target on an isolated Redis.
 "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb seed
@@ -103,7 +199,11 @@ start_validation=$(date +%s)
 echo "domain_validation_seconds=$(($(date +%s)-start_validation))"
 "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb seed
 start_rebuild=$(date +%s)
-"${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb delete_projection
+if [[ "$PHASE22_LIVE_DRILL" == 1 ]]; then
+  "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb reset_redis
+else
+  "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb delete_projection
+fi
 "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb seed
 echo "redis_rebuild_seconds=$(($(date +%s)-start_rebuild))"
 if [[ "$PHASE22_KAFKA_DRILL" == 1 ]]; then
@@ -118,5 +218,61 @@ if [[ "$PHASE22_KAFKA_DRILL" == 1 ]]; then
   "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb kafka_fresh_replay
   [[ -z "$("${recovery[@]}" ps -q old-kafka)" ]] || { echo "old Kafka broker unexpectedly running" >&2; exit 1; }
   echo "old_kafka_still_quarantined=true"
+fi
+if [[ "$PHASE22_LIVE_DRILL" == 1 ]]; then
+  "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb sidekiq_regenerate
+  "${recovery[@]}" --profile live up -d sidekiq-worker
+  for _ in {1..30}; do
+    state="$("${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb sidekiq_state | rg '^\{' | tail -1)"
+    [[ "$(jq '[.sidekiq.queues[].size] | add' <<<"$state")" == 0 ]] && break
+    sleep 2
+  done
+  echo "sidekiq_after=$state"
+  [[ "$(jq '[.sidekiq.queues[].size] | add' <<<"$state")" == 0 ]] || { echo "Sidekiq queue did not drain" >&2; exit 1; }
+  export PHASE22_API_PGHOST=phase22-recovered PHASE22_RECOVERY_FENCE=true
+  "${recovery[@]}" --profile live up -d --force-recreate api-a api-b operator-api
+  "${recovery[@]}" --profile live up -d --force-recreate ingress
+  wait_http http://127.0.0.1:3901
+  wait_http http://127.0.0.1:3902
+  auction_id="$(authority_counts | jq -r .auction_id)"
+  operator_path="http://127.0.0.1:3902/api/v1/operator/auctions/$auction_id"
+  anonymous_status="$(curl -sS -o "$work_dir/operator-anonymous.json" -w '%{http_code}' "$operator_path")"
+  [[ "$anonymous_status" == 401 ]] || { echo "anonymous operator access not denied" >&2; exit 1; }
+  login_http http://127.0.0.1:3902 bob member
+  member_status="$(curl -sS -o "$work_dir/operator-member.json" -w '%{http_code}' -b "$work_dir/member-cookie" "$operator_path")"
+  [[ "$member_status" == 403 ]] || { echo "member operator access not denied" >&2; exit 1; }
+  login_http http://127.0.0.1:3902 operator operator
+  # Deliberately remove only the safe, derived public projection for one auction.
+  "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb delete_projection
+  operator_status="$(curl -sS -o "$work_dir/operator-before.json" -w '%{http_code}' -b "$work_dir/operator-cookie" "$operator_path")"
+  [[ "$operator_status" == 200 ]] && jq -e '.data.projection.status == "missing" and .data.public_revision == 4' "$work_dir/operator-before.json" >/dev/null
+  if rg -qi 'reserve_price|maximum_amount|priority_sequence|domain_payload|event_id|idempotency.key|secret|password' "$work_dir/operator-before.json"; then
+    echo "private field in operator diagnostic" >&2; exit 1
+  fi
+  reconcile_status="$(curl -sS -o "$work_dir/operator-reconcile.json" -w '%{http_code}' -b "$work_dir/operator-cookie" \
+    -H "X-CSRF-Token: $(jq -r .csrf_token "$work_dir/operator-login.json")" \
+    -H 'Content-Type: application/json' --data-binary '{}' "$operator_path/reconcile")"
+  [[ "$reconcile_status" == 200 ]] && jq -e '.data.result == "repaired"' "$work_dir/operator-reconcile.json" >/dev/null
+  "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb operator_verify
+  echo "operator_live=anonymous_401,member_403,operator_200,repaired"
+  export PHASE22_KAFKA_ENDPOINT=phase22-fresh-kafka:9092
+  "${recovery[@]}" --profile live up -d --force-recreate kafka-metric-publisher
+  for _ in {1..28}; do
+    [[ "$(alert_state)" == inactive ]] && break
+    sleep 15
+  done
+  [[ "$(alert_state)" == inactive ]] || { echo "outbox alert did not clear; metric=$(backlog_metric)" >&2; exit 1; }
+  echo "alert_cleared_at=$(date -u +%FT%TZ) kafka_metric=$(backlog_metric) state=$(alert_state)"
+  export PHASE22_RECOVERY_FENCE=false
+  "${recovery[@]}" --profile live up -d --force-recreate api-a api-b
+  "${recovery[@]}" --profile live up -d --force-recreate ingress
+  wait_http http://127.0.0.1:3901
+  login_http http://127.0.0.1:3901 charlie resumed
+  resumed_status="$(curl -sS -o "$work_dir/resumed-bid.json" -w '%{http_code}' -b "$work_dir/resumed-cookie" \
+    -H "X-CSRF-Token: $(jq -r .csrf_token "$work_dir/resumed-login.json")" \
+    -H 'Idempotency-Key: phase22-resumed-charlie-bid' -H 'Content-Type: application/json' \
+    --data-binary '{"bid":{"amount":60000}}' "http://127.0.0.1:3901/api/v1/auctions/$auction_id/bids")"
+  [[ "$resumed_status" == 201 ]] || { echo "resumed bid failed: $resumed_status" >&2; exit 1; }
+  echo "traffic_resumed_at=$(date -u +%FT%TZ) authenticated_bid_status=$resumed_status"
 fi
 echo "PITR verified; isolated artifacts retained at $work_dir"

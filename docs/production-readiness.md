@@ -272,7 +272,7 @@ planning budget is not measured Cloud SQL usage. A credentialed provider plan,
 secure bootstrap, real network/TLS tests and operational exercises are required
 before claiming deployment readiness.
 
-## Phase 22 Session 1 recovery and release boundary
+## Phase 22 local recovery and release boundary
 
 A disposable PostgreSQL 18.6 cluster now demonstrates physical base backup,
 `pg_verifybackup`, archived-WAL replay to a selected LSN, and a domain-correct
@@ -290,8 +290,14 @@ proved that an old broker can hold discarded revision 5 after PostgreSQL PITR
 to revision 4. Quarantining it, requeuing retained outbox rows to a distinct
 fresh broker, seeding Redis from restored PostgreSQL and replaying through both
 consumers yielded exact revision 4 projection and clean reconciliation. This
-is a local fixture, not production DR. Cloud SQL restore, managed Kafka DR,
-secret-store retrieval, full service freeze/resume, representative data
-volume, production RPO/RTO, deployment promotion and alerts remain unverified.
+is a local fixture, not production DR. The later integrated
+[game day](operations/phase-22-final.md) proved Sidekiq queue classification
+and regeneration, fenced HTTP reads/writes on both replicas without authority
+mutation, real Prometheus alert inactive→pending→firing→cleared, role-gated
+operator diagnosis/one-auction projection repair and audit, and authenticated
+traffic resumption after the restored timeline converged. Cloud SQL restore,
+managed Kafka DR, production secret-store retrieval, representative data
+volume, production RPO/RTO, deployment promotion and full final gates remain
+unverified.
 Current Kafka projection consumers do not consult PostgreSQL for each event;
 resuming the old broker after PITR remains unsafe. Phase 22 remains open.

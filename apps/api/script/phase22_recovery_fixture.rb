@@ -27,6 +27,15 @@ snapshot = lambda do
     outbox: OutboxEvent.where(auction_id: a.id).order(:public_revision).pluck(:public_revision, :published_at, :kafka_published_at)
   }
 end
+sidekiq_state = lambda do
+  require "sidekiq/api"
+  queues = %w[notifications maintenance].to_h do |name|
+    items = Sidekiq::Queue.new(name)
+    [ name, { size: items.size, classes: items.map { |item| item.klass }.tally } ]
+  end
+  sets = { retry: Sidekiq::RetrySet.new, dead: Sidekiq::DeadSet.new, scheduled: Sidekiq::ScheduledSet.new }
+  { queues: queues, sets: sets.transform_values { |items| { size: items.size, classes: items.map { |item| item.klass }.tally } } }
+end
 kafka_consume = lambda do |group, count|
   client = Rdkafka::Config.new(KafkaClientConfig.build.merge(
     "group.id": group, "auto.offset.reset": "earliest", "enable.auto.commit": false,
@@ -54,8 +63,10 @@ case stage
 when "init"
   %w[Seller Alice Bob Charlie].each do |name|
     User.create!(name: "Phase 22 #{name}", login: "phase22_#{name.downcase}",
-      password: SecureRandom.hex(16))
+      password: %w[Bob Charlie].include?(name) && ENV["PHASE22_HTTP_PASSWORD"] || SecureRandom.hex(16))
   end
+  User.create!(name: "Phase 22 Operator", login: "phase22_operator", role: "operator",
+    password: ENV.fetch("PHASE22_HTTP_PASSWORD")) if ENV["PHASE22_LIVE_DRILL"] == "1"
   a = Auction.create_draft!(seller: actor.call("Seller"), title: "Phase 22 isolated recovery fixture",
     description: "PITR exercise", starting_price: 10_000, minimum_increment: 1_000,
     increment_policy: "stepped", reserve_price: 50_000, closing_policy: "rapid",
@@ -126,6 +137,56 @@ when "kafka_old_future"
   end
   puts JSON.generate(stage: stage, published: result[:published], audit: audit, projection: projection,
     redis_revision: 5, old_broker_contains_discarded_revision: true)
+when "live_prepare"
+  abort "live drill required" unless ENV["PHASE22_LIVE_DRILL"] == "1" && auction.call.public_revision == 5
+  notification = OutboxPublisher.new.run_once
+  ReconciliationScheduler.new.run_once
+  abort "notification enqueue mismatch" unless notification[:published] == 5
+  state = sidekiq_state.call
+  observed = state[:queues].values.flat_map { |queue| queue[:classes].keys }
+  abort "unexpected job class" unless (observed - %w[AuctionChangedJob ReconciliationSweepJob AuctionProjectionReconciliationJob]).empty?
+  abort "missing expected job classes" unless %w[AuctionChangedJob ReconciliationSweepJob AuctionProjectionReconciliationJob].all? { |job| observed.include?(job) }
+  OutboxEvent.where(auction_id: auction.call.id, public_revision: 5).update_all(kafka_published_at: nil,
+    kafka_next_attempt_at: Arel.sql("clock_timestamp()"))
+  puts JSON.generate(stage: stage, sidekiq: state, kafka_pending: OutboxEvent.where(auction_id: auction.call.id).kafka_pending.count)
+when "sidekiq_state"
+  puts JSON.generate(stage: stage, sidekiq: sidekiq_state.call)
+when "authority_counts"
+  a = auction.call
+  puts JSON.generate(stage: stage, auction_id: a.id, revision: a.public_revision,
+    bids: Bid.where(auction_id: a.id).count,
+    idempotency: IdempotencyRecord.where(actor_id: %w[Alice Bob Charlie].map { |name| actor.call(name).id }).count,
+    outbox: OutboxEvent.where(auction_id: a.id).count)
+when "reset_redis"
+  abort "wrong recovery target" unless ENV["PGHOST"] == "phase22-recovered" && auction.call.public_revision == 4
+  require "redis_client"
+  redis = RedisClient.config(url: ENV.fetch("REDIS_URL")).new_client
+  begin
+    redis.call("FLUSHDB")
+    puts JSON.generate(stage: stage, sidekiq: sidekiq_state.call)
+  ensure
+    redis.close
+  end
+when "sidekiq_regenerate"
+  abort "wrong recovery target" unless ENV["PGHOST"] == "phase22-recovered" && auction.call.public_revision == 4
+  result = OutboxPublisher.new.run_once
+  abort "retained hints mismatch" unless result[:published] == 4 && result[:backlog].zero?
+  ReconciliationScheduler.new.run_once
+  puts JSON.generate(stage: stage, published: result[:published], sidekiq: sidekiq_state.call)
+when "operator_verify"
+  a = auction.call
+  row = OperatorActionAudit.where(auction_id: a.id, action: "reconcile_projection").order(:id).last
+  abort "operator audit missing" unless row&.actor_id == actor.call("Operator").id && row.result == "repaired" && row.created_at
+  abort "operator repair mutated authority" unless a.public_revision == 4 && a.current_price == 35_000 &&
+    Bid.where(auction_id: a.id).count == 2 && OutboxEvent.where(auction_id: a.id).count == 4
+  reconciler = AuctionProjectionReconciler.new
+  begin
+    abort "operator projection unhealthy" unless reconciler.check(a) == :healthy
+  ensure
+    reconciler.close
+  end
+  puts JSON.generate(stage: stage, actor_id: row.actor_id, auction_id: row.auction_id,
+    action: row.action, result: row.result, created_at: row.created_at.iso8601, authority_unchanged: true)
 when "kafka_requeue"
   abort "wrong broker" unless ENV["KAFKA_BOOTSTRAP_SERVERS"] == "phase22-fresh-kafka:9092"
   abort "authority not at target" unless auction.call.public_revision == 4 &&

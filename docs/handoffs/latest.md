@@ -1,50 +1,16 @@
-# Current handoff — Phase 22 operations implementation checkpoint
+# Current handoff — Phase 22 integrated game-day checkpoint
 
 Phase 21 — COMPLETE. Phase 22 — IN PROGRESS. Phase 23 — NOT STARTED.
-Updated: 2026-10-05. Read the [Phase 22 spec](../phases/phase-22.md), active
-[ExecPlan](../plans/phase-22-execplan.md), and targeted recovery/operations
-context. The next substantial session owns the integrated game day and final
-closure; do not start Phase 23.
+Updated: 2026-10-06 (Asia/Tehran). Start with the [Phase 22 spec](../phases/phase-22.md), [ExecPlan](../plans/phase-22-execplan.md), and [game-day report](../operations/phase-22-final.md). Do not rerun the successful destructive drill without a concrete reason; do not start Phase 23.
 
-Session 1 proved PostgreSQL 18.6 physical PITR with archived WAL and
-`pg_verifybackup` after T2/before T3. Restored revision 4 retained policy,
-bids, private maximum, idempotency and outbox; T2 replayed without mutation,
-T3 was absent despite client acknowledgment. Ahead Redis revision 5 was
-removed before seeding revision 4. A real old-app drill exposed an unsafe
-stepped-bid writer and guarded rapid-data rollback. See [Session 1](../operations/phase-22-session-1.md).
+The clean isolated `PHASE22_KAFKA_DRILL=1 PHASE22_LIVE_DRILL=1 scripts/recovery/phase22-pitr` run passed. PostgreSQL 18.6 physical backup/WAL PITR restored revision 4 after T2 and excluded acknowledged T3. `pg_verifybackup` passed; retained T2 idempotency replay made no new bid/outbox. Old Kafka and Redis had revision 5; the old broker stayed stopped, fresh Kafka received only restored revisions 1–4, Redis rebuilt to exact revision 4, audit deduplicated three events and created one new receipt, and reconciliation was healthy.
 
-The isolated Kafka drill consumed old revisions 1–5, quarantined that broker,
-restored PostgreSQL to revision 4, requeued retained outbox 1–4 to a fresh
-broker, and observed audit duplicates ×3/one new effect. Redis matched
-PostgreSQL and reconciliation was healthy. See [Kafka checkpoint](../operations/phase-22-kafka-recovery.md).
+Before Redis replacement, Sidekiq held five notification hints and one of each maintenance scan; Retry, Dead and Scheduled were empty. After discarding the old Redis queue, four retained hints and both scans were regenerated and drained. An authenticated mutation through isolated ingress and direct requests to both API replicas returned controlled 503 with `Retry-After` and `Cache-Control: no-store`; a versioned read also returned 503. Bid, idempotency and outbox counts and auction revision stayed unchanged. The per-process fence is not a distributed lock. Public replicas were stopped for destructive recovery; a separate loopback operator process handled authenticated diagnosis and one safe projection repair.
 
-This operations implementation milestone classified all three Sidekiq jobs:
-notifications and scans are regenerable operational work; no accepted auction
-command exists only in Sidekiq. A `RECOVERY_FENCE=true` API guard returns
-controlled 503 for versioned reads and writes on both configured Compose
-replicas, but real ingress isolation and stopped writers remain required.
-Four Prometheus rules cover old outbox age, projection review, mutation 5xx
-and observed close lag; production SLO/RPO/RTO remain unset. An internal
-operator API is disabled by default, reuses the Phase 20 role/session/CSRF
-boundary, returns bounded diagnostics, repairs only one safe public projection
-and records a PostgreSQL actor/target/result/time audit row. See the
-[operations report](../operations/phase-22-final.md) and affected runbooks.
+Dedicated Collector/Prometheus used the unchanged four alert rules and a one-minute local metric expiration. Real Kafka outbox age/rule moved 0/inactive→pending→216 seconds/firing→0/inactive. Operator HTTP gave anonymous 401/member 403/operator 200, bounded diagnostic, a one-auction missing-projection repair, unchanged PostgreSQL authority, durable action audit and privileged security event. After clearance and unfencing, an authenticated fresh bid through ingress returned 201. The [report](../operations/phase-22-final.md) has UTC timeline and limits. The successful ignored log is `apps/api/tmp/phase22-live-drill-clean.log`; backup/WAL and HTTP artifacts are sensitive under ignored `apps/api/tmp/phase22-recovery.ML1Hbt`.
 
-Focused evidence: seven request examples/zero failures (seed 58571);
-operator-audit migration rollback/reapply; targeted RuboCop and Zeitwerk;
-Prometheus config/four-rule syntax, Compose config and diff whitespace all
-passed. The operator/fence and alert behavior have **not** yet had a live
-game-day proof. The first focused test saw leftover Redis state from a reused
-test auction ID; setup/cleanup repaired it. A changed applied test migration
-required resetting that isolated test table before a clean redo; no domain
-failure was hidden. Evidence and exact commands are in the ExecPlan.
+Earlier live attempts exposed harness-only failures: invalid idempotency count query, stale nginx upstream on replica recreation, target WAL archive check at a segment boundary, and shared Collector samples contaminating alert baseline. These were fixed; the clean full drill passed. Focused Ruby lint, shellcheck, bash syntax, recovery Compose config, `promtool` config/four rules and diff whitespace passed. A non-blocking trace-export 404 from the ordinary Collector appeared in a fixture runner; it did not affect isolated metric/alert proof and should be considered during final observability review.
 
-Next: extend/run one isolated integrated game day using the existing Kafka
-PITR harness. Inspect Sidekiq queue/Retry/Dead; prove a real fenced mutation
-returns 503 without a write; observe an adopted alert healthy→firing→cleared;
-restore, converge and use operator diagnostics; verify T2 replay and absent T3;
-record timeline and release decision. Then adversarial review, full backend,
-frontend, static, ordinary Compose and browser gates, final docs, closure
-commit/push and hosted CI on the **exact closure SHA**. Do not claim Phase 22
-complete before these pass. Cloud SQL restore, managed Kafka DR, secret-store
-retrieval, representative volume and production RPO/RTO remain unverified.
+The release decision mini-drill reused the measured old/new compatibility evidence: a compatible old image may roll back before new policy/event state; after stepped/rapid/v2 state, keep writers fenced and the expanded schema and use a compatible current image or forward fix. No blind DB rollback. Cloud SQL restore, managed Kafka DR, secret-store retrieval, representative volume and production RPO/RTO remain unverified.
+
+Next: final adversarial/privacy review; full backend, frontend, static/security and audit-migration gates; ordinary Compose and authenticated browser regression; final documentation/Definition of Done; closure commit/push; exact-SHA hosted CI; only then mark Phase 22 complete. Keep `RECOVERY_FENCE` and `OPERATOR_API_ENABLED` off for ordinary deployment. Phase 23 has not started.

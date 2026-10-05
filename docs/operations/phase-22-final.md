@@ -1,9 +1,8 @@
 # Phase 22 final operations evidence
 
-Status: **in progress**. This report preserves the already verified [physical
-PITR and release exercise](phase-22-session-1.md) and [isolated Kafka timeline
-exercise](phase-22-kafka-recovery.md). It will become the final game-day report
-only after the integrated drill and final gates pass.
+Status: **in progress**. The [physical PITR and release exercise](phase-22-session-1.md),
+[Kafka timeline exercise](phase-22-kafka-recovery.md), and integrated local game
+day below are verified. Final regression and hosted CI remain.
 
 ## Sidekiq authority and recovery policy
 
@@ -20,11 +19,16 @@ Sidekiq holds hints and bounded comparison work.
 | `AuctionProjectionReconciliationJob` | PostgreSQL lease/cursor and current PostgreSQL row; compares/repairs only disposable Redis public state | **REGENERATE** from scheduler after lease expiry | Discard obsolete cursor/token; on retry/dead inspect current PostgreSQL and Redis, then let lease/scheduler restart. Preserve ahead/conflicting/corrupt keys for review. |
 
 All job classes use at most five Sidekiq retries. Inspect queue, Retry and Dead
-sets before replacing Redis; do not bulk retry. After a full PITR, old Redis
+sets before replacing Redis; do not bulk retry. The live exercise found five
+`AuctionChangedJob` entries, one of each maintenance job, and zero Retry, Dead
+and Scheduled entries. After a full PITR, old Redis
 queue, retry and dead entries are forensic data, not a replay source. Requeue
 retained outbox notification intents and let expired PostgreSQL leases be
 reclaimed by the scheduler. Verify the new queue drains, REST state is current,
-and reconciliation reaches healthy. This integrated proof remains pending.
+and reconciliation reaches healthy. The live exercise discarded the old Redis
+queue, regenerated four retained notification hints and both scans, and
+observed both queues drain with zero Retry/Dead entries. The old revision-5
+hint was not replayed.
 
 ## Recovery traffic fence and safe resume
 
@@ -37,8 +41,12 @@ JSON 503 `recovery_in_progress` for versioned API reads and writes, with
 `Retry-After: 60` and `Cache-Control: no-store`; it is a local defensive guard,
 not a distributed lock or a substitute for verified ingress isolation and
 stopped writers. Both Compose API replicas receive the setting. Health probes
-remain available. The game day must prove an actual request to the fenced
-process receives 503 and no command or outbox record is written.
+remain available. The game day proved an authenticated mutation through
+isolated ingress and directly against both API replicas received 503,
+`Retry-After: 60` and `Cache-Control: no-store`; a versioned read also received
+503. Bid, idempotency and outbox counts and auction revision did not change.
+The separately bound loopback operator process had its fence off for authorized
+recovery work while the public replicas remained fenced.
 
 Resume only after: PostgreSQL target/secret/keyring validation; old broker
 quarantine and distinct fresh endpoint; Redis projection namespace removal and
@@ -105,11 +113,54 @@ telemetry records success/degradation. No raw key, private maximum or reserve
 amount is returned. Focused authorization/privacy/repair/fence tests passed;
 broader regression remains pending.
 
-## Integrated game day and final verification
+## Integrated local game day
 
-Pending: live Sidekiq Retry/Dead inspection, ingress fence request, actual
-alert healthy→firing→cleared transition, coarse operational timeline,
-PostgreSQL/Redis/Kafka/Sidekiq convergence, retained T2 replay and absent T3,
-release decision mini-drill, adversarial review, broad local gates, ordinary
-Compose and browser regression, closure commit and exact-SHA hosted CI. Until
-these are recorded, Phase 22 is not complete.
+`PHASE22_KAFKA_DRILL=1 PHASE22_LIVE_DRILL=1 scripts/recovery/phase22-pitr`
+completed against dedicated PostgreSQL, Redis, old/fresh Kafka, API replicas,
+operator process, Collector and Prometheus. The final successful ignored log is
+`apps/api/tmp/phase22-live-drill-clean.log`; the sensitive ignored backup/WAL
+directory is `apps/api/tmp/phase22-recovery.ML1Hbt`. Earlier attempts exposed
+only harness errors: an invalid fixture count query, stale nginx upstream
+resolution during replica recreation, a WAL archive check at a segment
+boundary, and shared Collector samples contaminating the alert baseline. The
+final run used the unchanged four ordinary alert rules with disposable
+telemetry storage and a one-minute local metric expiration. Ordinary Collector
+configuration was not changed.
+
+| Local observed UTC time | Event and evidence |
+| --- | --- |
+| Before 19:02 | `pg_verifybackup` passed; T1/T2/T3 acknowledged, old Kafka and Redis reached revision 5. Queue inspection found five notification hints, two maintenance scans, zero Retry/Dead/Scheduled. Prometheus metric 0, rule inactive. |
+| 19:02:14 | SEV-1 database recovery declared; owner role `database-recovery`. Public API ingress and both replicas returned controlled 503 for authenticated mutation, read returned 503, authority counts/revision unchanged; public replicas then stopped. Old broker stopped and retained for forensics. |
+| About 19:04 | Real Kafka outbox age crossed 90 seconds; Prometheus rule was observed pending. |
+| 19:05:30 | `OutboxBacklogOld` firing with measured age 216 seconds. No synthetic alert was posted. |
+| About 19:05:36–19:05:40 | Physical PITR promoted in two seconds after start; restored revision 4 preserved policy, price, leader, deadline, bids, private maximum, two idempotency rows and four outbox rows. T2 replayed without a write. T3 bid, command and outbox revision were absent. Ahead Redis revision 5 rejected a lower seed; isolated Redis was replaced and seeded exactly at revision 4. |
+| About 19:05:49–19:05:56 | Fresh Kafka endpoint received retained revisions 1–4 only. Restored audit receipts deduplicated three events and recorded one new effect. Projection replay was stale ×3/duplicate ×1; reconciliation healthy. Four Sidekiq hints and two scans were regenerated and drained; old queue/retry state was discarded. |
+| 19:06:03 | Internal operator GET returned bounded revision 4, zero pending outbox, four receipts and missing projection. Anonymous/member got 401/403. Operator POST repaired one deleted public projection; PostgreSQL auction authority stayed unchanged, durable actor/target/action/result/time audit was written, and `security.privileged_action` succeeded event was emitted. |
+| 19:06:51–19:06:54 | Kafka age returned to 0 and alert cleared. Public replicas were recreated without the fence against restored PostgreSQL. A fresh authenticated Charlie bid through ingress returned 201. Public ingress returned 404 for the operator route with the capability disabled on both public replicas. |
+
+These are **local observed times**, not production RTO. The T3 client may
+still remember success while the recovered server does not: PITR deliberately
+excluded that command. Its absent idempotency key cannot resurrect discarded
+history. The fresh post-resume bid is a new accepted command, not recovery of
+T3. `RECOVERY_FENCE` remains a per-process guard; a real incident still needs
+ingress isolation and all background writers stopped or drained.
+
+## Release decision mini-drill
+
+If the expanded schema exists and no stepped/rapid/v2 or HMAC-incompatible
+state has been written, the [compatibility matrix](release-compatibility.md)
+allows a reviewed old-image rollback. Once the new policy/event state exists,
+the measured Phase 20 old writer accepts an underpriced stepped bid and cannot
+decode v2 Kafka events. The exercise decision is to keep writers fenced and
+the expanded schema, then deploy a compatible current-generation image or
+forward fix. Do not blindly run `db:rollback`. This reuses the real old/new
+writer and guarded-migration evidence rather than repeating that drill.
+
+## Remaining final verification
+
+Adversarial review, full backend/frontend/static/security gates, ordinary
+Compose and browser regression, closure commit and exact-SHA hosted CI remain.
+Cloud SQL PITR, managed Kafka recovery, production secret-store retrieval,
+representative restore volume, production RPO/RTO, multi-region availability,
+live cloud deployment, capacity and penetration testing remain unverified.
+Phase 22 is not complete.

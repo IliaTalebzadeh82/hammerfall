@@ -86,3 +86,10 @@ pager/Alertmanager routing or staffed on-call rotation; Prometheus rule state
 is the observed alert behavior. Do not treat absent/stale telemetry as healthy
 service. Kafka lag gauge updates only on successful commits, so inspect broker
 group offsets before diagnosing a stopped or idle consumer.
+
+The Phase 22 isolated game day observed `OutboxBacklogOld` inactive at a zero
+Kafka age, pending after the real broker outage, firing at 216 seconds, then
+inactive at zero after fresh-broker replay. A stopped publisher's last gauge
+can persist in the Collector until metric expiration; confirm process health
+and series identity before interpreting clear/firing. The disposable game-day
+Collector used a one-minute expiration; ordinary configuration was unchanged.

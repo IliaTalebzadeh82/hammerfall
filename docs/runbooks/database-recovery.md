@@ -56,6 +56,7 @@ the normal Compose API image and network available:
 ```sh
 scripts/recovery/phase22-pitr
 PHASE22_KAFKA_DRILL=1 scripts/recovery/phase22-pitr
+PHASE22_KAFKA_DRILL=1 PHASE22_LIVE_DRILL=1 scripts/recovery/phase22-pitr
 ```
 
 It prints an ignored `apps/api/tmp/phase22-recovery.*` directory and target
@@ -73,7 +74,13 @@ PHASE22_WORK_DIR=/absolute/printed/path PHASE22_DB_PASSWORD="$(cat /absolute/pri
 The ignored backup/WAL directory remains until an operator removes it; treat
 it as sensitive database material. Do not commit or share it.
 
-The integrated variant publishes revisions 1–5 to the old broker and consumes
+The live variant also uses isolated API replicas, a loopback operator API,
+Sidekiq, Collector and Prometheus on loopback ports 3901–3904/3909. It proves
+fenced HTTP requests, actual queue loss/regeneration, alert transition and
+resumed authenticated bidding. Its metric expiration is one minute for an
+isolated, repeatable alert clear; ordinary Collector settings are unchanged.
+The completed [game-day report](../operations/phase-22-final.md) records the
+observed sequence. The integrated variant publishes revisions 1–5 to the old broker and consumes
 them with the actual audit and projection consumers. It observes revision 5 in
 Redis, then stops the old broker before promoting PostgreSQL. After PITR leaves
 only revisions 1–4, it removes the ahead Redis key, seeds revision 4, starts a

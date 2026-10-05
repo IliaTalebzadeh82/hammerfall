@@ -925,3 +925,20 @@ lag sample. The initial alert set uses measured outbox age and reconciliation
 review instead, with broker offsets as a protected diagnostic. Static alert
 syntax and focused API tests do not prove an incident can be detected and
 cleared; the integrated game day must exercise that transition.
+
+## 2026-10-05 — One recovery timeline includes queues, traffic and telemetry
+
+The integrated local game day started with PostgreSQL, Kafka and Redis at
+revision 5 and a Sidekiq queue containing five hints plus both maintenance
+scans. Fencing authenticated requests on ingress and both replicas preserved
+bid, command and outbox counts. PITR kept T2 but discarded T3; replacing the
+ahead Redis and old Kafka timeline, then regenerating only four retained hints
+and both scans, converged the restored system before a new bid succeeded.
+
+Alert proof needed its own clean telemetry state. A shared Collector kept a
+stopped publisher's old gauge until expiration and contaminated a later run's
+baseline. The final isolated Collector/Prometheus run measured age 0 with the
+rule inactive, then 216 seconds with it firing, then age 0 and inactive after
+fresh-broker recovery. This demonstrates why a database recovery runbook must
+include detection, transport replacement, process state and user traffic, as
+well as PostgreSQL promotion. It establishes no production RTO.
