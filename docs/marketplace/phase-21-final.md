@@ -1,7 +1,7 @@
 # Phase 21 — Marketplace trust and auction policy
 
-Status: implementation and all local closure gates passed; hosted verification
-remains pending because the existing GitHub SSH key must be unlocked locally. Phase 22 has not started.
+Status: Phase 21 complete. Local and hosted API/web/Compose gates passed.
+Phase 22 has not started.
 
 ## Stepped increments
 
@@ -140,8 +140,12 @@ Final local results: 554 backend examples, 0 failures, 4 opt-in pending (seed
 1 historical opt-in skipped; five rapid race seeds with 3 examples each;
 RuboCop 173 files/0 offenses, Zeitwerk, Brakeman and bundler-audit passed.
 Migration rollback/reapply and both populated-data downgrade guards passed.
-The [ExecPlan](../plans/phase-21-execplan.md) records commands, live records and
-the pending hosted gate. Session 1/2 evidence remains preserved. No Critical or
+Hosted [run 37268740679](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37268740679)
+completed successfully on implementation SHA
+`7da69bc1724710548f6db636b8e02392ba1ade1d`. Its API RSpec, web tests/build,
+Compose combined policy smoke and real browser steps completed successfully.
+The [ExecPlan](../plans/phase-21-execplan.md) records commands and live records.
+Session 1/2 evidence remains preserved. No Critical or
 High finding remains unresolved in the final adversarial review.
 Active reserve lowering/removal, seller management UI, payment/bid reservations,
 country/category restrictions, livestream/video/chat and live cloud deployment

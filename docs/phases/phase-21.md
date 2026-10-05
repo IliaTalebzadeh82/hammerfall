@@ -1,6 +1,6 @@
 # Phase 21 — Marketplace Trust & Auction Policy
 
-Status: In progress — implementation and local verification complete; hosted closure pending
+Status: Complete — local and hosted API/web/Compose gates passed on implementation SHA `7da69bc1724710548f6db636b8e02392ba1ade1d` ([run 37268740679](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37268740679)); Phase 22 has not started
 
 ## Goal
 

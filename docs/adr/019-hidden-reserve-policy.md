@@ -1,6 +1,6 @@
 # ADR-019 — Hidden reserve as auction state
 
-Status: Adopted for the Phase 21 reserve slice, 2026-10-04. Live transport and final phase gates remain pending.
+Status: Adopted and implemented in Phase 21, 2026-10-04. Combined live transport and regression evidence is recorded in the [final policy report](../marketplace/phase-21-final.md).
 
 ## Context and public behavior
 

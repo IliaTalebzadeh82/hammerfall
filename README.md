@@ -5,7 +5,7 @@ high-contention bidding. Its central question is how to guarantee one authoritat
 outcome while concurrent requests, application instances, asynchronous consumers,
 and real-time clients may observe different versions of state.
 
-**Completed through Phase 20; Phase 21 local verification passed, hosted closure pending.**
+**Completed through Phase 21; Phase 22 has not started.**
 Phase 21 adds stepped increments, hidden reserve and persisted regular/rapid
 closing through the existing PostgreSQL command path. See the
 [marketplace policy report](docs/marketplace/phase-21-final.md) for scope and evidence.

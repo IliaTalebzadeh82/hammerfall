@@ -1,43 +1,41 @@
-# Current handoff — Phase 21 Session 3 closure gate
+# Current handoff — Phase 21 complete
 
-Updated: 2026-10-05. Phase 20 is complete. Phase 21 Marketplace Trust &
-Auction Policy implementation and browser/Compose verification are complete;
-hosted closure remains pending. Phase 22 has not started. Start from the
-[ExecPlan](../plans/phase-21-execplan.md) and [final policy report](../marketplace/phase-21-final.md).
+Phase 21 — COMPLETE
 
-All selected policies exist: stepped increments (ADR-018), hidden reserve
-(ADR-019), and persisted regular/rapid closing (ADR-020). Closing policy is
-draft-editable and freezes on scheduling; regular final-60/+90 and rapid
-final-15/+10 use the existing auction lock, post-lock PostgreSQL clock and one
-deadline decision per accepted external command. Proxy rows and replays do not
-multiply extensions. Reserve still separates highest bidder from sale winner.
+Phase 22 — NOT STARTED
 
-Public snapshots stay v2. Retained v1/early-v2 events normalize to regular;
-earlier Redis v2 values validate their original digest and normalize safely,
-including equivalent equal-revision replay. Cable remains a v1 invalidation.
-The frontend displays rapid terms and adopts effective deadlines via REST.
+Updated: 2026-10-05. **Phase 21 — Marketplace Trust & Auction Policy is
+complete. Phase 22 has not started.** Continue only on an explicit new request.
 
-Evidence: full backend 554 examples/0 failures/4 opt-in pending, seed 33589,
-isolated Redis DB 15 and pool 15; five rapid race seeds, each 3 examples/0
-failures; 78 frontend tests plus typecheck/lint/format/build; RuboCop 173
-files/0 offenses, Zeitwerk, Brakeman and bundler-audit passed. Test migration
-rollback/reapply and both populated-data downgrade guards passed. Final live smoke
-auction 771/closed revision 5 passed A acceptance/B read and replay, +10 once,
-€650/met, autonomous winner, real Kafka/Redis delivery and exact PostgreSQL
-rebuild. Full browser: 9 passed, 1 historical opt-in skipped, 8.5 minutes.
+Phase 21 implemented opt-in stepped increments (ADR-018), private reserve
+(ADR-019), and persisted regular/rapid closing (ADR-020). PostgreSQL remains
+authoritative: the auction lock and post-lock database clock decide bid legality,
+price, extension and winner. One accepted external command extends once; proxy
+rows and idempotent replays do not multiply the extension. Regular uses final
+60 seconds/+90 seconds; rapid uses final 15 seconds/+10 seconds. An unmet
+reserve can leave a highest bidder without a sale winner.
 
-Remaining: unlock GitHub SSH authentication, push verified work, then verify
-hosted API/web/Compose success. Record completion only after that success;
-push the final closure commit and require CI on its exact SHA. Explicit
-anonymous/rate-limited rapid deadline assertions passed. An earlier browser
-fixture expired during a real quota retry;
-setup headroom and waiting into the actual window repaired it without weakening
-the production limiter.
-Session 1/2 evidence remains in the ExecPlan. No Phase 21 completion or hosted
-CI success is claimed yet. No active reserve edits, payment reservations,
-country/category restrictions, livestream infrastructure or Phase 22 work.
+Public snapshots use v2. Retained v1 and early-v2 events normalize to regular;
+legacy Redis v2 digests upgrade only when equivalent. Cable remains a v1
+invalidation hint. The frontend displays rapid terms and adopts effective
+deadlines from REST. The [final policy report](../marketplace/phase-21-final.md)
+records product approximations and accepted limits.
 
-Push blocker: the runtime's existing GitHub SSH key is locked; HTTPS has no
-saved login. The user has been asked to unlock the key locally, never to share
-its passphrase. Commit/push is already authorized. Resumed local gate logs are
-under ignored `apps/api/tmp/phase21-final-gate/`.
+Final local verification: 554 backend examples, 0 failures, 4 opt-in pending;
+five rapid race seeds (3 examples each), 78 frontend tests plus static/build
+checks, 9 real browser scenarios with 1 opt-in skipped, RuboCop 173 files/0
+offenses, Zeitwerk, Brakeman and bundler-audit. Compose auction 771 closed at
+revision 5 with one rapid extension, cross-replica replay, real Kafka/Redis
+delivery and an exact PostgreSQL projection rebuild. Migration downgrade guards
+passed. The [ExecPlan](../plans/phase-21-execplan.md) holds the Evidence Index.
+
+Hosted GitHub Actions [run 37268740679](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37268740679)
+completed successfully on implementation SHA
+`7da69bc1724710548f6db636b8e02392ba1ade1d`. API, web and Compose jobs
+passed; their RSpec, frontend test/build, Phase 21 combined smoke and real
+browser steps were checked individually. The final documentation closure commit
+is verified against its own exact SHA in the final response.
+
+Accepted limits: no active reserve edits, seller management UI, payments/bid
+reservations, country/category restrictions, livestream infrastructure, exact
+Catawiki internals claim or cloud deployment. Phase 22 remains untouched.
