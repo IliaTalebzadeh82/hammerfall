@@ -647,7 +647,9 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
 - `scripts/recovery/compose.yml` and `phase22-pitr` run a separate PostgreSQL
   18.6 primary/recovery pair with archived WAL and isolated Redis; ordinary
   Compose database storage is untouched. The generated password and backup
-  files stay under ignored `apps/api/tmp/phase22-recovery.*`.
+  files stay under ignored `apps/api/tmp/phase22-recovery.*`. Recovery Redis,
+  Collector and Prometheus service names are distinct on the shared network
+  so ordinary Compose DNS cannot resolve to the recovery services.
 - `apps/api/script/phase22_recovery_fixture.rb` creates the rapid, stepped,
   reserved auction and verifies restored bids, private maximum, idempotency
   and outbox state. `scripts/recovery/phase22-compatibility` uses a detached
@@ -676,4 +678,5 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
 - `infrastructure/observability/hammerfall-alerts.yml` holds four provisional
   Prometheus rules; `docs/runbooks/observability.md` maps each to an owner,
   severity and response. The isolated game day observed one live
-  inactive→pending→firing→cleared transition; broad final gates remain.
+  inactive→pending→firing→cleared transition; local final gates passed and
+  hosted exact-SHA CI remains.

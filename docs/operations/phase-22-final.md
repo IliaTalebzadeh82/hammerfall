@@ -1,8 +1,9 @@
 # Phase 22 final operations evidence
 
-Status: **in progress**. The [physical PITR and release exercise](phase-22-session-1.md),
-[Kafka timeline exercise](phase-22-kafka-recovery.md), and integrated local game
-day below are verified. Final regression and hosted CI remain.
+Status: **local gates complete; hosted exact-SHA CI pending**. The
+[physical PITR and release exercise](phase-22-session-1.md),
+[Kafka timeline exercise](phase-22-kafka-recovery.md), integrated local game
+day and final regression below are verified.
 
 ## Sidekiq authority and recovery policy
 
@@ -110,8 +111,8 @@ operator role and CSRF rules apply. It cannot set a bid, price, winner, leader,
 reserve or closing state. A PostgreSQL `operator_action_audits` row records
 actor, auction, action, result and time around a requested repair; security
 telemetry records success/degradation. No raw key, private maximum or reserve
-amount is returned. Focused authorization/privacy/repair/fence tests passed;
-broader regression remains pending.
+amount is returned. Focused authorization/privacy/repair/fence tests and the
+full backend regression passed.
 
 ## Integrated local game day
 
@@ -145,6 +146,34 @@ history. The fresh post-resume bid is a new accepted command, not recovery of
 T3. `RECOVERY_FENCE` remains a per-process guard; a real incident still needs
 ingress isolation and all background writers stopped or drained.
 
+## Final adversarial review
+
+Review covered PostgreSQL authority, Kafka/Redis/Sidekiq timeline selection,
+all versioned controllers, multi-replica fencing, operator auth/CSRF/privacy,
+outbox/idempotency/HMAC retention, and the four alert rules. Counts: **Critical
+0, High 0, Medium 3, Low 2, Informational 1**. No Critical or High finding
+remains.
+
+| Severity / finding | Evidence and impact | Decision / fix or accepted limit |
+| --- | --- | --- |
+| Medium — recovery Compose shared ordinary Docker DNS names | The ordinary `otel-collector` name resolved to two IPs while the recovery stack ran; traces sent to the metrics-only recovery Collector returned 404, while metrics returned 200. Recovery `redis` and `prometheus` also shared names and could misroute local clients. | **Fixed:** distinct `recovery-*` service names with explicit `phase22-*` aliases. With both Collectors running, ordinary names each resolved to one IP and ordinary OTLP traces/metrics both returned 200. The isolated alert drill had used its explicit recovery alias and remains valid. |
+| Medium — old Kafka can reintroduce discarded revision 5 | The current projection consumer trusts a higher valid revision, and old Kafka contained revision 5 after PostgreSQL restored revision 4; an old endpoint would recreate future derived state and an orphan audit receipt. | **Accepted local procedural dependency:** stop/network-isolate the old broker, verify distinct `KAFKA_BOOTSTRAP_SERVERS` for every consumer/publisher, use fresh offsets, and resume only after PostgreSQL/outbox/Redis convergence. Managed Kafka recovery requires its own plan. |
+| Medium — a missed replica can bypass the recovery fence | `RECOVERY_FENCE` is read per Rails process; it cannot coordinate other API or background processes. A surviving unfenced writer could accept a command during recovery. | **Accepted procedural boundary:** isolate ingress and stop/drain every writer, then set and verify the flag on each remaining API replica. The live ingress/A/B 503 probes and unchanged authority counts prove the local setup, not automatic distributed fencing. |
+| Low — stale or absent telemetry can look clear | Publisher age is a cycle gauge: no pending events produces zero; a dead publisher may leave its last sample until expiration or emit no new sample. Kafka lag likewise refreshes only on consumer commits. | **Accepted:** verify process/series freshness and broker offsets with the runbooks. The clean alert run proved real pending/firing/clearing for a running publisher; it did not prove detection of a dead publisher. |
+| Low — HMAC retention wording was incomplete in production-readiness | Live-row pruning alone does not retire key material if a still-restorable backup contains a row with that key ID. | **Fixed documentation:** retain recoverable key material across live rows **and** all retained restorable backups, matching the recovery and release runbooks. |
+| Informational — production DR and operations unverified | The exercise is local and isolated; no Cloud SQL/managed Kafka/secret-store recovery, representative restore volume, production RPO/RTO, live GCP capacity or penetration test was run. | **Accepted Phase 22 limit:** keep production-readiness claim negative and measure these before real deployment. |
+
+The operator route returns 404 when disabled. With it enabled on the loopback
+process, anonymous/member/seller requests are denied; operator repair requires
+the Phase 20 session and CSRF token. The only write is bounded Redis public
+projection repair, with a durable actor/target/action/result/time row.
+Responses and security logs contain no reserve amount, private maximum,
+priority, raw idempotency key, HMAC secret, password or session token. Sidekiq
+jobs regenerate public hints or scans from PostgreSQL, never accepted command
+truth. Requeued outbox events are **at least once**; restored event-ID receipts
+and revision guards handle duplicates. T2's retained replay survived PITR;
+T3's discarded command cannot be reconstructed by idempotency.
+
 ## Release decision mini-drill
 
 If the expanded schema exists and no stepped/rapid/v2 or HMAC-incompatible
@@ -156,11 +185,29 @@ the expanded schema, then deploy a compatible current-generation image or
 forward fix. Do not blindly run `db:rollback`. This reuses the real old/new
 writer and guarded-migration evidence rather than repeating that drill.
 
-## Remaining final verification
+## Final local regression and remaining gate
 
-Adversarial review, full backend/frontend/static/security gates, ordinary
-Compose and browser regression, closure commit and exact-SHA hosted CI remain.
-Cloud SQL PITR, managed Kafka recovery, production secret-store retrieval,
-representative restore volume, production RPO/RTO, multi-region availability,
-live cloud deployment, capacity and penetration testing remain unverified.
-Phase 22 is not complete.
+Full RSpec: **561 examples, 0 failures, 3 documented opt-in pending**, seed
+28461. Frontend: **78 tests in 10 files, 0 failures**; typecheck, lint, format
+check and build passed. Full RuboCop inspected 179 files without offenses;
+Zeitwerk, Brakeman (0 warnings), bundler-audit, shellcheck, bash syntax,
+ordinary/recovery Compose config and diff whitespace passed. Prometheus config
+and exactly four alert rules validated. The operator-audit migration rolled
+back and reapplied on the isolated test database; both foreign keys and both
+check constraints were present afterward.
+
+Ordinary Compose built and reached healthy API A/B, ingress, web, PostgreSQL,
+Redis and Kafka. Its existing scripts passed authenticated lifecycle,
+manual/proxy/concurrent bidding, closer, Phase 21 policy, cross-replica
+ordering and idempotency replay, Kafka publication/consumption, Redis
+projection/reconciliation, session revocation and pruning. The ordinary
+operator route returned 404 with the capability off; normal auction API and
+web reads returned 200 with the recovery fence off. The full authenticated
+Playwright suite finished **9 passed, 0 failed, 1 established opt-in skip in
+8.5 minutes**.
+
+Exact-SHA hosted CI on the closure candidate and final completion-status SHA
+remains before Phase 22 can be marked complete. Cloud SQL PITR, managed Kafka
+recovery, production secret-store retrieval, representative restore volume,
+production RPO/RTO, multi-region availability, live cloud deployment,
+capacity and penetration testing remain unverified.

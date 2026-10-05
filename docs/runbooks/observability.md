@@ -61,6 +61,15 @@ as recovery of data dropped during the outage. Session 2 local outage evidence
 is indexed in the [Phase 13 ExecPlan](../plans/phase-13-execplan.md); it is not a
 capacity or queue-saturation benchmark.
 
+If OTLP metrics reach the Collector but trace exports get HTTP 404, check the
+resolved Collector address as well as its trace pipeline. The Phase 22 recovery
+stack shares the ordinary Docker network; before the recovery services were
+given distinct names, Docker resolved `otel-collector` to either the ordinary
+Collector or the recovery metrics-only Collector. The recovery service now
+uses `recovery-otel-collector` and the `phase22-otel-collector` alias; verify
+one address for each intended name
+before attributing a 404 to the application exporter.
+
 Structured boundary logs carry bounded operation/result fields and, when
 sampled, trace/span IDs. Control access to logs containing auction/event IDs.
 Do not copy raw commands, private maximums, Kafka payloads or credentials into

@@ -79,6 +79,10 @@ Sidekiq, Collector and Prometheus on loopback ports 3901–3904/3909. It proves
 fenced HTTP requests, actual queue loss/regeneration, alert transition and
 resumed authenticated bidding. Its metric expiration is one minute for an
 isolated, repeatable alert clear; ordinary Collector settings are unchanged.
+The recovery Compose services use distinct `recovery-*` names and
+`phase22-*` network aliases on the shared ordinary Docker network. Do not
+reuse ordinary `redis`, `otel-collector` or `prometheus` service names: Docker
+would then resolve those names to either stack, misrouting cache or telemetry.
 The completed [game-day report](../operations/phase-22-final.md) records the
 observed sequence. The integrated variant publishes revisions 1–5 to the old broker and consumes
 them with the actual audit and projection consumers. It observes revision 5 in

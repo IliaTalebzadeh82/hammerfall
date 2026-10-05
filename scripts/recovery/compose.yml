@@ -24,7 +24,7 @@ services:
     networks:
       ordinary:
         aliases: [phase22-recovered]
-  redis:
+  recovery-redis:
     image: redis:7.4-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     networks:
@@ -155,7 +155,7 @@ services:
     networks:
       ordinary:
         aliases: [phase22-kafka-metric-publisher]
-  otel-collector:
+  recovery-otel-collector:
     image: otel/opentelemetry-collector-contrib:0.136.0
     profiles: [live]
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
@@ -164,7 +164,7 @@ services:
     networks:
       ordinary:
         aliases: [phase22-otel-collector]
-  prometheus:
+  recovery-prometheus:
     image: prom/prometheus:v3.5.0
     profiles: [live]
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]

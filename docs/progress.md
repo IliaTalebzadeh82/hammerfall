@@ -2524,3 +2524,30 @@ RuboCop, shell/Compose/Prometheus syntax and whitespace checks passed. The
 [ExecPlan](plans/phase-22-execplan.md) index evidence and limitations.
 Adversarial review, full regression, ordinary Compose/browser gates and
 exact-SHA hosted CI remain; Phase 22 is **not complete**.
+
+## 2026-10-06 — Phase 22 final local closure gates
+
+Adversarial review found zero Critical and zero High issues. It traced a
+fixture OTLP trace 404 to duplicate ordinary/recovery Docker DNS names on the
+shared network. Recovery Redis, Collector and Prometheus were given distinct
+service names; with both Collectors running, the ordinary endpoint resolved
+once and accepted traces and metrics with HTTP 200. The final review retains
+the explicit old-Kafka quarantine, per-process fence and stale-gauge limits.
+
+Full backend regression passed **561 examples, 0 failures, 3 documented opt-in
+pending** (seed 28461). Frontend passed **78 tests, 0 failures**, plus
+typecheck, lint, format check and build. Full RuboCop, Zeitwerk, Brakeman,
+bundler-audit, shellcheck, bash syntax, Prometheus config/four alert rules,
+ordinary/recovery Compose config and whitespace checks passed. The isolated
+operator-audit migration rolled back/reapplied with two foreign keys and both
+check constraints present. Ordinary Compose reached healthy API A/B, ingress,
+web, PostgreSQL, Redis and Kafka; existing auction, policy, concurrency,
+proxy, cross-replica identity/replay, Kafka/Redis/reconciliation and pruning
+scripts passed. Its operator route was disabled (404), while ordinary API/web
+reads worked (200) with the recovery fence off. Authenticated Playwright
+finished **9 passed, 0 failed, 1 existing opt-in skip** in 8.5 minutes.
+
+The [final operations report](operations/phase-22-final.md) records findings
+and accepted limits; the [ExecPlan](plans/phase-22-execplan.md) indexes all
+local evidence. Exact-SHA hosted CI and the final completion-status commit
+remain. Phase 23 has not started.

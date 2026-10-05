@@ -942,3 +942,15 @@ rule inactive, then 216 seconds with it firing, then age 0 and inactive after
 fresh-broker recovery. This demonstrates why a database recovery runbook must
 include detection, transport replacement, process state and user traffic, as
 well as PostgreSQL promotion. It establishes no production RTO.
+
+## 2026-10-06 — Shared Docker DNS crossed the recovery boundary
+
+Final observability review traced a fixture OTLP trace-export 404 to two
+Collectors on the same Docker network advertising `otel-collector`. The
+recovery Collector intentionally had only a metrics pipeline, so DNS sometimes
+sent ordinary trace exports to an endpoint that returned 404. Recovery Redis
+and Prometheus reused ordinary service names too, creating the same routing
+risk. Giving the recovery services distinct names removed those aliases;
+with both Collectors running, the ordinary endpoint again had one address and
+returned 200 for traces and metrics. The isolated alert game-day evidence was
+valid, but the shared network itself was a failure surface worth reviewing.

@@ -45,9 +45,9 @@ fi
 
 echo "Recovery artifacts: $work_dir"
 if [[ "$PHASE22_KAFKA_DRILL" == 1 ]]; then
-  "${recovery[@]}" up -d primary redis old-kafka
+  "${recovery[@]}" up -d primary recovery-redis old-kafka
 else
-  "${recovery[@]}" up -d primary redis
+  "${recovery[@]}" up -d primary recovery-redis
 fi
 
 prom_api() {
@@ -114,7 +114,7 @@ echo "recovery_target_lsn=$target_lsn"
 if [[ "$PHASE22_KAFKA_DRILL" == 1 ]]; then
   "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb kafka_old_future
   if [[ "$PHASE22_LIVE_DRILL" == 1 ]]; then
-    "${recovery[@]}" --profile live up -d otel-collector prometheus kafka-metric-publisher
+    "${recovery[@]}" --profile live up -d recovery-otel-collector recovery-prometheus kafka-metric-publisher
     for _ in {1..30}; do
       [[ "$(backlog_metric 2>/dev/null || true)" == 0 && "$(alert_state 2>/dev/null || true)" == inactive ]] && break
       sleep 2

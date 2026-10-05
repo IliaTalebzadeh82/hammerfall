@@ -1169,3 +1169,14 @@ would cross the PITR boundary. A stopped publisher's last exported age can
 remain visible until Collector metric expiration, so an alert state needs
 process-health and series-freshness context. The live exercise used a clean,
 isolated telemetry store to prove a real inactive→firing→cleared transition.
+The authoritative timeline must be selected first, then all derived systems
+forced to converge on it. Idempotency protects surviving history; it cannot
+recreate a command deliberately excluded by PITR.
+
+The final review exposed a separate local isolation trap: Compose projects on
+one Docker network can advertise the same service name. A recovery metrics-only
+Collector shared `otel-collector` with the ordinary Collector, so ordinary
+trace exports sometimes received 404. Distinct recovery service names removed
+the DNS collision for Collector, Redis and Prometheus. The failure did not
+alter auction authority, but it made the supposedly isolated exercise affect
+ordinary observability.

@@ -1,8 +1,8 @@
 # Phase 22 — Durability, Release & Operations
 
-Status: In progress — local PITR, release compatibility and isolated Kafka
-recovery verified; operating policy and focused operator/fence tests complete.
-Integrated game day, final regression and hosted exact-SHA CI remain.
+Status: In progress — integrated game day, adversarial review and all local
+regression, migration, static/security, ordinary Compose and browser gates
+verified. Hosted exact-SHA CI and final completion-status commit remain.
 
 ## Goal
 

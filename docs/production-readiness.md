@@ -11,10 +11,12 @@ Redis rate limits, an early Rails request-body guard, local nginx limit,
 versioned HMAC idempotency digests and structured security events. The
 [final review](security/phase-20-final.md) records regression and hosted
 closure evidence. Phase 22 has locally proved PostgreSQL physical PITR,
-domain-correct restore, retained idempotency replay, Kafka timeline
-quarantine/retained-outbox republish, Redis rebuild and selected release
-compatibility boundaries. Sidekiq, live fencing/alert/operator game day, final
-regression and hosted closure CI remain. No production Cloud SQL/managed Kafka
+domain-correct restore, retained idempotency replay, future-Kafka quarantine,
+retained-outbox republish, Redis rebuild, Sidekiq regeneration, traffic fencing,
+real alert firing/clearing, operator-authorized diagnosis/repair, the integrated
+game day and release compatibility/drain boundaries. Full local backend,
+frontend, ordinary Compose, browser, migration and static/security gates
+passed; hosted exact-SHA closure CI remains. No production Cloud SQL/managed Kafka
 restore, deployment or production-grade operating program exists; see
 [Phase 22](phases/phase-22.md) and its [evidence](operations/phase-22-final.md).
 No professional penetration test or live cloud deployment was performed.
@@ -35,9 +37,9 @@ Choose and prove a supported cloud enforcement point before public ingress.
 Production replicas must share one `SECRET_KEY_BASE` and byte-identical validated
 HMAC keyring content for each key ID. Initial rollout must drain old executor code
 before any HMAC-version write because old code lacks the advisory lock; mixed
-old/new writers are not supported. Previous HMAC keys remain configured until
-every row using them is
-physically pruned. Redis-outage fallback quotas are per process and can be
+old/new writers are not supported. Previous HMAC keys remain recoverable until
+every live row using them is physically pruned **and** every backup containing
+such rows has expired. Redis-outage fallback quotas are per process and can be
 multiplied by replica switching. An already established Cable socket may keep
 receiving public invalidation hints after session revocation until disconnect.
 Reads spanning multiple queries are not snapshot-consistent.
@@ -156,9 +158,9 @@ documented in the [observability contract](observability.md) and
 changing an auction outcome. A trace, dashboard panel or empty failure counter
 does not prove business correctness or absence of failures.
 
-This is still an incomplete local demo. Phase 20 owns public ingress and
-remaining identity/security hardening; Phase 22 owns backup/restore, disaster recovery, SLOs and
-alerts. High availability and production capacity remain unverified. Phase 18
+This is still an incomplete local demo. Phase 20 verified local identity and
+security controls; Phase 22 verified local recovery and provisional alerts.
+High availability and production capacity remain unverified. Phase 18
 verified local kind orchestration, not production Kubernetes deployment.
 The Ruby OpenTelemetry metrics SDK is alpha. Local outage exercises do not
 establish performance or queue saturation behavior.
@@ -297,7 +299,8 @@ mutation, real Prometheus alert inactive→pending→firing→cleared, role-gate
 operator diagnosis/one-auction projection repair and audit, and authenticated
 traffic resumption after the restored timeline converged. Cloud SQL restore,
 managed Kafka DR, production secret-store retrieval, representative data
-volume, production RPO/RTO, deployment promotion and full final gates remain
+volume, production RPO/RTO, deployment promotion and hosted exact-SHA CI remain
 unverified.
 Current Kafka projection consumers do not consult PostgreSQL for each event;
-resuming the old broker after PITR remains unsafe. Phase 22 remains open.
+resuming the old broker after PITR remains unsafe. Phase 22 remains open until
+hosted closure CI passes.

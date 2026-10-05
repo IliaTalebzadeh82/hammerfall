@@ -6,6 +6,12 @@ winners and command outcomes. Kafka failure does not require stopping bidding.
 The Sidekiq/Cable invalidation path is independent. See [ADR-011](../adr/011-kafka-domain-events.md)
 and the [event model](../event-model.md).
 
+For a **PostgreSQL PITR**, use the [database recovery runbook](database-recovery.md)
+instead of the routine broker restart steps below. The old broker can contain
+events after the selected recovery point; keep it quarantined, verify every
+publisher/consumer uses the reviewed fresh endpoint, then republish retained
+PostgreSQL outbox rows. A group-offset reset does not make the old timeline safe.
+
 ## Inspect the pipeline
 
 From the repository root:
