@@ -273,7 +273,8 @@ test("another client adopts a soft-close deadline from REST without adding local
   request,
   baseURL,
 }) => {
-  const id = await auction(operator, 30);
+  // Authenticated fixture setup may wait through a real 60-second rate limit.
+  const id = await auction(operator, 150);
   const a = await client(
     browser,
     baseURL ?? "http://127.0.0.1:3000",
@@ -284,6 +285,8 @@ test("another client adopts a soft-close deadline from REST without adding local
   try {
     await Promise.all([a.open(), b.open()]);
     const before = await state(request, id);
+    const delay = Date.parse(before.ends_at) - Date.now() - 45000;
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
     await bid(a.page, "100");
     const after = await state(request, id);
     expect(Date.parse(after.ends_at) - Date.parse(before.ends_at)).toBe(90000);

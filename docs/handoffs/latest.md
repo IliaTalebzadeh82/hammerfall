@@ -1,38 +1,43 @@
-# Current handoff — Phase 21 Session 2 reserve checkpoint
+# Current handoff — Phase 21 Session 3 closure gate
 
-Updated: 2026-10-04. Phase 20 is complete. Phase 21 Marketplace Trust &
-Auction Policy remains active; Phase 22 has not started. Resume in a fresh
-Codex conversation from the [ExecPlan](../plans/phase-21-execplan.md),
-[Session 2 report](../marketplace/phase-21-session-2.md),
-`docs/phases/phase-21.md` and [context map](../context-map.md).
+Updated: 2026-10-05. Phase 20 is complete. Phase 21 Marketplace Trust &
+Auction Policy implementation and browser/Compose verification are complete;
+hosted closure remains pending. Phase 22 has not started. Start from the
+[ExecPlan](../plans/phase-21-execplan.md) and [final policy report](../marketplace/phase-21-final.md).
 
-Adopted policies are stepped minimum increments (implemented in Session 1),
-hidden reserve (implemented in Session 2) and rapid closing (ADR-020 design,
-pending). Seller self-bidding is already covered by Phase 20. Account/country/
-category restrictions and payment reservations are deferred; the bidding-panel
-experiment is rejected for this phase.
+All selected policies exist: stepped increments (ADR-018), hidden reserve
+(ADR-019), and persisted regular/rapid closing (ADR-020). Closing policy is
+draft-editable and freezes on scheduling; regular final-60/+90 and rapid
+final-15/+10 use the existing auction lock, post-lock PostgreSQL clock and one
+deadline decision per accepted external command. Proxy rows and replays do not
+multiply extensions. Reserve still separates highest bidder from sale winner.
 
-Reserve implementation: nullable private integer-cent `reserve_price` is
-configured through owner/operator draft create/edit and freezes on scheduling.
-Manual bids below reserve remain valid. The locked proxy resolver advances
-maxima toward reserve without exceeding a bidder's ceiling or replacing
-stepped competition/priority. Closing below reserve retains the highest
-bidder in `current_leader_id` with no sale winner; SQL and PostgreSQL
-reconciliation match this rule. Public `reserve_status` exposes only
-`none`/`not_met`/`met`. New outbox/Kafka domain snapshots are v2; readers can
-decode retained v1, and Redis uses a v2 key rebuilt from PostgreSQL. Cable
-remains a v1 invalidation. Frontend list/detail show public reserve status.
-See [ADR-019](../adr/019-hidden-reserve-policy.md).
+Public snapshots stay v2. Retained v1/early-v2 events normalize to regular;
+earlier Redis v2 values validate their original digest and normalize safely,
+including equivalent equal-revision replay. Cable remains a v1 invalidation.
+The frontend displays rapid terms and adopts effective deadlines via REST.
 
-Evidence: test PostgreSQL migrate/rollback/reapply; 311 affected backend
-examples/0 failures/2 opt-in pending with Redis DB 15 and pool 15; 5
-independent reserve race seeds/0 failures; 33 frontend tests, typecheck,
-lint and build; 20 changed Ruby files linted/0 offenses; Zeitwerk passed.
-Logs and commands are in the ExecPlan Evidence Index. No real broker or
-multi-instance rollout, full Phase 21 suite, browser gate or hosted CI proof
-is claimed. Active reserve edits, seller UI and payment/post-auction offers
-remain deferred.
+Evidence: full backend 554 examples/0 failures/4 opt-in pending, seed 33589,
+isolated Redis DB 15 and pool 15; five rapid race seeds, each 3 examples/0
+failures; 78 frontend tests plus typecheck/lint/format/build; RuboCop 173
+files/0 offenses, Zeitwerk, Brakeman and bundler-audit passed. Test migration
+rollback/reapply and both populated-data downgrade guards passed. Final live smoke
+auction 771/closed revision 5 passed A acceptance/B read and replay, +10 once,
+€650/met, autonomous winner, real Kafka/Redis delivery and exact PostgreSQL
+rebuild. Full browser: 9 passed, 1 historical opt-in skipped, 8.5 minutes.
 
-Next: implement rapid closing from [ADR-020](../adr/020-auction-closing-policies.md),
-then combined reserve/rapid contention and the remaining live/final Phase 21
-gates. Do not start Phase 22.
+Remaining: unlock GitHub SSH authentication, push verified work, then verify
+hosted API/web/Compose success. Record completion only after that success;
+push the final closure commit and require CI on its exact SHA. Explicit
+anonymous/rate-limited rapid deadline assertions passed. An earlier browser
+fixture expired during a real quota retry;
+setup headroom and waiting into the actual window repaired it without weakening
+the production limiter.
+Session 1/2 evidence remains in the ExecPlan. No Phase 21 completion or hosted
+CI success is claimed yet. No active reserve edits, payment reservations,
+country/category restrictions, livestream infrastructure or Phase 22 work.
+
+Push blocker: the runtime's existing GitHub SSH key is locked; HTTPS has no
+saved login. The user has been asked to unlock the key locally, never to share
+its passphrase. Commit/push is already authorized. Resumed local gate logs are
+under ignored `apps/api/tmp/phase21-final-gate/`.

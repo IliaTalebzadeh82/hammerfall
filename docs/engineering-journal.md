@@ -865,3 +865,21 @@ state when replayed to the v2 projection. A test migration rollback/reapply
 also confirmed the downgrade guard rather than promising to discard a
 configured reserve. See [ADR-019](adr/019-hidden-reserve-policy.md) and the
 [Session 2 report](marketplace/phase-21-session-2.md).
+
+## 2026-10-05 — Rapid policy and historical projection compatibility
+
+The rapid policy needed no second command or closer path: persisted mode feeds
+one deadline calculation after locked proxy settlement. Independent connection
+tests forced both bid/closer lock orders and replay after a lost response.
+The less obvious upgrade issue was the existing Redis v2 digest. A historical
+v2 entry has no closing field, while an equivalent replay now includes the
+regular default. Treating those digests as an ordinary conflict would stop the
+projection consumer. The reader validates the original digest before returning
+normalized state, and Lua permits only an equivalent regular equal-revision
+upgrade. A rapid replacement still conflicts. This preserves retained events,
+public field allowlists and PostgreSQL authority without introducing v3.
+
+Full browser verification also exposed a fixture that could expire during a
+legitimate 60-second lifecycle quota retry. Timed fixtures now leave admission
+headroom, then wait into the real policy window; the production limiter and
+deadline checks remain exercised.

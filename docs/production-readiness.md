@@ -15,6 +15,12 @@ production deployment or production-grade operating program exists; durability,
 release and operating policy are assigned to [Phase 22](phases/phase-22.md).
 No professional penetration test or live cloud deployment was performed.
 Local runbooks cover specific failures.
+Phase 21 adds persisted stepped increments, hidden reserve and regular/rapid
+closing. These policies require one PostgreSQL authority and compatible
+snapshot readers during rollout. The rapid window increases sensitivity to
+request/lock latency without promising FIFO fairness or an exact closer SLA.
+Active reserve edits, payment reservations, category/country restrictions and
+livestream infrastructure remain excluded; see the [policy report](marketplace/phase-21-final.md).
 Production Rails boot requires an explicit `API_ALLOWED_HOSTS` allowlist, but
 host filtering and the initial identity controls do not make the API safe to expose.
 The API limits `/api/v1` bodies to 32 KiB before Rails JSON parameter parsing,

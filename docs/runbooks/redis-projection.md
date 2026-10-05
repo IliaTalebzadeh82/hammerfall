@@ -66,6 +66,14 @@ projection. Check consumer lag and the endpoint again.
 
 ## Limits
 
+During the Phase 21 closing-policy upgrade, older v2 entries without
+`closing_policy` are historical regular state. Readers validate their original
+digest and return the default; equivalent equal-revision replay or PostgreSQL
+seeding can normalize the stored value. A different policy or other data at the
+same revision remains a conflict. Deploy compatible readers and restart the
+long-lived consumers before enabling new policy writers; keep the existing
+Kafka topic/groups and offsets.
+
 Phase 11 had no automatic drift detection or repair. Phase 12's scheduled
 checker can repair valid stale keys after it scans them; a valid stale
 projection remains a Redis response until a later event or successful scan.

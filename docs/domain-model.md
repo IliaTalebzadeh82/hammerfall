@@ -10,6 +10,7 @@ table, for the proxy rules. ADR-003's auction row lock remains authoritative.
 - User: ID and nonblank name (up to 100 characters); names are not credentials.
 - Auction: title (nonblank, up to 200), description (up to 10000, default empty),
   status, starting_price, current_price, minimum_increment, private nullable reserve_price,
+  persisted closing_policy (`regular` or `rapid`),
   starts_at, original_ends_at, ends_at, closed_at,
   current_leader_id, winner_id, timestamps.
 - Bid: accepted visible fact with auction_id, bidder_id, amount, sequence,
@@ -70,10 +71,11 @@ finalization decision time, possibly later than ends_at, not exact commit time.
 All four are public UTC timestamps (closed_at null until closed).
 
 One accepted external manual bid, new max or increased max extends exactly once
-when `0 < ends_at - decision_time <= 60`: add **90 seconds to existing ends_at**.
-An entire proxy contest generating two rows still adds only 90. Protection-only
-increases add 90 even without a visible row. Identical max/rejected commands add
-nothing. Later valid commands in their new final minute can extend again without
+according to persisted policy: regular uses final 60 seconds and adds 90;
+rapid uses final 15 seconds and adds 10. An entire proxy contest generating
+multiple rows still extends once. Protection-only increases can extend without
+a visible row. Identical, rejected and replayed commands add nothing.
+Later valid commands in their new policy window can extend again without
 limit. Auction#persist_bidding_action! saves extension/price/leader in the same
 transaction as all private changes and visible rows. Failure rolls everything back.
 Generic PATCH cannot edit scheduled/active/closed/cancelled terms or write original

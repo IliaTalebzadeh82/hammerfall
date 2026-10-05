@@ -12,10 +12,13 @@ class AuctionPublicProjection
       local current = cjson.decode(old)
       if current.public_revision > incoming.public_revision then return 0 end
       if current.public_revision == incoming.public_revision then
-        if current.data_digest ~= incoming.data_digest then
+        if current.data_digest == incoming.data_digest then return 2 end
+        -- Earlier v2 entries predate closing_policy and were always regular.
+        local legacy_regular = current.data.closing_policy == nil and
+          incoming.data.closing_policy == 'regular' and current.data_digest == ARGV[2]
+        if not legacy_regular then
           return redis.error_reply('projection revision conflict')
         end
-        return 2
       end
     end
     local now = redis.call('TIME')
@@ -57,6 +60,10 @@ class AuctionPublicProjection
     raise InvalidProjection, "invalid occurrence time" unless state["occurred_at"].is_a?(String) && Time.iso8601(state["occurred_at"])
     PublicAuctionSnapshot.validate!(state["data"])
     raise InvalidProjection, "projection digest mismatch" unless state["data_digest"] == digest(state["data"])
+    unless state["data"].key?("closing_policy")
+      state["data"]["closing_policy"] = "regular"
+      state["data_digest"] = digest(state["data"])
+    end
     state
   rescue JSON::ParserError, ArgumentError, PublicAuctionSnapshot::InvalidSnapshot
     raise InvalidProjection, "invalid projection state"
@@ -72,7 +79,8 @@ class AuctionPublicProjection
     state = { schema_version: 2, auction_id: auction_id, public_revision: revision,
       event_id: event_id, occurred_at: occurred_at, source: source, data: data,
       data_digest: digest(data) }
-    result = case @redis.call("EVAL", SCRIPT, 1, key(auction_id), JSON.generate(state))
+    legacy_digest = data["closing_policy"] == "regular" ? digest(data.except("closing_policy")) : ""
+    result = case @redis.call("EVAL", SCRIPT, 1, key(auction_id), JSON.generate(state), legacy_digest)
     when 1 then :applied
     when 2 then :duplicate
     else :stale
@@ -93,10 +101,11 @@ class AuctionPublicProjection
   end
 
   def normalized_data(event)
-    return event.fetch("data") if event.fetch("schema_version") == 2
-
-    # Every retained v1 event predates reserve configuration.
-    event.fetch("data").merge("reserve_status" => "none")
+    data = event.fetch("data").dup
+    # Historical v1 and earlier v2 events were all regular auctions.
+    data["reserve_status"] = "none" if event.fetch("schema_version") == 1
+    data["closing_policy"] ||= "regular"
+    data
   end
 
   def key(auction_id)

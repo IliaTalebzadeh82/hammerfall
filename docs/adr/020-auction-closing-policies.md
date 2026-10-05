@@ -1,6 +1,6 @@
 # ADR-020 — Persisted auction closing policy
 
-Status: Design selected in Phase 21 Session 1; implementation and races pending.
+Status: Accepted and implemented in Phase 21 Session 3.
 
 ## Context and public behavior
 
@@ -11,6 +11,8 @@ Catawiki [regular closing help](https://www.catawiki.com/en/help/bidding-basics/
 Persist an immutable-after-draft `closing_policy` of `regular` or `rapid`, defaulting existing rows to `regular`. `regular` preserves 60/90. `rapid` models only 15/10, without stream, chat, presentation order or distinct bid transport. A small `ClosingPolicy` domain concept supplies window and extension to the existing `AuctionDeadline` arithmetic; both policy values still use `place_bid!`, `set_maximum!`, the auction row lock, `AuctionClock.now` after lock acquisition, and the same closer. Accepted external commitments extend once; generated proxy rows and replays do not. Eligibility remains `starts_at <= decision_time < ends_at`, so equality with end is closed. Repeated qualifying commands may extend again.
 
 Expose the mode and current deadline in public API and snapshot so a bidder can understand the shorter response window. The mode has no authority outside PostgreSQL. Combined with reserve, rapid closing may end unsold or sold according to the settled visible bid at finalization.
+
+The v2 validator accepts early v2 snapshots without the field and new v2 snapshots with `closing_policy`. Redis normalization interprets retained v1 and early v2 as historically `regular`. Earlier Redis v2 entries are read as regular after validating their original digest; equivalent equal-revision writes can atomically normalize them without allowing a rapid or otherwise conflicting replacement. New events and PostgreSQL rebuilds include the field. This retains v2 and its strict allowlist. Rollback refuses rapid rows or emitted closing-policy events.
 
 ## Alternatives
 

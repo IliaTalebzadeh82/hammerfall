@@ -1,7 +1,7 @@
 class Auction < ApplicationRecord
   CURRENCY = "EUR"
   STATES = %w[draft scheduled active closed cancelled].freeze
-  EDITABLE_FIELDS = %w[title description starting_price minimum_increment increment_policy reserve_price starts_at ends_at].freeze
+  EDITABLE_FIELDS = %w[title description starting_price minimum_increment increment_policy reserve_price closing_policy starts_at ends_at].freeze
   INCREMENT_POLICIES = %w[fixed stepped].freeze
   TRANSITIONS = {
     "scheduled" => %w[draft],
@@ -20,6 +20,7 @@ class Auction < ApplicationRecord
   validates :description, length: { maximum: 10_000 }, exclusion: { in: [ nil ] }
   validates :status, inclusion: { in: STATES }
   validates :increment_policy, inclusion: { in: INCREMENT_POLICIES }
+  validates :closing_policy, inclusion: { in: ClosingPolicy::RULES.keys }
   validates :starting_price, :current_price, :minimum_increment, minor_units: true
   validates :reserve_price, minor_units: true, unless: -> { reserve_price.nil? && reserve_price_before_type_cast.nil? }
   validates :starts_at, :ends_at, :original_ends_at, presence: true
@@ -151,6 +152,10 @@ class Auction < ApplicationRecord
     Bidding::BidIncrementPolicy.new(self)
   end
 
+  def deadline_policy
+    ClosingPolicy.new(closing_policy)
+  end
+
   def reserve_status
     return "none" unless reserve_price
 
@@ -211,7 +216,7 @@ class Auction < ApplicationRecord
 
   # One accepted external commitment, independently of generated Bid count.
   def persist_bidding_action!(decision_time)
-    self.ends_at = AuctionDeadline.extended_end(ends_at, decision_time)
+    self.ends_at = AuctionDeadline.extended_end(ends_at, decision_time, policy: deadline_policy)
     persist_public_change!(:bid_placement)
   end
 
@@ -238,6 +243,7 @@ class Auction < ApplicationRecord
         starting_price: starting_price, minimum_increment: bid_increment_policy.increment_at(current_price),
         starts_at: starts_at.utc.iso8601(6), original_ends_at: original_ends_at.utc.iso8601(6),
         current_price: current_price, current_leader_id: current_leader_id, reserve_status: reserve_status,
+        closing_policy: closing_policy,
         ends_at: ends_at.utc.iso8601(6), closed_at: closed_at&.utc&.iso8601(6), winner_id: winner_id }
       Observability.trace("hammerfall.outbox.persist", attributes: { "hammerfall.event_type" => event_type }) do
         OutboxEvent.record_auction_change!(auction_id: id, revision: public_revision,

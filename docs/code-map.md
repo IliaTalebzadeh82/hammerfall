@@ -1,5 +1,16 @@
 # Code map
 
+## Phase 21 rapid closing slice
+
+`Auction#closing_policy` is a persisted draft term. `ClosingPolicy` supplies
+regular 60/90 or rapid 15/10 arithmetic to `AuctionDeadline` after the auction
+lock and `AuctionClock.now`. Both bidding entry points call one
+`persist_bidding_action!` per external commitment; the closer uses the same
+row lock and fresh DB time. The presenter/outbox/Redis carry only the public
+mode and effective deadline. Retained v1 and early v2 snapshots normalize to
+regular. See [ADR-020](adr/020-auction-closing-policies.md) and
+`apps/api/spec/integration/rapid_closing_race_spec.rb`.
+
 ## Phase 21 hidden reserve slice
 
 `Auction#reserve_status` derives only public status from private nullable

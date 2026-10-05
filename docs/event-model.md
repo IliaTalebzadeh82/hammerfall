@@ -48,8 +48,10 @@ JSON envelope has exactly `event_id` (stable outbox UUID), `event_type`,
 revision), `occurred_at`, and `data`. Data is a public snapshot of title,
 description, status, starting price, minimum increment, starts_at,
 original_ends_at, current price, current leader ID, ends_at, closed_at and
-winner ID. Version 2 adds `reserve_status` (`none`, `not_met`, `met`), never the
-reserve amount. There is no private maximum, priority, bid origin, raw client key
+winner ID. Version 2 adds `reserve_status` (`none`, `not_met`, `met`) and, for new
+events, `closing_policy` (`regular`, `rapid`), never the reserve amount. Earlier
+v2 events may omit closing policy and normalize as historically regular.
+There is no private maximum, priority, bid origin, raw client key
 or trace payload.
 
 The exact v1 domain types are `auction.status_changed.v1`,
@@ -81,7 +83,8 @@ historical events.
 ## Phase 11 projection consumer
 
 The independent `hammerfall.projection.v1` group validates both versions.
-Retained v1 events normalize to `reserve_status=none`; the v2 projection key
+Retained v1 events normalize to `reserve_status=none` and `closing_policy=regular`;
+early v2 events without the policy normalize as regular. The v2 projection key
 `hammerfall:auction-public:v2:<auction_id>` holds only public v2 data and
 freshness metadata. Old v1 Redis keys are ignored and current state is seeded
 from PostgreSQL when missing. The group keeps its offsets and commits after
@@ -89,3 +92,8 @@ the Redis write. Redis revision comparison makes repeat
 and reordered events safe; equal-revision conflicting public data stops the
 group. This derived state is neither another domain event nor auction
 authority. See [ADR-012](adr/012-redis-public-projection.md).
+
+Existing v2 Redis values without the policy are validated using their original
+digest before being returned as regular. An equivalent equal-revision regular
+write may normalize that stored value; a rapid or otherwise different snapshot
+still conflicts. New snapshots and PostgreSQL rebuilds include the policy.

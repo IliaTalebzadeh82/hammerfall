@@ -134,7 +134,8 @@ export function AuctionList() {
               <div className="card-price">
                 <span className="eyebrow">
                   {auction.status === "closed"
-                    ? auction.winner_id === null && auction.current_leader_id !== null
+                    ? auction.winner_id === null &&
+                      auction.current_leader_id !== null
                       ? "Highest bid"
                       : "Final price"
                     : auction.current_leader_id
@@ -144,7 +145,9 @@ export function AuctionList() {
                 <p>{formatEuroCents(auction.current_price)}</p>
                 {auction.reserve_status !== "none" && (
                   <span className="fine-print">
-                    {auction.reserve_status === "met" ? "Reserve met" : "Reserve not met"}
+                    {auction.reserve_status === "met"
+                      ? "Reserve met"
+                      : "Reserve not met"}
                   </span>
                 )}
               </div>
@@ -154,6 +157,11 @@ export function AuctionList() {
                 compact
                 onExpire={refresh}
               />
+              {auction.closing_policy === "rapid" && (
+                <p className="fine-print">
+                  Rapid closing · final 15 seconds add 10 seconds
+                </p>
+              )}
               <Link className="card-action" href={`/auctions/${auction.id}`}>
                 View auction <span aria-hidden="true">→</span>
               </Link>

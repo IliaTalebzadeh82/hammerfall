@@ -49,13 +49,46 @@ RSpec.describe "Redis public auction projection", type: :request do
     legacy["schema_version"] = 1
     legacy["event_type"] = legacy.fetch("event_type").sub(/\.v2\z/, ".v1")
     legacy.fetch("data").delete("reserve_status")
+    legacy.fetch("data").delete("closing_policy")
     expect(KafkaEventCodec.decode(JSON.generate(legacy), key: auction.id.to_s)).to eq(legacy)
     expect(projection.apply_event(legacy)).to eq(:applied)
     expect(projection.read(auction.id)).to include("schema_version" => 2)
     expect(projection.read(auction.id).dig("data", "reserve_status")).to eq("none")
+    expect(projection.read(auction.id).dig("data", "closing_policy")).to eq("regular")
     auction.place_bid!(bidder: User.create!(name: "Later bidder"), amount: 10_000)
     expect(projection.apply_event(event_for(auction))).to eq(:applied)
     expect(projection.read(auction.id).dig("data", "current_price")).to eq(10_000)
+  end
+
+  it "normalizes retained early v2 events as regular and rebuilds a rapid projection from PostgreSQL" do
+    auction = tracked_auction(closing_policy: "rapid", reserve_price: 50_000, increment_policy: "stepped")
+    old = event_for(auction)
+    old.fetch("data").delete("closing_policy")
+    expect(KafkaEventCodec.decode(JSON.generate(old), key: auction.id.to_s)).to eq(old)
+    expect(projection.apply_event(old)).to eq(:applied)
+    expect(projection.read(auction.id).dig("data", "closing_policy")).to eq("regular")
+    redis.call("DEL", "#{AuctionPublicProjection::KEY_PREFIX}#{auction.id}")
+    expect(AuctionProjectionReconciler.new(projection: projection).check(auction.reload)).to eq(:repaired)
+    expect(projection.read(auction.id).dig("data")).to include("closing_policy" => "rapid", "reserve_status" => "not_met")
+  end
+
+  it "reads an earlier v2 Redis value as regular and upgrades an equivalent equal-revision replay" do
+    auction = tracked_auction
+    event = event_for(auction)
+    expect(projection.apply_event(event)).to eq(:applied)
+    key = "#{AuctionPublicProjection::KEY_PREFIX}#{auction.id}"
+    legacy = JSON.parse(redis.call("GET", key))
+    legacy.fetch("data").delete("closing_policy")
+    legacy["data_digest"] = Digest::SHA256.hexdigest(JSON.generate(legacy.fetch("data").sort.to_h))
+    redis.call("SET", key, JSON.generate(legacy))
+    expect(projection.read(auction.id).dig("data", "closing_policy")).to eq("regular")
+    expect(AuctionProjectionReconciler.new(projection: projection).check(auction.reload)).to eq(:healthy)
+    conflicting = event.deep_dup
+    conflicting.fetch("data")["closing_policy"] = "rapid"
+    expect { projection.apply_event(conflicting) }.to raise_error(RedisClient::CommandError, /revision conflict/)
+    expect(projection.apply_event(event)).to eq(:applied)
+    expect(JSON.parse(redis.call("GET", key)).dig("data", "closing_policy")).to eq("regular")
+    expect(projection.apply_event(event)).to eq(:duplicate)
   end
 
   it "projects reserve status from PostgreSQL events and rebuilds it without copying the private amount" do

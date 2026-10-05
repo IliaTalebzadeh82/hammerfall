@@ -9,7 +9,7 @@ RSpec.describe "Auction API", :domain, type: :request do
     expect(response).to have_http_status(:created)
     data = json.fetch("data")
     expect(data).to include("title" => "Vintage camera", "status" => "draft", "currency" => "EUR", "current_price" => 10_000, "current_leader_id" => nil, "winner_id" => nil)
-    expect(data.keys).to match_array(%w[id public_revision title description status currency starting_price current_price minimum_increment reserve_status starts_at ends_at original_ends_at closed_at current_leader_id winner_id created_at updated_at])
+    expect(data.keys).to match_array(%w[id public_revision title description status currency starting_price current_price minimum_increment reserve_status closing_policy starts_at ends_at original_ends_at closed_at current_leader_id winner_id created_at updated_at])
     expect(data["starts_at"]).to end_with("Z")
     get "#{path}/#{data.fetch('id')}", headers: auth_headers, as: :json
     expect(response).to have_http_status(:ok)
@@ -26,6 +26,37 @@ RSpec.describe "Auction API", :domain, type: :request do
     get "#{path}/#{auction.id}"
     expect(response).to have_http_status(:ok)
     expect(json.dig("data", "minimum_increment")).to eq(2_000)
+  end
+
+  it "defaults to regular and freezes an owner-selected rapid policy after scheduling" do
+    auction = create_auction
+    expect(auction.closing_policy).to eq("regular")
+    patch "#{path}/#{auction.id}", params: { auction: { closing_policy: "rapid" } }, headers: auth_headers, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(json.dig("data", "closing_policy")).to eq("rapid")
+    auction.reload.edit_draft!(closing_policy: "regular")
+    expect(auction.reload.closing_policy).to eq("regular")
+    auction.edit_draft!(closing_policy: "rapid")
+    post "#{path}/#{auction.id}/schedule", headers: auth_headers, as: :json
+    expect(response).to have_http_status(:ok)
+    patch "#{path}/#{auction.id}", params: { auction: { closing_policy: "regular" } }, headers: auth_headers, as: :json
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(auction.reload.closing_policy).to eq("rapid")
+    auction.activate!
+    expect { auction.update!(closing_policy: "regular") }.to raise_error(ActiveRecord::RecordInvalid)
+    expire_fixture(auction).close!
+    expect { auction.update!(closing_policy: "regular") }.to raise_error(ActiveRecord::RecordInvalid)
+  end
+
+  it "does not accept a per-bid closing policy or extend for that rejected request" do
+    auction = create_auction(state: "active", closing_policy: "rapid")
+    deadline_fixture(auction, AuctionClock.now + 10)
+    original = auction.ends_at
+    post "#{path}/#{auction.id}/bids", params: { bid: { amount: 10_000, closing_policy: "regular" } },
+      headers: auth_headers("Idempotency-Key" => SecureRandom.uuid), as: :json
+    expect(response).to have_http_status(:bad_request)
+    expect(auction.reload.ends_at).to eq(original)
+    expect(auction.bids).to be_empty
   end
 
   it "lists auctions in bounded pages without duplicating the cursor row" do

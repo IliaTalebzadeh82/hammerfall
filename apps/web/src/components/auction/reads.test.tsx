@@ -109,6 +109,31 @@ it("shows public reserve status and an unsold highest bid without any hidden amo
   ).toBeInTheDocument();
   expect(document.body.textContent).not.toContain("reserve_price");
 });
+it("shows rapid closing terms from the returned auction policy", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      if (url.includes("/session"))
+        return json({ error: { code: "authentication_required" } }, 401);
+      if (url.includes("/users"))
+        return json({ data: [], meta: { next_after_id: null } });
+      if (url.includes("/bids"))
+        return json({ data: [], meta: { next_after_sequence: null } });
+      return json({ data: { ...auction, closing_policy: "rapid" } });
+    }),
+  );
+  render(
+    <AuctionSession>
+      <ApplicationShell>
+        <AuctionDetail id={42} />
+      </ApplicationShell>
+    </AuctionSession>,
+  );
+  await screen.findByRole("heading", { name: "Rapid closing" });
+  expect(
+    screen.getByText(/final 15 seconds adds 10 seconds/),
+  ).toBeInTheDocument();
+});
 it("coalesces a queued refresh after an older GET; history follows sequence pagination", async () => {
   let auctionReads = 0;
   let releaseOld!: (response: Response) => void;

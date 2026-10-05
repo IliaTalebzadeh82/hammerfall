@@ -179,7 +179,8 @@ export function AuctionDetail({ id }: { id: number }) {
           <section className="price-block">
             <span className="eyebrow">
               {auction.status === "closed"
-                ? auction.winner_id === null && auction.current_leader_id !== null
+                ? auction.winner_id === null &&
+                  auction.current_leader_id !== null
                   ? "Highest bid"
                   : "Final price"
                 : auction.current_leader_id
@@ -191,13 +192,16 @@ export function AuctionDetail({ id }: { id: number }) {
             </p>
             {auction.reserve_status !== "none" && (
               <p className="leader-line">
-                {auction.reserve_status === "met" ? "Reserve met" : "Reserve not met"}
+                {auction.reserve_status === "met"
+                  ? "Reserve met"
+                  : "Reserve not met"}
               </p>
             )}
             {auction.status === "closed" ? (
               <p className="leader-line">
                 {auction.winner_id === null
-                  ? auction.reserve_status === "not_met" && auction.current_leader_id !== null
+                  ? auction.reserve_status === "not_met" &&
+                    auction.current_leader_id !== null
                     ? "Closed without a sale; highest bidder retained."
                     : "Closed without a winning bid"
                   : `Winner · ${bidderName(auction.winner_id, session.users)}${auction.winner_id === session.actorId ? " (selected bidder)" : ""}`}
@@ -242,11 +246,17 @@ export function AuctionDetail({ id }: { id: number }) {
             )}
           </dl>
           <div className="bidding-note">
-            <h2>A little time to respond.</h2>
+            <h2>
+              {auction.closing_policy === "rapid"
+                ? "Rapid closing"
+                : "A little time to respond."}
+            </h2>
             <p>
-              An accepted bid or increased maximum in the final minute adds 90
-              seconds. Live updates check for changes from other bidders. You
-              can also refresh.
+              {auction.closing_policy === "rapid"
+                ? "An accepted bid or increased maximum in the final 15 seconds adds 10 seconds."
+                : "An accepted bid or increased maximum in the final minute adds 90 seconds."}{" "}
+              Live updates check for changes from other bidders. You can also
+              refresh.
             </p>
           </div>
         </div>

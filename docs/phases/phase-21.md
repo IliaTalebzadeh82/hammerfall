@@ -1,6 +1,6 @@
 # Phase 21 — Marketplace Trust & Auction Policy
 
-Status: Planned; begin only on explicit request
+Status: In progress — implementation and local verification complete; hosted closure pending
 
 ## Goal
 

@@ -81,6 +81,26 @@ RSpec.describe "Idempotent bidding API", type: :request do
     expect(auction.reload.bids.count).to eq(1)
   end
 
+  { "place_bid" => 201, "set_maximum_bid" => 200 }.each do |operation, status|
+    it "replays a committed rapid #{operation} extension after a lost response without extending again" do
+      rapid = create_auction(state: "active", closing_policy: "rapid")
+      deadline_fixture(rapid, AuctionClock.now + 10)
+      original = rapid.ends_at
+      allow(ChaosCrash).to receive(:at_command!) do |boundary, _auction_id|
+        raise Interrupt, "response lost" if boundary == "command_committed"
+      end
+      expect { IdempotentBidding.call(key: key, actor_id: alice.id, auction_id: rapid.id,
+        operation: operation, amount: 10_000) }.to raise_error(Interrupt, "response lost")
+      expect(rapid.reload.ends_at).to eq(original + 10)
+      allow(ChaosCrash).to receive(:at_command!).and_call_original
+      replay = IdempotentBidding.call(key: key, actor_id: alice.id, auction_id: rapid.id,
+        operation: operation, amount: 10_000)
+      expect(replay).to have_attributes(status: status, replayed: true)
+      expect(rapid.reload.ends_at).to eq(original + 10)
+      expect(rapid.bids.count).to eq(1)
+    end
+  end
+
   it "canonicalizes semantic input independently of JSON order, whitespace, and unrelated headers" do
     bid
     original = response.body

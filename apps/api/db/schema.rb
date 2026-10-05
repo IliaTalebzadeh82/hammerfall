@@ -10,12 +10,13 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_04_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
   create_table "auctions", force: :cascade do |t|
     t.datetime "closed_at"
+    t.string "closing_policy", default: "regular", null: false
     t.datetime "created_at", null: false
     t.bigint "current_leader_id"
     t.bigint "current_price", null: false
@@ -39,6 +40,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_020000) do
     t.index ["winner_id"], name: "index_auctions_on_winner_id"
     t.check_constraint "(status::text = 'closed'::text) = (closed_at IS NOT NULL)", name: "auctions_closure_timestamp"
     t.check_constraint "closed_at IS NULL OR closed_at >= ends_at", name: "auctions_closure_after_deadline"
+    t.check_constraint "closing_policy::text = ANY (ARRAY['regular'::character varying, 'rapid'::character varying]::text[])", name: "auctions_valid_closing_policy"
     t.check_constraint "current_price >= 1 AND current_price <= '1000000000000'::bigint", name: "auctions_current_price_range"
     t.check_constraint "current_price >= starting_price", name: "auctions_price_floor"
     t.check_constraint "ends_at > starts_at", name: "auctions_time_window"
@@ -161,7 +163,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_020000) do
     t.index ["next_attempt_at", "id"], name: "index_outbox_events_due", where: "(published_at IS NULL)"
     t.check_constraint "auction_id > 0 AND public_revision > 0 AND attempts >= 0", name: "outbox_events_positive_values"
     t.check_constraint "domain_event_type IS NULL AND domain_payload IS NULL AND kafka_published_at IS NOT NULL OR domain_event_type IS NOT NULL AND domain_payload IS NOT NULL", name: "outbox_events_domain_payload_pair"
-    t.check_constraint "domain_event_type IS NULL OR (domain_event_type::text = ANY (ARRAY['auction.closed.v1'::character varying, 'auction.status_changed.v1'::character varying, 'auction.terms_changed.v1'::character varying, 'auction.price_changed.v1'::character varying, 'auction.extended.v1'::character varying, 'auction.closed.v2'::character varying, 'auction.status_changed.v2'::character varying, 'auction.terms_changed.v2'::character varying, 'auction.price_changed.v2'::character varying, 'auction.extended.v2'::character varying]::text[])) AND domain_event_type::text ~~ ('%.v'::text || schema_version) AND jsonb_typeof(domain_payload) = 'object'::text", name: "outbox_events_known_domain_snapshot"
+    t.check_constraint "domain_event_type IS NULL OR (domain_event_type::text = ANY (ARRAY['auction.closed.v1'::character varying::text, 'auction.status_changed.v1'::character varying::text, 'auction.terms_changed.v1'::character varying::text, 'auction.price_changed.v1'::character varying::text, 'auction.extended.v1'::character varying::text, 'auction.closed.v2'::character varying::text, 'auction.status_changed.v2'::character varying::text, 'auction.terms_changed.v2'::character varying::text, 'auction.price_changed.v2'::character varying::text, 'auction.extended.v2'::character varying::text])) AND domain_event_type::text ~~ ('%.v'::text || schema_version) AND jsonb_typeof(domain_payload) = 'object'::text", name: "outbox_events_known_domain_snapshot"
     t.check_constraint "event_type::text = 'auction.changed.v1'::text AND (schema_version = ANY (ARRAY[1, 2]))", name: "outbox_events_known_version"
     t.check_constraint "kafka_attempts >= 0", name: "outbox_events_kafka_attempts_nonnegative"
   end

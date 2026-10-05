@@ -101,6 +101,8 @@ jobs:
           docker compose ps sidekiq outbox-publisher kafka-outbox-publisher kafka-audit-consumer kafka-projection-consumer
       - name: Kafka end-to-end smoke
         run: docker compose exec -T api ruby < scripts/smoke-kafka
+      - name: Phase 21 combined policy, cross-replica and projection smoke
+        run: docker compose exec -T api ruby script/phase21_final.rb
       - name: Sequential auction API smoke
         run: docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-api
       - name: Independent closer one-shot

@@ -69,7 +69,7 @@ consumer at the uncommitted offset for operator review. See the [event model](..
 ## Phase 11: Redis public projection
 
 The independent `hammerfall.projection.v1` group validates the same public
-envelope, normalizes retained v1 `reserve_status=none`, atomically admits a higher revision into the v2 Redis key, then commits its
+envelope, normalizes retained v1 `reserve_status=none` and historical v1/early-v2 `closing_policy=regular`, atomically admits a higher revision into the v2 Redis key, then commits its
 Kafka offset. Equal public data is a duplicate; lower revisions are stale;
 equal revision with different data stops processing for review. The Redis key
 holds only public state plus version/freshness metadata. The explicit eventual

@@ -36,6 +36,8 @@ export function isAuction(v: unknown): v is Auction {
     money(v.minimum_increment) &&
     typeof v.reserve_status === "string" &&
     ["none", "not_met", "met"].includes(v.reserve_status) &&
+    typeof v.closing_policy === "string" &&
+    ["regular", "rapid"].includes(v.closing_policy) &&
     date(v.starts_at) &&
     date(v.ends_at) &&
     date(v.original_ends_at) &&

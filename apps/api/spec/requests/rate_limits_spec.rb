@@ -19,19 +19,23 @@ RSpec.describe "Security rate limits", type: :request do
 
   it "rejects a bid before claiming a new idempotency key" do
     user = User.create!(name: "Limited bidder")
-    auction = create_auction(state: "active")
+    auction = create_auction(state: "active", closing_policy: "rapid")
     sign_in_as(user)
     path = "/api/v1/auctions/#{auction.id}/bids"
     20.times do
       post path, params: { bid: { amount: 10_000 } }, headers: auth_headers("Idempotency-Key" => "same-intention"), as: :json
       expect(response.status).to eq(201)
     end
+    deadline_fixture(auction.reload, AuctionClock.now + 10)
+    deadline = auction.ends_at
+    revision = auction.public_revision
     post path, params: { bid: { amount: 11_000 } }, headers: auth_headers("Idempotency-Key" => "new-intention"), as: :json
     expect(response.status).to eq(429)
     expect(response.headers["Retry-After"]).to eq("10")
     expect(json.dig("error", "code")).to eq("rate_limited")
     expect(IdempotencyRecord.where(actor_id: user.id).count).to eq(1)
     expect(auction.bids.count).to eq(1)
+    expect(auction.reload).to have_attributes(ends_at: deadline, public_revision: revision)
   end
 
   it "keeps an actor quota separate from another actor on the same IP" do

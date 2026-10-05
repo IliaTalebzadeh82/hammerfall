@@ -120,6 +120,7 @@ RSpec.describe "Kafka domain outbox", type: :model do
     expect(event.dig("data", "winner_id")).to be_nil
     expect(KafkaEventCodec.decode(JSON.generate(event), key: auction.id.to_s)).to eq(event)
     [ { "winner_id" => @bidder.id }, { "reserve_status" => "unknown" },
+      { "closing_policy" => "unknown" }, { "closing_policy" => nil },
       { "reserve_price" => 50_000 } ].each do |change|
       candidate = event.deep_dup
       candidate.fetch("data").merge!(change)

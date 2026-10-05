@@ -11,14 +11,14 @@ RSpec.describe "Core domain database constraints", :domain do
   end
 
   [ { title: nil }, { starts_at: nil }, { ends_at: nil }, { starting_price: nil },
-    { current_price: nil }, { minimum_increment: nil }, { status: nil }, { description: nil } ].each do |attributes|
+    { current_price: nil }, { minimum_increment: nil }, { status: nil }, { description: nil }, { closing_policy: nil } ].each do |attributes|
     it "enforces auction NOT NULL for #{attributes.keys.first}" do
       id = auction.id
       expect_database_rejection(PG::NotNullViolation) { Auction.where(id: id).update_all(attributes) }
     end
   end
 
-  [ { title: "  " }, { status: "unknown" }, { starting_price: 0 }, { current_price: 0 },
+  [ { title: "  " }, { status: "unknown" }, { closing_policy: "unknown" }, { starting_price: 0 }, { current_price: 0 },
     { minimum_increment: -1 }, { starting_price: MinorUnitsValidator::MAXIMUM + 1 },
     { current_price: MinorUnitsValidator::MAXIMUM + 1 }, { minimum_increment: MinorUnitsValidator::MAXIMUM + 1 },
     { current_price: 9_999 } ].each do |attributes|

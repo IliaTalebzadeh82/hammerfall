@@ -2407,3 +2407,30 @@ The [ExecPlan Evidence Index](plans/phase-21-execplan.md) gives commands and
 logs. Rapid closing, combined cases, live broker/multi-instance proof,
 full Phase 21 regression/browser and hosted CI remain; Phase 21 is not
 complete and Phase 22 has not started.
+
+## 2026-10-05 — Phase 21 Session 3 implementation and local closure gates
+
+Implemented persisted regular/rapid closing through the existing locked
+PostgreSQL-time bidding path, public API/UI and v2 snapshot normalization.
+Earlier Redis v2 entries upgrade only when their regular data matches, avoiding
+false equal-revision digest conflicts. Migration defaults historical rows to
+regular and refuses unsafe populated-data downgrade. The
+[final report](marketplace/phase-21-final.md) records the three policies,
+combined example, scope decisions and adversarial review.
+
+Full backend: **554 examples, 0 failures, 4 opt-in pending**, seed **33589**,
+Redis DB 15/pool 15. Five rapid race seeds passed, 3 examples each. Frontend:
+**78 tests**, typecheck/lint/format/build all passed. RuboCop: **173 files,
+0 offenses**; Zeitwerk, Brakeman and bundler-audit passed. Test migration
+rollback/reapply and both downgrade guards passed. Live combined smoke auction
+771/closed revision 5 proved A acceptance/B read and replay, one +10 extension,
+€650/met, autonomous winner, real Kafka/Redis delivery and exact PostgreSQL
+rebuild. Full browser: **9 passed, 1 historical opt-in skipped**, 8.5 minutes.
+The first full browser run found an expired fixture
+during a real 60-second quota retry; fixture setup now has timing headroom and
+waits into the actual window. Compose rebuilt successfully; authenticated API,
+Kafka and role one-shots passed. Explicit unauthorized and rate-limited rapid
+deadline assertions passed; their first run needed a stale fixture revision
+reloaded after the setup HTTP command. The GitHub SSH key remains locked, and
+HTTPS has no saved login. Push and exact-SHA hosted CI remain mandatory before
+declaring Phase 21 complete; the user was asked to unlock the key locally.

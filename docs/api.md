@@ -91,12 +91,16 @@ as `starting_price`; null means no reserve. The authenticated seller or operator
 may set/change/remove it only while draft. Existing auctions have no reserve.
 The configured amount is write-only in this ordinary auction API: even a seller's
 GET receives only the public reserve status.
+Optional `closing_policy` is `regular` by default or `rapid`; the owner/operator
+may select it only while draft. It freezes on scheduling. Regular late bids in
+the final 60 seconds add 90 seconds; rapid late bids in the final 15 seconds
+add 10 seconds. Both modes use the same command endpoints and PostgreSQL clock.
 Unknown fields, nested objects, and arrays within resource attributes are rejected.
 Do not submit status, current_price, winner_id, ID, or timestamps of record creation.
 The server initializes current_price to starting_price and chooses draft status.
 
 Responses contain id, title, description, status, currency, starting_price,
-current_price, minimum_increment, reserve_status, starts_at, original_ends_at, ends_at, closed_at, current_leader_id, winner_id,
+current_price, minimum_increment, reserve_status, closing_policy, starts_at, original_ends_at, ends_at, closed_at, current_leader_id, winner_id,
 created_at, updated_at. Datetimes are UTC ISO 8601. No model internals are dumped.
 `minimum_increment` in every public response and public event is the effective
 increment at that snapshot's visible price; the policy name is not public.
@@ -229,8 +233,7 @@ contracts still apply, including lifecycle checks for repeated same values.
 One command may emit zero, one or two public Bid rows, each with its own sequence.
 Equal ceilings can emit equal amounts with different sequences; the earlier private
 commitment wins. Public auction current_leader_id is explicit state, and winner_id
-remains null until close. Bids do not expose whether they are automatic. A qualifying external commitment in the final 60 seconds adds exactly 90 seconds
-to ends_at once, even when no visible row is generated. Same-value no-ops never extend. See ADR-004 for examples and docs/domain-model.md for full rules.
+remains null until close. Bids do not expose whether they are automatic. A qualifying external commitment extends ends_at once under the auction's persisted closing policy, even when no visible row is generated. Same-value no-ops and replays never extend. See ADR-004 for examples and docs/domain-model.md for full rules.
 
 Run `./scripts/smoke-proxy-bidding` for manual-vs-proxy, higher/equal proxy and
 simultaneous maximum scenarios. API_BASE_URLS can route the final race across two

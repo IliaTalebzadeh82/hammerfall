@@ -29,6 +29,10 @@ the browser through ordinary GET or the typed `Auction` representation.
 
 ## Intentions and recovery
 
+Public `closing_policy` distinguishes rapid auctions in list and detail views.
+The detail explains final-15/+10 behavior; the countdown changes only after
+a fresh authoritative REST read following a command or Cable invalidation.
+
 Each explicit submission creates one opaque UUID and immutable operation/auction/
 actor/amount payload. The shared session saves it before sending, blocks duplicate
 clicks and both forms, and retains it across navigation/reload after

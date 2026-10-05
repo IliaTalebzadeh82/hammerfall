@@ -17,6 +17,22 @@ RSpec.describe "Identity and auction authorization", type: :request do
     { "X-CSRF-Token" => @csrf, "Idempotency-Key" => key }
   end
 
+  [ [ :post, "bids", { bid: { amount: 10_000 } } ],
+    [ :put, "maximum-bid", { maximum_bid: { maximum_amount: 20_000 } } ] ].each do |method, endpoint, payload|
+    it "rejects an anonymous #{endpoint} command without extending a rapid deadline" do
+      auction = create_auction(state: "active", closing_policy: "rapid")
+      deadline_fixture(auction, AuctionClock.now + 10)
+      deadline = auction.ends_at
+      revision = auction.public_revision
+      public_send(method, "/api/v1/auctions/#{auction.id}/#{endpoint}", params: payload,
+        headers: { "Idempotency-Key" => SecureRandom.uuid }, as: :json)
+      expect(response).to have_http_status(:unauthorized)
+      expect(auction.reload).to have_attributes(ends_at: deadline, public_revision: revision)
+      expect(auction.bids).to be_empty
+      expect(IdempotencyRecord.count).to eq(0)
+    end
+  end
+
   it "authenticates, expires, revokes, and never exposes credentials" do
     post "/api/v1/session", params: { session: { login: buyer.login, password: "buyer-password" } }, as: :json
     expect(response).to have_http_status(:bad_request)

@@ -1123,3 +1123,13 @@ Redis and Cable. Retained v1 events can be replayed as historical unreserved
 state into a v2 Redis projection. A retry still returns its saved historical
 command result. See [ADR-019](adr/019-hidden-reserve-policy.md), the
 [Session 2 report](marketplace/phase-21-session-2.md) and focused tests.
+
+## Phase 21 rapid closing lesson
+
+Shortening an extension window changes race frequency, not the source of time.
+Both bid forms lock the auction, read PostgreSQL time, settle proxy effects and
+apply `ClosingPolicy` once. A closer that waits for a late accepted bid must
+recheck the extended deadline; a bidder that waits for an already closed row
+must reject. Historic v1 and early v2 events normalize to regular closing in
+Redis, while rebuilds take the current policy from PostgreSQL. The client only
+renders the returned mode and deadline. See [ADR-020](adr/020-auction-closing-policies.md).

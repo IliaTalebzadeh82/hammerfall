@@ -17,6 +17,65 @@ test.afterAll(async () => {
   );
 });
 
+test("rapid reserve auction refreshes its deadline and closes with the settled winner", async ({
+  page,
+}) => {
+  test.setTimeout(240000);
+  const now = Date.now();
+  const created = await operator.post("/api/v1/auctions", {
+    auction: {
+      title: `Browser rapid policy ${now}`,
+      description: "Public rapid closing verification",
+      starting_price: 10000,
+      minimum_increment: 500,
+      increment_policy: "stepped",
+      reserve_price: 50000,
+      closing_policy: "rapid",
+      starts_at: new Date(now - 60000).toISOString(),
+      ends_at: new Date(now + 150000).toISOString(),
+    },
+  });
+  expect(created.status()).toBe(201);
+  const id = (await created.json()).data.id as number;
+  await activate(operator, id);
+  await browseAs(page, id, alice);
+  await expect(
+    page.getByRole("heading", { name: "Rapid closing" }),
+  ).toBeVisible();
+  await expect(page.getByText("Reserve not met")).toBeVisible();
+  await page.getByLabel("Your maximum (EUR)").fill("700");
+  await page.getByRole("button", { name: "Set binding maximum" }).click();
+  await expect(page.getByText("Reserve met")).toBeVisible();
+  await expect(page.locator(".minimum-price")).toHaveText("€520.00");
+  const path = `/api/v1/auctions/${id}`;
+  const before = (await (await operator.context.get(path)).json()).data;
+  const deadline = Date.parse(before.ends_at as string);
+  const delay = deadline - Date.now() - 12000;
+  if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+  const challenge = await bob.put(
+    `${path}/maximum-bid`,
+    { maximum_bid: { maximum_amount: 60000 } },
+    crypto.randomUUID(),
+  );
+  expect(challenge.status()).toBe(200);
+  const after = (await (await operator.context.get(path)).json()).data;
+  expect(Date.parse(after.ends_at as string) - deadline).toBe(10000);
+  expect(after.current_price).toBe(65000);
+  await expect(page.locator(".timing-block time")).toHaveAttribute(
+    "datetime",
+    after.ends_at as string,
+  );
+  await expect(page.locator(".hero-price")).toHaveText("€650.00");
+  await expect(page.locator(".minimum-price")).toHaveText("€700.00");
+  await expect(
+    page.getByText("Extended · the effective deadline is shown above."),
+  ).toBeVisible();
+  await expect(page.getByText(/Winner ·/)).toBeVisible({ timeout: 45000 });
+  const closed = (await (await operator.context.get(path)).json()).data;
+  expect(closed.winner_id).toBe(alice.id);
+  await expect(page.locator("body")).not.toContainText("reserve_price");
+});
+
 // These tests create labelled development records through the real Rails API.
 // Run only against a local disposable/demo stack. No fixtures replace API responses.
 async function createAuction(

@@ -8,7 +8,7 @@ The explicit `Auction#close!` finalizer and independent Rails closer role share 
 
 ## Soft-close rule
 
-For each accepted external manual bid or new/raised maximum, one logical contest extends `ends_at` by 90 seconds when `0 < ends_at - decision_time <= 60 seconds`. Repeated qualifying contests can extend again; a protection-only raise can extend without a visible bid. A generated proxy row does not cause its own extension; rejected and identical commands do not extend. Deadline, price, leader, private state and visible rows share the transaction. `original_ends_at` remains the original term, strictly after `starts_at` and no later than `ends_at`; model, SQL and public-snapshot validation now enforce this relation. `closed_at` is the DB decision time, not commit time.
+Each auction persists a `regular` or `rapid` closing policy, chosen while draft and frozen after scheduling. Regular retains final-60/+90 seconds; rapid uses final-15/+10 seconds. Each accepted external manual bid or new/raised maximum applies its policy once. Repeated qualifying contests can extend again; a protection-only raise can extend without a visible bid. Generated proxy rows do not cause their own extensions; rejected, replayed and identical commands do not extend. Deadline, price, leader, private state and visible rows share the transaction. `original_ends_at` remains the original term, strictly after `starts_at` and no later than `ends_at`. `closed_at` is the DB decision time, not commit time. [ADR-020](../adr/020-auction-closing-policies.md) defines rapid closing.
 
 ## Failure and change boundaries
 
