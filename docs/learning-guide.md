@@ -1150,3 +1150,13 @@ Phase 20 code could write fixed data on the expanded schema, yet it accepted
 a stepped bid the new code correctly rejected. V2 event readers must precede
 v2 writers; old policy writers must drain. See the
 [release compatibility matrix](operations/release-compatibility.md).
+
+The follow-on isolated Kafka drill proved the safe local timeline replay:
+quarantine the old broker with discarded revision 5, restore PostgreSQL to
+revision 4, clear and seed Redis from PostgreSQL, then republish only retained
+outbox events to a fresh broker. Existing receipt IDs suppress duplicate
+durable audit effects; missing receipts are recreated. Earlier revisions
+cannot regress the seeded projection. See the
+[Kafka recovery checkpoint](operations/phase-22-kafka-recovery.md). This
+procedure depends on an explicit broker fence and does not make old Kafka
+history safe to resume.

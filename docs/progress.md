@@ -2473,3 +2473,19 @@ required Kafka/worker fencing, secret retention and drained releases. See
 [Session 1 report](operations/phase-22-session-1.md) and
 [ExecPlan](plans/phase-22-execplan.md). Kafka reset and full integrated game
 day remain for Session 2; Phase 22 is not complete.
+
+## 2026-10-05 — Phase 22 Kafka-ahead recovery checkpoint
+
+The isolated PITR harness now runs separate old and fresh Kafka brokers.
+Its measured old timeline published and consumed revision 5; PostgreSQL PITR
+selected after T2 and restored revision 4. The old broker was stopped. A
+fresh broker received only four retained, requeued outbox events. Actual
+audit consumer results were three duplicates and one next effect; actual
+projection results were three stale and one duplicate after a PostgreSQL seed.
+Redis matched revision 4 and public fields; actual reconciliation was healthy.
+The old broker stayed stopped. `pg_verifybackup`, retained T2 idempotent
+replay and excluded T3 also passed. See the
+[checkpoint report](operations/phase-22-kafka-recovery.md) and
+[ExecPlan](plans/phase-22-execplan.md). The first attempt exposed unrelated
+demo seeds in `db:prepare`; migrating without seeds produced the passing run.
+Phase 22 remains in progress; operations/game day/final gates are outstanding.

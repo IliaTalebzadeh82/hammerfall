@@ -27,6 +27,28 @@ snapshot = lambda do
     outbox: OutboxEvent.where(auction_id: a.id).order(:public_revision).pluck(:public_revision, :published_at, :kafka_published_at)
   }
 end
+kafka_consume = lambda do |group, count|
+  client = Rdkafka::Config.new(KafkaClientConfig.build.merge(
+    "group.id": group, "auto.offset.reset": "earliest", "enable.auto.commit": false,
+    "enable.auto.offset.store": false
+  )).consumer
+  service = group == KafkaAuditConsumer::GROUP ? KafkaAuditConsumer.new(consumer: client) :
+    KafkaProjectionConsumer.new(consumer: client)
+  results = []
+  begin
+    client.subscribe(KafkaOutboxPublisher::TOPIC)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 30
+    until results.size == count
+      abort "Kafka consume timed out group=#{group} count=#{results.size}/#{count}" if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+      message = client.poll(1000)
+      results << service.process(message) if message
+    end
+  ensure
+    client.close
+    service.close if service.respond_to?(:close)
+  end
+  results
+end
 
 case stage
 when "init"
@@ -68,7 +90,10 @@ when "verify"
     IdempotencyRecord.where(actor_id: actor.call("Charlie").id).none?
   events = OutboxEvent.where(auction_id: a.id).order(:public_revision)
   abort "outbox mismatch" unless state[:outbox].map(&:first) == [ 1, 2, 3, 4 ] &&
-    state[:outbox].all? { |row| row[1].nil? && row[2].nil? } &&
+    state[:outbox].all? { |row| row[1].nil? } &&
+    (ENV["PHASE22_KAFKA_DRILL"] == "1" ?
+      state[:outbox].map { |row| !row[2].nil? } == [ true, true, true, false ] :
+      state[:outbox].all? { |row| row[2].nil? }) &&
     events.pluck(:schema_version).uniq == [ 2 ] && events.pluck(:event_id).uniq.length == 4
   before = [ Bid.where(auction_id: state[:auction_id]).count, OutboxEvent.where(auction_id: state[:auction_id]).count ]
   replay = command.call("bid", "Bob", "place_bid", 35_000)
@@ -78,6 +103,70 @@ when "verify"
     before == [ Bid.where(auction_id: state[:auction_id]).count, OutboxEvent.where(auction_id: state[:auction_id]).count ]
   puts JSON.generate(stage: stage, snapshot: state.except(:maximum_amount),
     private_maximum_verified: true, historical_replay: true, lost_t3: true)
+when "kafka_old_before"
+  abort "wrong broker" unless ENV["KAFKA_BOOTSTRAP_SERVERS"] == "phase22-old-kafka:9092"
+  result = KafkaOutboxPublisher.new.run_once
+  abort "old pretarget publication mismatch" unless result.slice(:published, :failed) == { published: 3, failed: 0 }
+  audit = kafka_consume.call(KafkaAuditConsumer::GROUP, 3)
+  projection = kafka_consume.call(KafkaProjectionConsumer::GROUP, 3)
+  abort "old pretarget receipt mismatch" unless audit == [ :first, :next, :next ] &&
+    ConsumedKafkaEvent.where(auction_id: auction.call.id).count == 3
+  puts JSON.generate(stage: stage, published: result[:published], audit: audit, projection: projection)
+when "kafka_old_future"
+  abort "wrong broker" unless ENV["KAFKA_BOOTSTRAP_SERVERS"] == "phase22-old-kafka:9092"
+  result = KafkaOutboxPublisher.new.run_once
+  abort "old future publication mismatch" unless result.slice(:published, :failed) == { published: 2, failed: 0 }
+  audit = kafka_consume.call(KafkaAuditConsumer::GROUP, 2)
+  projection = kafka_consume.call(KafkaProjectionConsumer::GROUP, 2)
+  state = AuctionPublicProjection.new
+  begin
+    abort "old future Redis revision missing" unless state.read(auction.call.id).fetch("public_revision") == 5
+  ensure
+    state.close
+  end
+  puts JSON.generate(stage: stage, published: result[:published], audit: audit, projection: projection,
+    redis_revision: 5, old_broker_contains_discarded_revision: true)
+when "kafka_requeue"
+  abort "wrong broker" unless ENV["KAFKA_BOOTSTRAP_SERVERS"] == "phase22-fresh-kafka:9092"
+  abort "authority not at target" unless auction.call.public_revision == 4 &&
+    OutboxEvent.where(auction_id: auction.call.id).order(:public_revision).pluck(:public_revision) == [ 1, 2, 3, 4 ]
+  ids = OutboxEvent.where(auction_id: auction.call.id).pluck(:id)
+  abort "unexpected outbox range" unless ids.size == 4
+  changed = OutboxEvent.transaction do
+    OutboxEvent.where(id: ids, domain_event_type: nil).exists? && abort("legacy outbox in recovery range")
+    OutboxEvent.where(id: ids).update_all(kafka_published_at: nil, kafka_next_attempt_at: Arel.sql("clock_timestamp()"),
+      published_at: nil, next_attempt_at: Arel.sql("clock_timestamp()"))
+  end
+  abort "requeue count mismatch" unless changed == 4
+  puts JSON.generate(stage: stage, rows: changed, low_id: ids.min, high_id: ids.max)
+when "kafka_fresh_replay"
+  abort "wrong broker" unless ENV["KAFKA_BOOTSTRAP_SERVERS"] == "phase22-fresh-kafka:9092"
+  result = KafkaOutboxPublisher.new.run_once
+  abort "fresh publication mismatch" unless result.slice(:published, :failed) == { published: 4, failed: 0 }
+  audit = kafka_consume.call(KafkaAuditConsumer::GROUP, 4)
+  projection = kafka_consume.call(KafkaProjectionConsumer::GROUP, 4)
+  expected = Api::V1::AuctionPresenter.new(auction.call).as_json.stringify_keys.slice(*KafkaEventCodec::DATA_KEYS)
+  state = AuctionPublicProjection.new
+  begin
+    redis_state = state.read(auction.call.id)
+    abort "recovered Redis mismatch" unless redis_state.fetch("public_revision") == 4 && redis_state.fetch("data") == expected
+  ensure
+    state.close
+  end
+  abort "audit dedupe mismatch" unless audit == [ :duplicate, :duplicate, :duplicate, :next ] &&
+    ConsumedKafkaEvent.where(auction_id: auction.call.id).count == 4 &&
+    KafkaAuditEntry.where(auction_id: auction.call.id).count == 4
+  abort "projection replay mismatch" unless projection == [ :stale, :stale, :stale, :duplicate ]
+  reconciler = AuctionProjectionReconciler.new
+  begin
+    reconciliation = reconciler.check(auction.call)
+    abort "reconciliation failed" unless reconciliation == :healthy
+  ensure
+    reconciler.close
+  end
+  puts JSON.generate(stage: stage, published: result[:published], audit: audit, projection: projection,
+    redis_revision: redis_state.fetch("public_revision"), exact_public_state: true,
+    receipt_count: 4, reconciliation: reconciliation)
 when "seed"
   projection = AuctionPublicProjection.new
   begin

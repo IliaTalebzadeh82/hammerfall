@@ -642,7 +642,7 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
   `NEXT_PUBLIC_CABLE_URL` empty locally so the client uses the browser host
   for host-only cookies on port 3001.
 
-## Phase 22 Session 1 operational exercises
+## Phase 22 recovery and release exercises
 
 - `scripts/recovery/compose.yml` and `phase22-pitr` run a separate PostgreSQL
   18.6 primary/recovery pair with archived WAL and isolated Redis; ordinary
@@ -655,3 +655,8 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
 - `docs/runbooks/database-recovery.md`, `docs/runbooks/release.md` and
   `docs/operations/release-compatibility.md` own the operator sequence and
   version matrix; `docs/operations/phase-22-session-1.md` records local evidence.
+- `PHASE22_KAFKA_DRILL=1 scripts/recovery/phase22-pitr` adds separate old and
+  fresh Kafka brokers. The fixture uses the actual publisher and both consumers
+  to prove old revision 5 quarantine, retained outbox replay, receipt dedupe,
+  Redis seed/revision behavior and reconciliation. Evidence is in
+  `docs/operations/phase-22-kafka-recovery.md`.

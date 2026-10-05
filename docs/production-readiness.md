@@ -281,9 +281,13 @@ closing-policy rollback guard refused rapid data. See the
 [recovery runbook](runbooks/database-recovery.md) and
 [release policy](operations/release-compatibility.md).
 
-This is a local fixture, not production DR. Cloud SQL restore, Kafka reset and
-republish, secret-store retrieval, full service freeze/resume, representative
-data volume, production RPO/RTO, deployment promotion and alerts remain
-unverified. Current Kafka projection consumers do not consult PostgreSQL for
-each event; a pre-PITR broker can be ahead of restored authority and must be
-quarantined or handled under a reviewed recovery plan. Phase 22 remains open.
+The follow-on isolated [Kafka recovery drill](operations/phase-22-kafka-recovery.md)
+proved that an old broker can hold discarded revision 5 after PostgreSQL PITR
+to revision 4. Quarantining it, requeuing retained outbox rows to a distinct
+fresh broker, seeding Redis from restored PostgreSQL and replaying through both
+consumers yielded exact revision 4 projection and clean reconciliation. This
+is a local fixture, not production DR. Cloud SQL restore, managed Kafka DR,
+secret-store retrieval, full service freeze/resume, representative data
+volume, production RPO/RTO, deployment promotion and alerts remain unverified.
+Current Kafka projection consumers do not consult PostgreSQL for each event;
+resuming the old broker after PITR remains unsafe. Phase 22 remains open.

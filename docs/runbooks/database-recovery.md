@@ -49,11 +49,13 @@ yet. Verify `pg_verifybackup` before relying on the base backup; a successful
 backup command alone is insufficient.
 
 The repeatable local physical exercise uses a separate PostgreSQL 18.6
-container, archived WAL and an isolated Redis. From the repository root, with
+container, archived WAL and an isolated Redis. The integrated variant also
+uses two separate Kafka brokers and volumes. From the repository root, with
 the normal Compose API image and network available:
 
 ```sh
 scripts/recovery/phase22-pitr
+PHASE22_KAFKA_DRILL=1 scripts/recovery/phase22-pitr
 ```
 
 It prints an ignored `apps/api/tmp/phase22-recovery.*` directory and target
@@ -70,6 +72,19 @@ PHASE22_WORK_DIR=/absolute/printed/path PHASE22_DB_PASSWORD="$(cat /absolute/pri
 
 The ignored backup/WAL directory remains until an operator removes it; treat
 it as sensitive database material. Do not commit or share it.
+
+The integrated variant publishes revisions 1–5 to the old broker and consumes
+them with the actual audit and projection consumers. It observes revision 5 in
+Redis, then stops the old broker before promoting PostgreSQL. After PITR leaves
+only revisions 1–4, it removes the ahead Redis key, seeds revision 4, starts a
+fresh broker, requeues the four retained outbox rows and republishes them.
+The existing group names start with empty offset stores on the fresh broker. In
+the measured fixture, consumed record offsets were 0–4 on old and 0–3 on
+fresh Kafka. Three restored
+audit receipts deduplicated; one missing receipt was created. Projection
+replay returned three stale writes and one duplicate against the PostgreSQL
+seed. Reconciliation was healthy. See the
+[Kafka recovery checkpoint](../operations/phase-22-kafka-recovery.md).
 
 The GCP reference configures Cloud SQL backups and PITR, but no Cloud SQL
 restore was run. A real deployment needs a credentialed restore to a separate
@@ -99,7 +114,11 @@ does not overwrite it. Offsets and a valid Redis digest cannot establish truth.
 For a complete database PITR with the current two consumer groups, quarantine
 the old broker and start a fresh isolated Kafka cluster/topic with the same
 three partitions and empty group offsets. Preserve the old broker for incident
-analysis. Under a reviewed maintenance change, requeue **retained domain**
+analysis. Record and verify both `KAFKA_BOOTSTRAP_SERVERS` endpoints. Keep the
+old broker stopped or network-isolated; do not start either consumer until its
+deployment configuration points only at the new endpoint. The local drill
+enforces distinct endpoint names and checks the old broker remains stopped.
+Under a reviewed maintenance change, requeue **retained domain**
 outbox rows by clearing `kafka_published_at` and setting
 `kafka_next_attempt_at=clock_timestamp()`; leave event IDs and immutable
 snapshots intact. This deliberately republishes retained history to the fresh
@@ -144,7 +163,9 @@ compare revisions. These protections do not make an ahead Kafka event safe.
 Use a fresh Redis instance for a full PITR, or preserve unrelated keys while
 deleting the **entire** `hammerfall:auction-public:v2:*` namespace after
 confirming the restored authority. A valid ahead key must be removed before
-seeding; the revision guard correctly refuses to lower it. Run
+seeding; the revision guard correctly refuses to lower it. Seed from restored
+PostgreSQL before replaying retained Kafka events, so the current public state
+is available without waiting for the whole event history. Run
 `bin/rebuild_auction_projections` against restored PostgreSQL, compare public
 revision and fields with ordinary PostgreSQL GET, and run the one-shot
 reconciliation scheduler after restarting Sidekiq. Never restore a stale Redis

@@ -1,7 +1,7 @@
 # Phase 22 ExecPlan — Durability, Release & Operations
 
-Status: Session 1 milestone verified; Phase 22 remains in progress.
-Current milestone: physical PITR and release compatibility documented. Session 2 owns operational policy and integrated game day.
+Status: Session 2 Kafka-recovery milestone verified; Phase 22 remains in progress.
+Current milestone: checkpoint after the isolated-broker proof. Next session owns operational policy and integrated game day.
 
 ## Decisions
 
@@ -14,13 +14,13 @@ Current milestone: physical PITR and release compatibility documented. Session 2
 | RPO semantics / RTO measurement | ADOPT | T3 client success can be lost when target is after T2. Report only local step timings; no production objective or RTO claim. |
 | Secret recovery | ADOPT | Keep every HMAC version needed by any retained row in any restorable backup; restore shared `SECRET_KEY_BASE`, credentials and trust roots separately. |
 | Redis recovery | ADOPT | Valid ahead key blocks lower seed; clear projection namespace after PITR and rebuild from restored PG. Verified locally. |
-| Kafka recovery | NEEDS EVIDENCE | Source shows old broker can replay discarded future event. Fresh isolated broker/requeue retained outbox is documented design; integrated exercise remains Session 2. |
-| Outbox after restore | ADOPT | Restored acknowledgments may be pending again; duplicate Sidekiq/Kafka delivery is expected, not exactly once. Live T2 outbox pending state verified; external redelivery not exercised. |
+| Kafka recovery | ADOPT, LOCAL | Dedicated old broker contained and consumed discarded revision 5. It was stopped; a fresh broker received only restored outbox revisions 1–4. Audit, Redis and reconciliation converged. [Checkpoint](../operations/phase-22-kafka-recovery.md). Managed Kafka DR remains unverified. |
+| Outbox after restore | ADOPT | Three restored Kafka acknowledgments were deliberately requeued. Old receipts returned duplicate for 1–3; missing revision 4 produced one durable effect. Redis revision guard absorbed stale/duplicate replay. Sidekiq replay remains to be exercised. |
 | Idempotency after restore | ADOPT | T2 historical command replayed; T3 absent. Retained key material is required. |
 | Migration / old-new app / worker compatibility | ADOPT | Old app writes fixed data on expanded schema but misprices stepped row. V2 readers first; policy/HMAC writer drain required. [Matrix](../operations/release-compatibility.md). |
 | Schema/application rollback | ADOPT | Keep expanded schema and revert image only before incompatible data/events; after policy data, forward fix. Rapid downgrade guard verified. |
 | Artifact promotion / failed rollout | ADOPT | Record Git SHA, immutable image digests, schema/event/config versions; same digest promotion is policy, pipeline not implemented. Failed readiness path follows matrix. |
-| Operator requirements / game day | DEFER | Session 2 owns SLOs, alerts, secured workflow and integrated recovery/deploy game day. |
+| Operator requirements / game day | REMAINING | Next session owns SLOs, alerts, secured workflow, Sidekiq classification and integrated recovery/deploy game day. |
 | Production RPO/RTO and Cloud SQL restore | NEEDS EVIDENCE | No deployed infrastructure, representative data size or secret-store recovery exercise. |
 
 ## Progress
@@ -29,9 +29,11 @@ Completed: isolated recovery Compose/harness and Phase 21 fixture; physical T2 P
 
 Verified: final sanitized/credentialed run at LSN `0/400C3D0`; `pg_verifybackup` passed; T1/T2 survived, T3 excluded; private maximum verified without logging; Redis 5→4 required key deletion. Old app accepted 36,000 in a rolled-back transaction; new app required 37,000. Old app fixed write/new app read passed; rollback guard preserved schema. Focused backend 73 examples/0 failures/1 opt-in pending. RuboCop fixture, shellcheck and bash syntax passed.
 
-Remaining: Session 2 SLI/SLO and alert policy, ownership/secured operator workflow, integrated Kafka/outbox/Redis recovery game day, final broader regression/Compose/browser/CI as warranted, final Phase 22 closure docs. Do not start Phase 23.
+Session 2 Kafka milestone: `PHASE22_KAFKA_DRILL=1 scripts/recovery/phase22-pitr` passed using isolated old/fresh Kafka brokers and PostgreSQL/Redis. Old Kafka and Redis reached revision 5; PITR restored PostgreSQL to 4. Old broker stayed stopped. Fresh broker received only retained events 1–4. Restored audit receipts returned three duplicates and one new effect; projection replay returned three stale and one duplicate. Redis matched the PostgreSQL presenter and reconciliation was healthy. The first attempt exposed `db:prepare` seeding unrelated demo auctions; the harness now migrates without seeds and the full drill passed. [Checkpoint report](../operations/phase-22-kafka-recovery.md).
 
-Known limitations: Kafka reset/republication, Cloud SQL PITR, secret-store retrieval, end-to-end traffic freeze/resume, representative data volumes and production RPO/RTO are unverified. Current consumer will accept future Kafka revisions after PG PITR if old broker is resumed; runbook explicitly fences it.
+Remaining: Sidekiq queue classification/replay, actual traffic fence/resume, SLI/SLO and alert policy, ownership/secured operator workflow, integrated production-style game day, adversarial review, full backend/frontend/static/Compose/browser gates, final Phase 22 closure docs and exact-SHA hosted CI. Do not start Phase 23.
+
+Known limitations: Cloud SQL PITR, managed Kafka DR, secret-store retrieval, Sidekiq recovery, end-to-end traffic freeze/resume, representative data volumes and production RPO/RTO are unverified. Current consumer will accept future Kafka revisions after PG PITR if old broker is resumed; the tested procedure depends on strict old-broker quarantine and distinct endpoint configuration. No application-level timeline guard was added.
 
 Relevant files: `scripts/recovery/`, `apps/api/script/phase22_recovery_fixture.rb`, `docs/operations/phase-22-session-1.md`, `docs/operations/release-compatibility.md`, `docs/runbooks/database-recovery.md`, `docs/runbooks/release.md`.
 
@@ -50,5 +52,9 @@ Next-session starting point: Read `AGENTS.md`, handoff, Phase 22 spec and this p
 | Old/new app and rollback | `PHASE22_WORK_DIR=... scripts/recovery/phase22-compatibility` | Old fixed write/new read; old stepped 36,000 accepted then rolled back; new rejected; migration down guarded; missing-keyring release preflight failed as expected | `apps/api/tmp/phase22-compatibility-secure.log`, `phase22-failed-release.log` (ignored) |
 | Focused backend regression | RSpec idempotency, outbox, Redis projection, Kafka outbox | 73 examples, 0 failures, 1 opt-in live Kafka pending; seed 58967 | `apps/api/tmp/phase22-focused-rspec.log` (ignored) |
 | Tooling lint | `bundle exec rubocop script/phase22_recovery_fixture.rb`; `shellcheck`; `bash -n` | 1 Ruby file no offenses; shell checks pass | Session 1 checks |
+| Kafka-ahead threat and isolation | `PHASE22_KAFKA_DRILL=1 scripts/recovery/phase22-pitr` | Old broker projected revision 5; stopped before PITR; restored PostgreSQL revision 4; fresh broker only 1–4 | `apps/api/tmp/phase22-kafka-drill.log` (ignored); [checkpoint](../operations/phase-22-kafka-recovery.md) |
+| Kafka/outbox replay and dedupe | Same drill, actual publisher and both consumers | Four requeued rows; audit results duplicate×3/next×1; Redis stale×3/duplicate×1; receipts/audit count 4 | Same log |
+| Redis and reconciliation | Same drill | Ahead 5 rejected lower seed; delete + seed 4; exact public fields; `AuctionProjectionReconciler#check = healthy` | Same log |
+| Session 2 focused lint | `bundle exec rubocop script/phase22_recovery_fixture.rb`; `shellcheck scripts/recovery/phase22-pitr`; `bash -n` | No offenses/findings | This session |
 
 The first local PITR attempt failed on shell quoting in `postgresql.auto.conf` generation before recovery startup; the error was fixed and the complete exercise rerun successfully. The first focused RSpec attempt lacked the local PostgreSQL password; sourcing `.env` and rerunning produced the result above. Neither failure was a domain test failure.

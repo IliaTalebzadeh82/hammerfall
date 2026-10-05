@@ -24,7 +24,8 @@ export PGPASSWORD="$PHASE22_DB_PASSWORD"
 printf '%s' "$PHASE22_DB_PASSWORD" > "$work_dir/db-password"
 chmod 600 "$work_dir/db-password"
 recovery=(docker compose -f scripts/recovery/compose.yml)
-rails=(docker compose run --rm --no-deps -e PGHOST -e PGPASSWORD -e PHASE22_RECOVERY_FIXTURE=1 -e REDIS_URL=redis://phase22-redis:6379/0 api)
+rails=(docker compose run --rm --no-deps -e PGHOST -e PGPASSWORD -e PHASE22_RECOVERY_FIXTURE=1 -e PHASE22_KAFKA_DRILL -e KAFKA_BOOTSTRAP_SERVERS -e REDIS_URL=redis://phase22-redis:6379/0 api)
+export PHASE22_KAFKA_DRILL="${PHASE22_KAFKA_DRILL:-0}"
 
 if [[ -n "$("${recovery[@]}" --profile restore ps -q)" ]]; then
   echo "Isolated recovery containers already exist; inspect them, then run docker compose -f scripts/recovery/compose.yml --profile restore down -v with PHASE22_WORK_DIR set" >&2
@@ -32,13 +33,17 @@ if [[ -n "$("${recovery[@]}" --profile restore ps -q)" ]]; then
 fi
 
 echo "Recovery artifacts: $work_dir"
-"${recovery[@]}" up -d primary redis
+if [[ "$PHASE22_KAFKA_DRILL" == 1 ]]; then
+  "${recovery[@]}" up -d primary redis old-kafka
+else
+  "${recovery[@]}" up -d primary redis
+fi
 for _ in {1..30}; do
   if "${recovery[@]}" exec -T primary pg_isready -U hammerfall -d hammerfall_development >/dev/null 2>&1; then break; fi
   sleep 1
 done
 export PGHOST=phase22-primary
-"${rails[@]}" bin/rails db:prepare
+"${rails[@]}" bin/rails db:create db:migrate
 "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb init
 
 start_backup=$(date +%s)
@@ -50,11 +55,25 @@ start_backup=$(date +%s)
 echo "base_backup_seconds=$(($(date +%s)-start_backup))"
 
 "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb t1
+if [[ "$PHASE22_KAFKA_DRILL" == 1 ]]; then
+  for _ in {1..45}; do
+    if "${recovery[@]}" exec -T old-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then break; fi
+    sleep 1
+  done
+  "${recovery[@]}" exec -T old-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic hammerfall.auction-events.v1 --partitions 3 --replication-factor 1
+  export KAFKA_BOOTSTRAP_SERVERS=phase22-old-kafka:9092
+  "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb kafka_old_before
+fi
 "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb t2
 target_lsn="$("${recovery[@]}" exec -T primary psql -U hammerfall -d hammerfall_development -Atqc 'SELECT pg_current_wal_lsn()' | tr -d '\r')"
 [[ "$target_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ ]] || { echo "invalid target LSN" >&2; exit 1; }
 echo "recovery_target_lsn=$target_lsn"
 "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb t3
+if [[ "$PHASE22_KAFKA_DRILL" == 1 ]]; then
+  "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb kafka_old_future
+  "${recovery[@]}" stop old-kafka
+  echo "old_kafka_quarantined=stopped"
+fi
 last_wal="$("${recovery[@]}" exec -T primary psql -U hammerfall -d hammerfall_development -Atqc 'SELECT pg_walfile_name(pg_current_wal_lsn())' | tr -d '\r')"
 "${recovery[@]}" exec -T primary psql -U hammerfall -d hammerfall_development -Atqc 'SELECT pg_switch_wal()' >/dev/null
 for _ in {1..30}; do
@@ -87,4 +106,17 @@ start_rebuild=$(date +%s)
 "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb delete_projection
 "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb seed
 echo "redis_rebuild_seconds=$(($(date +%s)-start_rebuild))"
+if [[ "$PHASE22_KAFKA_DRILL" == 1 ]]; then
+  "${recovery[@]}" --profile restore up -d fresh-kafka
+  for _ in {1..45}; do
+    if "${recovery[@]}" exec -T fresh-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then break; fi
+    sleep 1
+  done
+  "${recovery[@]}" exec -T fresh-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic hammerfall.auction-events.v1 --partitions 3 --replication-factor 1
+  export KAFKA_BOOTSTRAP_SERVERS=phase22-fresh-kafka:9092
+  "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb kafka_requeue
+  "${rails[@]}" bin/rails runner script/phase22_recovery_fixture.rb kafka_fresh_replay
+  [[ -z "$("${recovery[@]}" ps -q old-kafka)" ]] || { echo "old Kafka broker unexpectedly running" >&2; exit 1; }
+  echo "old_kafka_still_quarantined=true"
+fi
 echo "PITR verified; isolated artifacts retained at $work_dir"

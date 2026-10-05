@@ -901,3 +901,15 @@ expanded schema for fixed auctions, but still misprice a stepped auction.
 Schema compatibility and behavior compatibility are separate tests. A
 post-migration failure can allow an old image only before new policy data or
 v2 events exist; later failures need a compatible forward fix.
+
+## 2026-10-05 — Replaying the restored timeline
+
+The isolated Kafka drill turned the suspected PITR failure into a measured
+one: the old broker and Redis reached revision 5, while restored PostgreSQL
+ended at 4. Stopping the old broker, seeding Redis from PostgreSQL and
+republishing the four retained outbox rows to a fresh broker yielded exact
+revision 4 state. Three restored audit receipts recognized duplicate event
+IDs; the fourth event created one new receipt. Older projection events were
+stale and the equal current event was a duplicate. This is a timeline
+isolation procedure, not an exactly-once property or a filter in the
+consumer. Accidentally reconnecting the old broker remains unsafe.
