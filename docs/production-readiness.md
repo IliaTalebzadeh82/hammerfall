@@ -16,7 +16,8 @@ retained-outbox republish, Redis rebuild, Sidekiq regeneration, traffic fencing,
 real alert firing/clearing, operator-authorized diagnosis/repair, the integrated
 game day and release compatibility/drain boundaries. Full local backend,
 frontend, ordinary Compose, browser, migration and static/security gates
-passed; hosted exact-SHA closure CI remains. No production Cloud SQL/managed Kafka
+passed, as did hosted CI on the closure candidate. The final completion SHA
+has the same CI gate. No production Cloud SQL/managed Kafka
 restore, deployment or production-grade operating program exists; see
 [Phase 22](phases/phase-22.md) and its [evidence](operations/phase-22-final.md).
 No professional penetration test or live cloud deployment was performed.
@@ -299,8 +300,7 @@ mutation, real Prometheus alert inactive→pending→firing→cleared, role-gate
 operator diagnosis/one-auction projection repair and audit, and authenticated
 traffic resumption after the restored timeline converged. Cloud SQL restore,
 managed Kafka DR, production secret-store retrieval, representative data
-volume, production RPO/RTO, deployment promotion and hosted exact-SHA CI remain
-unverified.
+volume, production RPO/RTO and deployment promotion remain unverified.
 Current Kafka projection consumers do not consult PostgreSQL for each event;
-resuming the old broker after PITR remains unsafe. Phase 22 remains open until
-hosted closure CI passes.
+resuming the old broker after PITR remains unsafe. Phase 22 is complete as a
+local durability and operations exercise, not a production readiness claim.

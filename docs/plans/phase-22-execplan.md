@@ -1,7 +1,7 @@
 # Phase 22 ExecPlan — Durability, Release & Operations
 
-Status: All local Phase 22 gates verified; hosted exact-SHA CI remains before completion.
-Current milestone: Final closure candidate. Started from `becc971f0d9d76cf8dc20a64a2c8e384156df842`; this closure session started at `828efa1eacd49812646054529778ad0a5a40667a`.
+Status: Phase 22 complete. The final completion SHA has its own hosted CI gate.
+Closure record: local gates and candidate hosted CI verified; final documentation SHA is subject to the same CI gate and recorded in the closure response. Started from `becc971f0d9d76cf8dc20a64a2c8e384156df842`; this closure session started at `828efa1eacd49812646054529778ad0a5a40667a`.
 
 ## Decisions
 
@@ -20,7 +20,7 @@ Current milestone: Final closure candidate. Started from `becc971f0d9d76cf8dc20a
 | Migration / old-new app / worker compatibility | ADOPT | Old app writes fixed data on expanded schema but misprices stepped row. V2 readers first; policy/HMAC writer drain required. [Matrix](../operations/release-compatibility.md). |
 | Schema/application rollback | ADOPT | Keep expanded schema and revert image only before incompatible data/events; after policy data, forward fix. Rapid downgrade guard verified. |
 | Artifact promotion / failed rollout | ADOPT | Record Git SHA, immutable image digests, schema/event/config versions; same digest promotion is policy, pipeline not implemented. Failed readiness path follows matrix. |
-| Integrated game day / closure | LOCAL VERIFIED / HOSTED REMAINING | Clean isolated run proved Sidekiq, fence, alert inactive→pending→firing→cleared, operator, PITR convergence and resumed authenticated bid. Full local regression and final adversarial review passed; exact-SHA hosted CI remains. |
+| Integrated game day / closure | VERIFIED | Clean isolated run proved Sidekiq, fence, alert inactive→pending→firing→cleared, operator, PITR convergence and resumed authenticated bid. Full local regression/adversarial review passed; candidate exact-SHA hosted CI passed in run 37386371720. Final documentation SHA also requires CI success. |
 | Sidekiq authority and recovery | ADOPT, LIVE VERIFIED | Three observed job classes: five hints and one of each scan; Retry/Dead/Scheduled zero. Old Redis queue discarded; four retained hints and both scans regenerated and drained, without authority mutation. [Policy](../operations/phase-22-final.md). |
 | Recovery traffic fence | ADOPT, LIVE VERIFIED | Authenticated mutation through isolated ingress and both direct replicas returned controlled 503 with headers; versioned read 503; bid/command/outbox/revision unchanged. Ingress isolation and stopped writers remain mandatory. |
 | Indicators and alerts | ADOPT, LIVE VERIFIED | Four unchanged Prometheus rules; clean isolated metric 0/rule inactive→pending→firing at 216 s→metric 0/rule inactive. Local Collector expiration set to 1m for repeatable recovery; ordinary Collector remains 5m default. Thresholds provisional; production SLO/RPO/RTO unset. |
@@ -39,7 +39,7 @@ Current milestone: Final closure candidate. Started from `becc971f0d9d76cf8dc20a
 | Indicators, alerts and ownership | Four provisional Prometheus rules, severity/owner/runbook policy | Live outbox rule inactive→pending→firing→inactive | No production SLO, pager or staffed on-call |
 | Secured operator and traffic controls | Disabled-by-default operator API, one-auction projection repair/audit; per-process recovery fence | Focused request tests and live A/B ingress, auth/CSRF, audit, no authority mutation | Fence requires separate ingress and every writer controlled |
 | Integrated game day | Incident→fence→PITR→derived-state repair→alert clear→resume | [Game-day report](../operations/phase-22-final.md) and ignored local log | Local isolated scale only |
-| Final phase gates | Regression, security/static, migration, ordinary Compose/browser and exact-SHA CI | All local gates passed; exact-SHA hosted CI pending | Closure withheld until hosted pass |
+| Final phase gates | Regression, security/static, migration, ordinary Compose/browser and exact-SHA CI | All local gates and candidate hosted CI passed; final completion SHA CI is the last release check | No other Phase 22 work |
 
 ## Progress
 
@@ -55,7 +55,7 @@ Game-day milestone: `PHASE22_KAFKA_DRILL=1 PHASE22_LIVE_DRILL=1 scripts/recovery
 
 Closure local gates: 561 backend examples/0 failures/3 documented opt-in pending (seed 28461); 78 frontend tests/0 failures; full Ruby, security, shell, Prometheus and Compose static gates passed; audit migration down/up and FK/check inspection passed. Ordinary Compose health, auth, auction lifecycle, proxy, concurrency, Kafka/Redis/Sidekiq, cross-replica replay and pruning passed. Authenticated browser suite: 9 passed, 0 failed, 1 established opt-in skip in 8.5 minutes. Final review found 0 Critical/High; the one concrete DNS collision was fixed and targeted transport proof repeated. [Findings](../operations/phase-22-final.md).
 
-Remaining: closure candidate commit/push, exact-SHA hosted CI, then final canonical completion-status commit and its own exact-SHA CI. Do not start Phase 23.
+Remaining: None for Phase 22. Phase 23 has not started.
 
 Known limitations: Cloud SQL PITR, managed Kafka DR, secret-store retrieval, representative data volumes and production RPO/RTO remain unverified. Current consumer accepts future Kafka revisions after PG PITR if the old broker is resumed; the tested procedure depends on strict quarantine and distinct endpoint configuration. No application-level timeline guard was added. `RECOVERY_FENCE` is a per-process defense, not a distributed lock; every ingress and writer replica still needs control. Existing Kafka lag metrics may be stale when consumers stop; the alert set omits a lag rule. A stopped publisher's last gauge can persist in the Collector until metric expiration; verify process health and current series identity when interpreting alerts. The disposable game-day Collector used a one-minute expiration; ordinary configuration was unchanged. The fixture trace-export 404 was caused by the recovery metrics-only Collector sharing Docker's `otel-collector` alias with the ordinary Collector; distinct recovery service names fixed the alias collision. The ordinary Collector then returned 200 for both traces and metrics, even with the renamed recovery Collector running.
 
@@ -63,7 +63,7 @@ Relevant files: `scripts/recovery/`, `apps/api/script/phase22_recovery_fixture.r
 
 Relevant ADRs: 003, 006, 010–013, 017–020.
 
-Closure next step: push the locally verified candidate, inspect API/web/Compose hosted CI on its exact SHA, then record Phase 22 completion in the canonical status files and verify hosted CI on that final documentation SHA too. Do not start Phase 23.
+Closure proof: GitHub Actions run [37386371720](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37386371720) completed successfully on candidate SHA `8600c969861da2a05cab2f2e509c9d66b18fbe91`; API, web and Compose jobs and their substantive steps passed. The final documentation SHA must also complete successfully; its run is recorded in the final response. Do not start Phase 23.
 
 ## Evidence Index
 
@@ -97,7 +97,7 @@ Closure next step: push the locally verified candidate, inspect API/web/Compose 
 | Audit migration | `db:migrate:redo VERSION=20261005020000` on isolated test DB; inspect schema | Down/up passed; two FKs and two named checks present; ordinary development DB migration applied | Local closure commands |
 | Ordinary Compose | `up --build --wait`; normal health, API/web, Redis/Kafka/Sidekiq, auction lifecycle, Phase 21, proxy/concurrent bids, cross-replica auth/replay and pruning scripts | All passed; ordinary operator route 404 and unfenced API/web reads 200 | Local closure commands; ordinary stack remained healthy |
 | Browser | `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/google-chrome npm run test:e2e` | 9 passed, 0 failed, 1 established opt-in skip; 8.5m | `/tmp/hammerfall-phase22-browser.log` |
-| Hosted CI | Exact closure SHA; api/web/compose jobs | Pending | Closure |
+| Hosted CI | Push run 37386371720 on `8600c969861da2a05cab2f2e509c9d66b18fbe91` | Completed/success; API RSpec/RuboCop/Brakeman/audit/Zeitwerk, web tests/build, Compose integration/browser steps successful | [GitHub Actions run](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37386371720); final documentation SHA has its own CI gate |
 | Game-day harness lint/config | `shellcheck`, `bash -n`, focused RuboCop, recovery Compose config, `promtool check config/rules`, `git diff --check` | Passed; 4 alert rules found | This session and clean drill containers |
 
 The first local PITR attempt failed on shell quoting in `postgresql.auto.conf` generation before recovery startup; the error was fixed and the complete exercise rerun successfully. The first focused RSpec attempt lacked the local PostgreSQL password; sourcing `.env` and rerunning produced the result above. Neither failure was a domain test failure.

@@ -1,6 +1,6 @@
 # Phase 22 final operations evidence
 
-Status: **local gates complete; hosted exact-SHA CI pending**. The
+Status: **Phase 22 complete**. The
 [physical PITR and release exercise](phase-22-session-1.md),
 [Kafka timeline exercise](phase-22-kafka-recovery.md), integrated local game
 day and final regression below are verified.
@@ -206,8 +206,12 @@ web reads returned 200 with the recovery fence off. The full authenticated
 Playwright suite finished **9 passed, 0 failed, 1 established opt-in skip in
 8.5 minutes**.
 
-Exact-SHA hosted CI on the closure candidate and final completion-status SHA
-remains before Phase 22 can be marked complete. Cloud SQL PITR, managed Kafka
-recovery, production secret-store retrieval, representative restore volume,
-production RPO/RTO, multi-region availability, live cloud deployment,
-capacity and penetration testing remain unverified.
+Hosted CI run [37386371720](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37386371720)
+completed successfully on closure candidate SHA
+`8600c969861da2a05cab2f2e509c9d66b18fbe91`, including API, web and
+Compose jobs and real-browser scenarios. The final completion-status commit
+requires the same exact-SHA hosted gate; its run is recorded in the closure
+response. Cloud SQL PITR, managed Kafka recovery, production secret-store
+retrieval, representative restore volume, production RPO/RTO, multi-region
+availability, live cloud deployment, capacity and penetration testing remain
+unverified.

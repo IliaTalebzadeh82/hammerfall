@@ -1,8 +1,11 @@
 # Phase 22 — Durability, Release & Operations
 
-Status: In progress — integrated game day, adversarial review and all local
-regression, migration, static/security, ordinary Compose and browser gates
-verified. Hosted exact-SHA CI and final completion-status commit remain.
+Status: Complete.
+
+The integrated game day, adversarial review, local regression, migration,
+static/security, ordinary Compose and browser gates passed. The closure
+candidate passed hosted CI; the final completion SHA has the same exact-SHA
+CI gate.
 
 ## Goal
 

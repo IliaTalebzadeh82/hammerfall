@@ -678,5 +678,5 @@ diagnostics, rejected tuning and the remaining measurement boundaries.
 - `infrastructure/observability/hammerfall-alerts.yml` holds four provisional
   Prometheus rules; `docs/runbooks/observability.md` maps each to an owner,
   severity and response. The isolated game day observed one live
-  inactive→pending→firing→cleared transition; local final gates passed and
-  hosted exact-SHA CI remains.
+  inactive→pending→firing→cleared transition; local final gates and candidate
+  hosted exact-SHA CI passed.
