@@ -2673,3 +2673,30 @@ No Critical or High finding remains. Final adversarial review, completion docs,
 post-documentation hygiene and hosted CI on the exact completion SHA remain;
 Phase 24 is not complete. GitHub repository description cleanup is deferred for
 unavailable settings access, and no repository license was assumed.
+
+## 2026-10-07 — Phase 24 completion decision
+
+The [final engineering review](final-review.md) challenged authority and
+concurrency, idempotent retry, event/projection delivery, recovery timeline,
+security/privacy, infrastructure and presentation claims against source and
+retained tests. The register now has 28 findings: zero Critical; one High fixed;
+eleven Medium (ten fixed, one external action deferred); ten Low (eight fixed,
+two accepted); six Informational (five verified without defect, one accepted).
+No known serious auction correctness defect remains. The final review corrected
+one stale rapid-closing invariant and tooling guidance that described the
+removed shadcn CLI as a current dependency. Existing ADRs, benchmark reports,
+dashboards and diagrams needed no behavior-driven redesign.
+
+The Session 2 full regression, ordinary Compose, CI-equivalent integration,
+two showcases and full browser suite remain the final local runtime evidence;
+their exact counts, seeds, failures and limits are in the [ExecPlan](plans/phase-24-execplan.md#evidence-index).
+The code-bearing checkpoint `b3bef9a1cb3cca598f645d1b5e11a1efcfe34259`
+passed hosted `api`, `web` and `compose` in
+[run 37638903729](https://github.com/IliaTalebzadeh82/hammerfall/actions/runs/37638903729).
+No auction business rule or schema changed during Phase 24. The final
+documentation/link/secret/diff checks are recorded in that plan. Phase 24 is
+complete subject to hosted `api`, `web` and `compose` success on this exact
+closure commit; the phase is effective as complete only after that gate. The
+closure response records the final run. GitHub's public repository description
+still overclaims production grade and requires settings access; no license
+grant was inferred. The roadmap ends with Phase 24, with no Phase 25.

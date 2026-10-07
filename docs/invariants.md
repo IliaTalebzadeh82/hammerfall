@@ -36,8 +36,7 @@ existing tie priority. The public snapshot contains only the effective current
 increment, never a private maximum. A retained rejected command replays its
 original minimum even after a band transition. Evidence: `bid_increment_policy_spec.rb`,
 `requests/idempotency_spec.rb`, `integration/concurrent_bidding_spec.rb` and
-[ADR-018](adr/018-stepped-bid-increments.md). Reserve and rapid closing are
-selected; reserve is implemented in Session 2, while rapid closing remains pending.
+[ADR-018](adr/018-stepped-bid-increments.md).
 
 Phase 21 reserve slice: nullable private reserve is at least starting price,
 editable only while draft, and absent on historical auctions. A reserved
@@ -49,7 +48,17 @@ retained v1 Kafka events normalize as no-reserve when projected to the v2
 Redis key. Evidence: `reserve_policy_spec.rb`, `reserve_privacy_spec.rb`,
 `concurrent_closing_spec.rb`, `redis_projection_spec.rb` and [ADR-019](adr/019-hidden-reserve-policy.md).
 
-## Master requirements and remaining work
+Phase 21 closing-policy slice: historical auctions retain `regular` (final
+60 seconds, +90 seconds); new draft auctions may select `rapid` (final 15
+seconds, +10 seconds). The policy freezes after draft. Accepted external
+commitments extend once under the auction lock using post-lock database time;
+generated proxy rows and idempotent replays do not extend again. Both modes
+share the closer and the same bid eligibility boundary. Evidence:
+`rapid_closing_spec.rb`, `rapid_closing_race_spec.rb`, the [combined Phase 21
+scenario](marketplace/phase-21-final.md#combined-scenario-and-failure-behavior)
+and [ADR-020](adr/020-auction-closing-policies.md).
+
+## Master requirements and current status
 
 All 15 original master invariants remain requirements. Their current status is:
 

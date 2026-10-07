@@ -51,6 +51,7 @@ The showcase takes roughly 100 seconds on a warm stack and prints a concise resu
 ## Engineering case study and conversation
 
 - [Case study](docs/case-study.md): three problems, decisions, experiments, actual results and limits.
+- [Final engineering review](docs/final-review.md): adversarial findings, verification and remaining boundaries.
 - [10–15 minute walkthrough](docs/walkthrough.md), including a 60-second opening.
 - [Interview guide](docs/interview-guide.md): alternatives, scale triggers and discussion prompts.
 - [Catawiki public-behavior comparison](docs/catawiki-alignment.md): dated first-party sources and explicit differences. Catawiki's internal architecture is unknown here.

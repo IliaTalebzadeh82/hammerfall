@@ -1,5 +1,33 @@
 # Learning guide
 
+## Phase 24: proving the presentation is as current as the command path
+
+**Problem:** a repository can pass domain tests while a reader sees stale
+claims, a browser build imports an unused vulnerable CLI package, or a local
+integration harness runs with different connection limits from CI. **Chosen
+approach:** compare each current-facing claim with source, tests and retained
+runtime evidence; make local gates match CI where real concurrency needs it;
+then run one complete backend/frontend gate and the ordinary Compose, browser
+and showcase paths. The [final review](final-review.md) and [Phase 24 finding
+register](plans/phase-24-execplan.md#audit-register) show the concrete checks.
+
+The closing-policy invariant still called rapid mode pending after Phase 21 had
+implemented and tested it. The web tool guide still listed `shadcn` as an
+installed CLI after its unused runtime package was removed. Those were
+documentation defects, not reasons to change the authoritative auction
+model. A first regression found four PostgreSQL checkout timeouts because
+local tests used a three-connection pool for ten concurrent sessions; the
+CI-equivalent pool of 15 preserved the same assertions. A production build
+caught the stale CSS import after dependency removal. Compose and showcase
+needed explicit startup and rate-limit time budgets, confirmed by live reruns.
+These observations are recorded in the [engineering journal](engineering-journal.md)
+and the [ExecPlan evidence index](plans/phase-24-execplan.md#evidence-index).
+
+**Boundary:** green local gates and a source review establish the recorded
+local behavior. They do not supply production capacity, a managed-service
+restore, professional penetration testing or Catawiki internal knowledge.
+The [production-readiness document](production-readiness.md) names those limits.
+
 ## Phase 20 Session 1: establishing the command actor
 
 **Problem:** a public client could choose `bidder_id`, so idempotency and

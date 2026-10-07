@@ -1,6 +1,6 @@
 # Phase 24 — Final Engineering Polish
 
-Status: IN PROGRESS — explicitly authorized 2026-10-07
+Status: COMPLETE SUBJECT TO EXACT-SHA HOSTED CI — final adversarial review and local gates passed 2026-10-07. Completion takes effect when hosted `api`, `web` and `compose` succeed on this closure commit; the closure response records that run.
 
 ## Goal
 

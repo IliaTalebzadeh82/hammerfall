@@ -22,9 +22,11 @@ Compose and `rdkafka` 0.30.0 (librdkafka) in Rails. The pinned gem and Docker
 image are development/runtime choices, not a production broker topology. See
 [ADR-011](adr/011-kafka-domain-events.md).
 
-Tailwind uses its v4 CSS-first configuration and PostCSS plugin. shadcn/ui is
-initialized using the official CLI with components.json, CSS tokens, and the cn
-utility; only a primitive used by the starting page is needed.
+Tailwind uses its v4 CSS-first configuration and PostCSS plugin. The initial
+shadcn/ui setup generated `components.json`, local UI components, CSS tokens
+and the `cn` utility. These local components remain in use; the CLI package
+was removed from the app dependency tree in Phase 24 because it was unused at
+runtime and brought high-severity transitive advisories.
 
 Sources checked during setup:
 
@@ -39,8 +41,8 @@ Sources checked during setup:
 
 TypeScript 6.0.3 matches the stable compiler line used by Next.js 16.3's own
 configuration package; Node types target Node 24. Vitest 5.0.1 uses the SWC React
-plugin 4.3.3 and jsdom 30.1.1. SWC avoids an npm peer-resolution conflict between
-the latest Babel-based Vite plugin and shadcn's Babel 7 tooling.
+plugin 4.3.3 and jsdom 30.1.1. SWC originally avoided an npm peer-resolution
+conflict between the Babel-based Vite plugin and shadcn's Babel 7 tooling.
 
 Biome 2.5.14 supplies frontend linting and formatting with recommended React and
 Next.js rules. Next.js explicitly supports Biome. The generator initially supplied
@@ -64,12 +66,13 @@ font CDN. The generated CSS's self-referencing font variable was corrected.
 | Node / npm | 24.20.0 / 11.19.0 |
 | Next.js / React | 16.3.6 / 19.2.8 |
 | TypeScript | 6.0.3 |
-| Tailwind CSS / shadcn CLI | 4.3.3 / 4.21.0 |
+| Tailwind CSS | 4.3.3 |
 | Biome / Vitest | 2.5.14 / 5.0.1 |
 
 The SWC test plugin emits an advisory recommending the Babel plugin for performance.
 It is not an error; the compatible SWC setup passes locally and in the container.
-Revisit the Babel plugin when its peer dependencies coexist cleanly with shadcn.
+The shadcn 4.21.0 CLI was a scaffold tool, not a current app dependency.
+Revisit the Babel plugin only if a concrete test/runtime need warrants it.
 
 ## Phase 1 compatibility correction
 

@@ -117,9 +117,10 @@ named databases in database.yml.
 ```
 
 The check script reads root `.env`, validates Compose, checks Ruby lint/security and
-autoloading, prepares the test database, runs RSpec, then frontend lint, formatting,
-types, Vitest, and a production build. Run `bin/rails db:prepare` for development
-schema changes and `RAILS_ENV=test bin/rails db:prepare` before specs. The script
+autoloading, prepares the test database, runs RSpec, then frontend npm audit,
+lint, formatting, types, Vitest, and a production build. Run
+`bin/rails db:prepare` for development schema changes and
+`RAILS_ENV=test bin/rails db:prepare` before specs. The script
 uses Redis DB 15 for tests, separate from the live Compose projection in DB 0.
 Set `TEST_REDIS_URL` to override that test endpoint when the local Redis port
 differs. No test run should share projection keys with the live app.
@@ -134,8 +135,11 @@ prove a remote GitHub Actions run succeeded.
 
 Commit Gemfile.lock and package-lock.json together with manifest changes. Use
 `bundle install` in apps/api and `npm install` in apps/web. There is no root npm
-workspace because only one JavaScript application exists. Use the shadcn CLI in
-apps/web to add primitives when needed, rather than copying arbitrary components.
+workspace because only one JavaScript application exists. The local UI
+primitives were generated with shadcn; its CLI is not installed by `npm ci`.
+If another primitive is needed, first check the maintained CLI and its
+advisories, then review generated code/dependencies and run `npm audit` before
+committing it.
 
 ## Local demo identities and API verification
 
