@@ -4,6 +4,8 @@ cd "$(dirname "$0")/.."
 
 if [[ -f .env ]]; then
   set -a
+  # This optional local file is generated from .env.example and is not tracked.
+  # shellcheck disable=SC1091
   source .env
   set +a
 fi
@@ -13,12 +15,13 @@ docker compose config --quiet
   cd apps/api
   bundle exec rubocop
   bundle exec brakeman --quiet --no-pager --exit-on-warn --exit-on-error
+  bin/bundler-audit
   bin/rails zeitwerk:check
   # The live Compose stack uses Redis DB 0. Test auction IDs can overlap with
   # development IDs, so run projection specs against a separate Redis DB.
   export REDIS_URL="${TEST_REDIS_URL:-redis://127.0.0.1:${REDIS_PORT:-6379}/15}"
-  RAILS_ENV=test bin/rails db:prepare
-  RAILS_ENV=test bundle exec rspec
+  env RAILS_ENV=test bin/rails db:prepare
+  env RAILS_ENV=test bundle exec rspec
 )
 (
   cd apps/web

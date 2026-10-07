@@ -1,6 +1,6 @@
 # Phase 24 — Final Engineering Polish
 
-Status: Planned; begin only on an explicit request
+Status: IN PROGRESS — explicitly authorized 2026-10-07
 
 ## Goal
 

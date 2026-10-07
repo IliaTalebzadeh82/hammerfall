@@ -1,137 +1,68 @@
 # Architecture
 
-## What exists now — Phases 0–10
+Hammerfall is a modular Rails auction application with a Next.js public client.
+Rails decides auction commands; PostgreSQL stores the authoritative result.
+Kafka transports committed public events, Redis holds a derived public
+projection, Sidekiq performs operational work, and Action Cable sends public
+revision hints. None of those downstream systems decides bid legality, price,
+deadline or winner. The [case-study diagram](case-study.md#architecture-in-one-picture)
+shows the command and propagation paths; [system boundaries](architecture/system-boundaries.md)
+and [invariants](invariants.md) state the durable contract.
 
-Next.js in apps/web provides the auction listing/detail and command UI. Rails in apps/api owns
-User, Auction, Bid, MaximumBid, explicit lifecycle operations, and a JSON REST API under
-`/api/v1`. PostgreSQL stores all domain state. The frontend consumes the versioned REST API through a transparent same-origin
-rewrite; Rails remains the sole command authority. Compose runs web, api, db,
-Redis, Sidekiq, Kafka, two outbox publishers, a Kafka audit consumer, a read-only sweep scheduler and the auction closer.
+## Command and transaction path
 
-```text
-API client → controllers → IdempotentBidding (bid/max) → Auction → PostgreSQL
-                       → other User/Auction operations → PostgreSQL
-                 ↓                         ↓
-           JSON presenters        Bid + current_price transaction
+Authenticated `/api/v1` bid and private-maximum requests derive the actor from
+a PostgreSQL-backed session. They claim `(actor, operation, key)` through
+`Idempotency::Executor` before locking the auction. `Auction#place_bid!` and
+`#set_maximum!` then use one PostgreSQL row lock, sample uncached database time,
+validate fresh state and settle proxy bids. Private changes commit with the
+command; a changed public price, leader or deadline also commits its public
+revision and outbox intent. The idempotency outcome commits in
+the enclosing transaction. Replay returns its stored historical response; a
+fresh GET supplies current state. Lifecycle and closer commands use the same
+auction row lock. The closer rechecks the deadline under that lock and copies
+the settled leader to winner only when reserve policy permits a sale.
 
-Browser / Next.js → REST reads and commands → Rails API → PostgreSQL
-Browser ← public revision hint ← Rails Cable B ← PostgreSQL NOTIFY ← Sidekiq job
-Auction transaction → PostgreSQL state + revision + outbox intent
-Outbox publisher → Redis queue → Sidekiq job (reads current revision)
-Kafka outbox publisher → broker delivery report → Kafka audit group → PostgreSQL receipt + audit → offset commit
+[Auction state](architecture/auction-state.md), [bidding](architecture/bidding.md),
+[deadlines](architecture/deadlines.md), [idempotency](architecture/idempotency.md)
+and [ADR-003](adr/003-auction-concurrency-control.md) describe the rules and
+lock order. A hot auction intentionally serializes writers and can consume
+waiting database connections. The lock is not a FIFO arrival guarantee.
 
-Auction Closer (same Rails app/process role) → Auction#close! → PostgreSQL
-```
+## Public delivery and recovery
 
-Controllers validate request shape and render intentional JSON. Protected bid/max
-commands resolve the actor, then IdempotentBidding claims the key before locating
-the auction or invoking its model operation. Other endpoints call models directly. Small presenters define auction
-and bid response fields. A shared API controller maps expected errors to a stable
-envelope. There is no repository/service/use-case framework or state-machine gem.
+Every public revision creates a public snapshot in the PostgreSQL outbox.
+Independent publishers enqueue a Sidekiq invalidation job and deliver a Kafka
+event. The Kafka audit consumer writes a durable event-ID receipt and public
+audit effect before committing its offset. A separate consumer applies the
+event to Redis with revision and digest guards. Duplicate or reordered
+delivery cannot change authoritative auction state. The ordinary auction GET
+reads PostgreSQL; the explicit eventual read may serve Redis or fall back to
+PostgreSQL. Reconciliation safely seeds missing or older projections and
+escalates ahead, conflicting or corrupt state for review. See
+[async events](architecture/async-events.md) and
+[projections](architecture/projections-and-reconciliation.md).
 
-Auction owns its lifecycle and bid-placement entry point. Bid guards accepted
-history from ordinary mutations. SQL protects structural integrity; Ruby protects
-workflow rules inside a PostgreSQL transaction with SELECT FOR UPDATE on one auction.
-Fresh validation, auction-local sequence assignment, bid insertion and price update
-share that lock. Existing lifecycle/draft actions follow the same protocol. See
-[ADR-003](adr/003-auction-concurrency-control.md). Waiters consume database connections;
-a hot auction is intentionally serialized. Other auctions can progress independently.
-No process-local synchronization or external lock service coordinates authoritative
-commands; Sidekiq retry applies only to non-authoritative jobs.
+Action Cable carries only a revision hint. The browser responds with a fresh
+REST read and retains an immutable command key and payload across ambiguous
+transport failure. See [realtime/frontend](architecture/realtime-and-frontend.md).
+After PostgreSQL PITR, old Kafka/Redis/Sidekiq may contain a discarded future;
+the [recovery runbook](runbooks/database-recovery.md) fences traffic, quarantines
+old Kafka, rebuilds derived state and replays retained outbox intent. The
+[local game day](operations/phase-22-final.md#integrated-local-game-day) proves
+that procedure only in its recorded environment.
 
-Identity is a supplied existing bidder_id, supported by minimal user create/list
-endpoints for local demonstrations. It is not authenticated. Administrative-looking
-lifecycle endpoints are also unauthenticated. This is not a deployable public API.
+## Security, operations and evidence
 
-## Boundaries and health
+Sessions, CSRF, authorization, seller self-bid prevention, request limits and
+HMAC idempotency digests guard the public command boundary. The internal
+operator API is disabled by default and exposes only bounded diagnosis and
+projection reconciliation to operators. `RECOVERY_FENCE` is a process-local
+defense in depth, not a distributed maintenance lock. [Security and operations](architecture/operations-and-security.md)
+and [production-readiness limits](production-readiness.md) state what remains
+unverified.
 
-Rails is the business authority; Next.js handles presentation; PostgreSQL owns
-persisted state. [ADR-001](adr/001-modular-monolith.md) still governs service
-boundaries. The in-database winner is exposed only after authoritative closure. A current
-leader is stored explicitly after proxy resolution, separately from winner.
-
-`/up` is Rails liveness, not a database readiness guarantee. Compose separately
-probes PostgreSQL. RSpec checks actual database connectivity, and the API smoke
-scripts verify the lifecycle and simultaneous HTTP bids against running containers.
-Real PostgreSQL concurrency specs use committed rows and independent sessions.
-
-## Current async and observability boundaries
-
-Redis/Sidekiq handle public hint jobs and scheduled consistency sweeps. The
-PostgreSQL outbox retains committed publication intent; Kafka carries public
-events to audit and derived Redis projection consumers. Reconciliation compares
-that disposable projection with PostgreSQL and repairs only safe drift.
-OpenTelemetry, Collector, Prometheus, Tempo and Grafana observe these paths
-without deciding auction state. See the [observability contract](observability.md)
-for exact signal semantics. Load testing and deployment follow later
-[phase specifications](phases/phase-14.md).
-
-
-## Proxy bidding
-
-Auction#place_bid! and #set_maximum! own transaction/lock/eligibility boundaries.
-Bidding::ProxyResolver owns the complete pairwise pricing algorithm and ordered
-visible bid generation. Private MaximumBid records have their own priority order.
-The auction leader/price and all generated bids are updated before the single commit;
-there is no intermediate committed challenger followed by an asynchronous counter.
-MaximumBidsController acknowledges writes without exposing private state. Public
-presenters never expose maximum/priority/origin. ADR-004 records the decision table,
-settled-state proof, binding policy and representation-versus-authorization limit.
-
-## Deadline authority and closer
-
-AuctionClock reads uncached PostgreSQL clock_timestamp() after the auction row
-lock. AuctionDeadline contains pure half-open deadline and final-60/+90 arithmetic.
-Auction persists extension with each accepted command's complete settlement.
-Auction#close! finalizes if due and copies leader to winner without another Bid.
-The closer is a separate process role of this modular Rails app, not a microservice:
-no API hop or separate datastore sits between it and the same domain operation.
-
-AuctionCloser discovers bounded active/due IDs using the partial (ends_at,id) index,
-then revalidates each under the domain lock. Discovery is not authority. Multiple
-closers safely overlap; there is no leader election. Delayed polling leaves status
-active temporarily, but bid/max deadline checks still reject. We do not lazily
-finalize through rejected bidding transactions. Poll interval is not a closure SLA.
-See ADR-005 and running-locally.md for failure and shutdown behavior.
-
-## Client retry boundary — Phase 5
-
-```text
-Next.js browser UI (request/response + explicit refresh)
-
-HTTP clients -> Rails API instances
-                  |
-             IdempotentBidding / Idempotency::Executor
-                  |
-                  +-- PostgreSQL idempotency_records ownership + terminal snapshot
-                  |
-                  +-- same transaction -> Auction row -> bids/maxima/extension
-
-Auction Closer -> same Rails Auction#close! -> same PostgreSQL
-```
-
-This is an application/database capability, not another service. Thin controllers
-parse key/command/IDs and render the returned outcome. Executor owns scoped claim,
-fingerprint, replay/conflict and outer commit. Existing Auction savepoints preserve
-complete domain rollback. Duplicate INSERTs coordinate via PostgreSQL uniqueness;
-completed retries bypass Auction entirely. No mutex, Redis or generic middleware
-pipeline exists. A manual bounded prune task manages expired completed outcomes.
-See ADR-006 for lock order, failure classes, retention and compatibility boundaries.
-
-## Browser boundary — Phase 6
-
-App Router pages use one client REST layer with public runtime shape guards. Local
-read/form state stays in each view; one context shares the demo actor and unresolved
-command. A transparent Next rewrite provides local connectivity, without Next API
-handlers, BFF domain logic or wildcard production CORS.
-
-One opaque key and immutable payload are saved in sessionStorage before transmission.
-Transport ambiguity retains them for explicit safe retry; terminal responses trigger
-fresh auction/history reads. No optimistic price, leader or local closure exists.
-X-Server-Time is application-clock presentation metadata only. The ticking countdown
-refreshes at zero and follows the returned effective deadline.
-
-The Phase 7 detail page adds Action Cable invalidations through PostgreSQL
-LISTEN/NOTIFY. Confirmation/reconfirmation and higher revisions request fresh REST
-state. Explicit, visibility, command and countdown refreshes remain independent.
-See [realtime](realtime.md), frontend.md and ADR-008 for ordering and delivery limits.
+The [code map](code-map.md) routes to implementation and tests. The
+[case study](case-study.md) selects the three strongest experiments. Local
+Compose, Kubernetes and the static GCP reference are different verification
+levels; none implies production capacity or managed-service recovery.

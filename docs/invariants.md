@@ -1,6 +1,6 @@
 # Invariants
 
-## Implemented through Phase 6
+## Core auction invariants (implemented and extended through Phase 21)
 
 Unless explicitly marked SQL, these guarantees apply to concurrent calls through
 the documented domain entry points at PostgreSQL READ COMMITTED isolation.

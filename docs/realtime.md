@@ -99,8 +99,9 @@ The job reads current PostgreSQL revision so delayed/reordered work does not
 broadcast an older revision. Duplicate hints are harmless to the browser.
 PostgreSQL NOTIFY and Cable do not retain missed events.
 A continuously connected browser may remain stale after a lost hint until manual,
-visibility, command, countdown, later-hint or reconnection recovery. There is no
-Kafka domain-event log/replay, Redis projection repair or exactly-once claim.
+visibility, command, countdown, later-hint or reconnection recovery. Kafka
+domain events and Redis projection repair do not guarantee Cable hint delivery,
+and there is no exactly-once transport claim.
 Successful outbox acknowledgment proves enqueue only. Redis loss afterward,
 exhausted job retries or Cable failure may still lose a hint.
 Auction and history GETs can straddle commits; this is not an atomic snapshot.
@@ -109,7 +110,8 @@ Each listening Rails process uses a dedicated PostgreSQL connection in addition 
 its ordinary pool. Default two Cable workers and three pooled connections are local
 bounded defaults, not capacity guarantees. Hot-auction fanout causes REST read
 amplification. Review database limits, pool contention, proxy timeouts, WSS/origins,
-authentication and rate limits before production. Demo APIs remain unauthenticated.
+authentication and rate limits before production. Phase 20 added session-backed
+identity and bounded Cable admission; production ingress remains unverified.
 
 Migration downgrade refuses nonzero revisions. Dropping/restarting an active revision
 namespace would invalidate connected-client ordering; preserve metadata and stop

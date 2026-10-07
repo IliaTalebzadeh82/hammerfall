@@ -1,5 +1,21 @@
 # Code map
 
+## Current path index
+
+| Follow this | Start here |
+| --- | --- |
+| Auction lifecycle, bid/maximum command and lock | [`Auction`](../apps/api/app/models/auction.rb); [auction state](architecture/auction-state.md) |
+| Proxy contests, reserve and increments | [`ProxyResolver`](../apps/api/app/models/bidding/proxy_resolver.rb); [bidding rules](architecture/bidding.md) |
+| Same-key replay and HMAC digests | [`Idempotency::Executor`](../apps/api/app/services/idempotency/executor.rb); [idempotency contract](architecture/idempotency.md) |
+| Public outbox and independent publishers | [`OutboxEvent`](../apps/api/app/models/outbox_event.rb), [`OutboxPublisher`](../apps/api/app/services/outbox_publisher.rb), [`KafkaOutboxPublisher`](../apps/api/app/services/kafka_outbox_publisher.rb) |
+| Kafka receipt and Redis projection | [`KafkaAuditConsumer`](../apps/api/app/services/kafka_audit_consumer.rb), [`KafkaProjectionConsumer`](../apps/api/app/services/kafka_projection_consumer.rb), [`AuctionPublicProjection`](../apps/api/app/services/auction_public_projection.rb) |
+| Reconciliation and operator diagnosis | [`AuctionProjectionReconciler`](../apps/api/app/services/auction_projection_reconciler.rb), [`OperatorAuctionsController`](../apps/api/app/controllers/api/v1/operator_auctions_controller.rb) |
+| Sessions, authorization and security | [`BaseController`](../apps/api/app/controllers/api/v1/base_controller.rb), [`AuctionPolicy`](../apps/api/app/policies/auction_policy.rb), [security contract](security.md) |
+| Recovery and local evidence | [recovery runbook](runbooks/database-recovery.md), [isolated PITR runner](../scripts/recovery/phase22-pitr), [showcase](../scripts/showcase) |
+
+The phase-labelled sections below retain implementation history. Use this index
+for the current paths and the [case study](case-study.md) for the evidence.
+
 ## Phase 23 case-study route
 
 Start at the [case study](case-study.md) for the authority model and three
