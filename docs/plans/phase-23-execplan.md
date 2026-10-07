@@ -1,19 +1,21 @@
 # Phase 23 ExecPlan — case study and demo
 
-Status: Active; Session 1 narrative/evidence milestone ready for checkpoint.
-Current milestone: Session 1 documentation and evidence checkpoint.
-Completed: First-party Catawiki refresh, claim/source registers, three flagship stories, primary Mermaid architecture diagram, case study, redesigned README, 60-second opening, timed walkthrough, interview guide, real-scale discussion, demo concept, code-map/learning/journal/progress/handoff updates.
-Verified: Starting tree clean at `49c2140b94cc3cd3b5833ccf7609370fa728069b`; 304 local Markdown targets/anchors checked with 0 problems; prose claim-word scan reviewed; code fences balanced. Final staged whitespace and Git checks below.
-Remaining: Session 2 builds and verifies the reproducible showcase, audits all links/citations/claims on the final document set, performs a timed reader test and warranted regression, then closes Phase 23.
-Known failures/limitations: No product code changed or product suite rerun. Mermaid CLI was unavailable; two compact diagrams were syntax-inspected only. Local research found no credible first-party statement of Catawiki auction internals; none is claimed. The ordinary polished demo remains unbuilt until Session 2.
-Relevant files: `README.md`, `docs/case-study.md`, `docs/catawiki-alignment.md`, `docs/walkthrough.md`, `docs/interview-guide.md`, `docs/code-map.md`, `docs/learning-guide.md`, `docs/engineering-journal.md`, `docs/progress.md`, `docs/handoffs/latest.md`.
+Status: COMPLETE locally; closure SHA requires exact-SHA hosted CI verification before final report.
+Current milestone: Closure commit and hosted CI.
+Completed: First-party Catawiki comparison, three flagship stories, architecture diagram, case study, README, 60-second opening, timed walkthrough, interview guide, real-scale discussion, single-command showcase and concise demo guide.
+Verified: Stopped-container Compose build/start; three repeat showcase passes plus two final checks; ordinary authenticated lifecycle smoke; 56 focused request examples; targeted RuboCop, Bash/shellcheck, privacy, 331 local links/anchors, nine public sources, reader-time and claim review.
+Remaining: Commit/push closure state; inspect hosted API/web/Compose results on that exact SHA.
+Known failures/limitations: Two initial showcase runs timed out because the Rails runner cached externally updated SQL counts; `ApplicationRecord.uncached` fixed this, followed by four passing runs. No product code or schema changed. Mermaid CLI unavailable; both diagrams manually syntax-reviewed. No production capacity, managed DR, cloud or Catawiki-internal claims.
+Relevant files: `scripts/showcase`, `apps/api/script/showcase.rb`, `README.md`, `docs/demo.md`, `docs/case-study.md`, `docs/catawiki-alignment.md`, `docs/walkthrough.md`, `docs/interview-guide.md`, `docs/progress.md`, `docs/handoffs/latest.md`.
 Relevant ADRs: ADR-003, 004, 005, 006, 010, 011, 012, 013, 016, 019, 020 as applicable.
-Next-session starting point: Read this plan, latest handoff and Phase 23 spec. Inspect `apps/api/script/phase21_final.rb` and Compose/auth helper; design the deterministic showcase fixture and guide, run it end-to-end, then perform final audits and gates. Do not start Phase 24.
+Next-session starting point: None expected if exact-SHA hosted CI passes. Phase 24 requires a separate explicit request.
 
 ## Decisions
 
 - Three flagship experiments: final-second contention, ambiguous committed command, and PostgreSQL PITR with ahead derived systems. Other mechanisms are supporting evidence.
 - The live showcase will be a short deterministic local auction path. PITR is explained using retained evidence, not repeated in the ordinary demo.
+- Each showcase run creates a labelled unique fixture through HTTP and retains it for inspection. It never deletes unrelated development rows. A 30-second initial window gives time to authenticate and display initial state; Bob bids in a bounded last-12-second window.
+- The runner uses uncached SQL reads for async convergence. Redis and Kafka are observers after commit, never authorities for the bid.
 
 ## Claim and evidence inventory
 
@@ -59,8 +61,49 @@ Research note: first-party careers/public engineering searches did not establish
 | Claim language | `rg` for inflated phrases across new prose | Matches reviewed: only negations or discussion of exactly-once as a rejected claim | Terminal result |
 | Markdown structure | Fence count and manual Mermaid flowchart review | Fences balanced; Mermaid CLI unavailable | README/case-study diagrams |
 | Staged whitespace | `git diff --cached --check` | Passed | Documentation-only staged diff |
-| Product regression | Not run: documentation-only changes | Phase 22 product gates remain last complete evidence | [Phase 22 final](../operations/phase-22-final.md#final-local-regression-and-remaining-gate) |
+| Session 1 product regression | Not run: Session 1 changed documentation only | Phase 22 was the last broad product gate at that milestone | [Phase 22 final](../operations/phase-22-final.md#final-local-regression-and-remaining-gate) |
+| Fresh ordinary Compose startup | `docker compose down` (volumes retained), `docker compose up --build --wait` | Build/start passed in about 29 seconds; all required app/data services healthy | `/tmp/hammerfall-phase23-compose-start.log` |
+| Showcase repetition | `./scripts/showcase` after fresh startup, then twice more | IDs 799/800/801, all passed at 41.9/41.7/41.9 seconds; revision 5 in PostgreSQL/Redis and five Kafka audit receipts each | `/tmp/hammerfall-phase23-showcase-{1,2,3}.log` |
+| Final output/replay checks | `./scripts/showcase` after output-label edit and after uncached replay-count review | IDs 803/804 passed in 41.0/42.6 seconds; public/internal labels, replay row counts and privacy checked | `/tmp/hammerfall-phase23-showcase-{final,verified}.log` |
+| Ordinary authenticated flow | `docker compose exec -T -e API_BASE_URL=http://127.0.0.1:3000 api ruby < scripts/smoke-api` | Passed; retained auction 802 | Terminal result |
+| Focused API regression | `bundle exec rspec spec/requests/auctions_spec.rb spec/requests/idempotency_spec.rb` in test container | 56 examples, 0 failures (seed 38037) | Terminal result |
+| Static/privacy | Targeted RuboCop; `bash -n`; shellcheck; `git diff --check`; sensitive-term scan of successful output logs | 1 Ruby file/0 offenses; shell checks passed; no sensitive terms found in output | Terminal result |
+| Final Markdown links/anchors | Local path and heading-slug audit on 13 final docs | 331 checked; 0 problems | `/tmp/phase23_link_audit.py` (local, not committed) |
+| Public sources and claim language | Opened nine registered first-party Catawiki URLs; targeted inflated-claim scan | All reachable and mapped; no inferred internals or unsupported positive guarantees | [Alignment](../catawiki-alignment.md) |
+| Reader simulation | README opening/table/diagram, case-study architecture and three stories, selected evidence/limits | 1,937 route words / 225 technical wpm ≈ 8.6 minutes, plus ≈1–1.5 minutes for diagram/evidence; fits roughly ten minutes | Reader review below |
 
-## Session 2 demo concept
+## Definition of Done reconciliation
 
-One Compose startup, one deterministic seed/prep step, and a guided 10-minute path through two authenticated bidders, proxy/increment/reserve, controlled late contention, authoritative result, and optional same-key replay. No ordinary-demo PITR or paid cloud dependency. Session 2 must build and execute this flow.
+| Phase 23 deliverable | Verified artifact |
+| --- | --- |
+| 60-second explanation | [Walkthrough opening](../walkthrough.md#000100--opening-about-60-seconds) and README introduction |
+| 10–15 minute walkthrough | [Timed guide](../walkthrough.md), including exact showcase and evidence transitions |
+| Three flagship experiments | [Case study](../case-study.md): contention, ambiguous committed response, PITR ahead-state |
+| Primary architecture diagram | [Authoritative/derived flowchart](../case-study.md#architecture-in-one-picture) |
+| Engineering case study | [Problem/decision/alternative/experiment/limit sections](../case-study.md) |
+| Catawiki alignment | [Dated first-party comparison](../catawiki-alignment.md), with unknown internals explicit |
+| Real-scale discussion | [Measured triggers and candidate changes](../interview-guide.md#what-would-change-at-real-scale) |
+| Conversation prompts | [Questions for Catawiki engineers](../interview-guide.md#questions-for-catawiki-engineers) |
+| Simple reproducible demo | [Single command and guide](../demo.md), fresh startup and repeat runs above |
+
+## Final reader and adversarial review
+
+The top of README answers what Hammerfall is, why bids are hard, what was
+actually exercised and the limits in 289 words plus a small table; that is
+about 75 seconds at 230 words/minute before a brief table scan. The engineer
+route includes the primary diagram, three hard-problem sections, evidence and
+limits. At approximately 1,937 words plus diagram/evidence allowance it is
+roughly 9.5–10 minutes. The interview guide gives direct deeper links for row
+locking, proxy bidding, deadlines, idempotency, outbox, Kafka, Redis, PITR,
+performance and security. This is a structured reading estimate, not a timed
+external reader study.
+
+Final review: the showcase does not inject simultaneous bids, lost transport or
+PITR; those use separate retained tests/reports. The HTTP bid path and database
+row counts agree, the replay leaves bid/outbox/revision unchanged, the closer
+finalizes the expected winner, and Kafka/Redis are checked only after authority.
+Unique retained fixtures avoid deleting unrelated data. Bounded waits fail
+clearly. Successful output omits passwords, cookies, CSRF, private values from
+server state, raw command keys and secrets. No code path changes auction
+behavior. Mermaid CLI was absent; the README and case-study flowcharts were
+manually checked for balanced fences and valid node/edge syntax.

@@ -966,3 +966,13 @@ are separate obligations. Refreshed Catawiki public help also exposed a concrete
 product gap: an active seller reserve can be lowered/removed there, while
 Hammerfall freezes it after draft. The dated comparison records that gap without
 inferring Catawiki's internals.
+
+## 2026-10-07 — Showcase polling and Rails query cache
+
+The first local showcase runs timed out waiting for Kafka outbox/receipt counts,
+even though Redis had reached the closed auction revision and the background
+workers' logs showed publication. The long-lived Rails runner reused cached
+SQL count results while other processes changed those rows. Wrapping the
+convergence reads in `ApplicationRecord.uncached` exposed the current database
+state; three subsequent isolated auctions and a final output check passed.
+This is a test-harness observation, not a change to auction command semantics.

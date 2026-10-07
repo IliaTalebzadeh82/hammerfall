@@ -1,6 +1,6 @@
 # Phase 23 — Catawiki Case Study & Demo
 
-Status: Planned; begin only on explicit request
+Status: COMPLETE — 2026-10-07. Phase 24 has not started.
 
 ## Goal
 
@@ -21,3 +21,7 @@ Make the engineering repository understandable and evaluable by a Catawiki engin
 ## Success and boundary
 
 A technically experienced engineer unfamiliar with Hammerfall can grasp why it exists, its three hardest problems, evidence, major trade-offs and remaining limits in about ten minutes. Claims cite actual tests, experiments or public sources; no invented Catawiki internals or production guarantees. Update progress and handoff. Do not start Phase 24 without an explicit request.
+
+## Completion evidence
+
+The [case study](../case-study.md) and [README](../../README.md) supply the 60-second explanation, three evidence-backed stories and primary architecture diagram. The [walkthrough](../walkthrough.md) gives the timed discussion; the [interview guide](../interview-guide.md) covers scale decisions and prompts; the [Catawiki alignment](../catawiki-alignment.md) uses dated first-party sources. The [showcase command and guide](../demo.md) were exercised from ordinary Compose startup and repeated. The [ExecPlan](../plans/phase-23-execplan.md) records actual checks, reader-time estimate and limits. No auction product feature or architecture change was made.

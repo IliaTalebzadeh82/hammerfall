@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+# The Rails runner has access to the authoritative database and uses real HTTP
+# for every auction command. The host needs only Bash and Docker Compose.
+service_status=$(docker compose ps --format '{{.Service}} {{.State}} {{.Health}}')
+for service in db redis kafka api api-replica-b api-proxy auction-closer sidekiq outbox-publisher kafka-outbox-publisher kafka-audit-consumer kafka-projection-consumer; do
+  state_health=$(printf '%s\n' "$service_status" | awk -v name="$service" '$1 == name { print $2 " " $3 }')
+  case "$state_health" in
+    'running healthy'|'running ') ;;
+    *) echo "Showcase prerequisite unhealthy: $service ($state_health)" >&2; exit 1 ;;
+  esac
+done
+docker compose exec -T api bin/rails db:seed >/dev/null
+docker compose exec -T api bin/rails runner script/showcase.rb

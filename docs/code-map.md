@@ -7,8 +7,9 @@ experiments, then use its direct test/report links. The [walkthrough](walkthroug
 orders the code conversation: `Auction#place_bid!` and `#close!`,
 `Bidding::ProxyResolver`, `Idempotency::Executor`, outbox publishers and
 consumers, then the Phase 22 recovery fixture. The sections below give the
-path-level map. Phase 23 changes documentation only; it does not change the
-command or event contract.
+path-level map. Phase 23 adds only the [showcase wrapper](../scripts/showcase)
+and [Rails runner](../apps/api/script/showcase.rb) for local evidence; it does
+not change the command or event contract.
 
 ## Phase 21 rapid closing slice
 

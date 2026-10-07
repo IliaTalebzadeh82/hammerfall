@@ -4,6 +4,8 @@ Hammerfall is a locally verified auction engineering case study. An auction can 
 
 This is an independent approximation of selected [public Catawiki behavior](catawiki-alignment.md), not knowledge of Catawiki's internals or a production marketplace.
 
+For a short local execution of the command path, run the [engineering showcase](demo.md).
+
 ## Architecture in one picture
 
 ```mermaid

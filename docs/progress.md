@@ -2587,3 +2587,28 @@ and measured triggers for scale changes. The [Phase 23 plan](plans/phase-23-exec
 indexes claims, public sources, verification and Session 2 demo work. No product
 code or schema changed. Session 2 still owns the reproducible showcase, live
 demo proof, reader-time test, final audit and phase closure.
+
+## 2026-10-07 — Phase 23 completion
+
+The single-command [showcase](demo.md) now runs through two authenticated Rails
+replicas: €100 opening, stepped increments, hidden reserve, Alice/Bob private
+maximum contest, a late +10-second rapid extension, exact same-key replay,
+autonomous close and PostgreSQL/Kafka/Redis revision agreement. Fixture rows
+are uniquely labelled and retained; unrelated data is not reset. The first
+two development runs exposed stale SQL counts in a long-lived Rails runner;
+uncached convergence reads fixed the harness, followed by three passes at
+41.9/41.7/41.9 seconds and final output/replay checks at 41.0/42.6 seconds.
+
+Stopped-container `docker compose up --build --wait` completed in about 29
+seconds with required services healthy. Ordinary authenticated lifecycle
+smoke passed. Focused auction/idempotency requests passed 56 examples, zero
+failures. Targeted RuboCop, Bash syntax, shellcheck and privacy-output scans
+passed. The final local audit checked 331 Markdown paths/anchors with zero
+breakage and all nine registered first-party Catawiki pages were reachable;
+public behavior remains explicitly separate from unknown internals. The
+structured reader route is about 1,937 words plus diagram/evidence allowance,
+roughly ten minutes at a technical reading pace. Mermaid was manually
+syntax-reviewed because a CLI renderer was unavailable. The [ExecPlan](plans/phase-23-execplan.md)
+holds the detailed evidence and limits. No auction product code or schema
+changed. Phase 23 is complete subject to green hosted CI on the exact closure
+SHA; Phase 24 has not started.

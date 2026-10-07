@@ -1183,6 +1183,12 @@ ordinary observability.
 
 ## Phase 23 — An evidence-backed engineering argument
 
+The [showcase](demo.md) turns the selected auction path into a repeatable local
+conversation aid. It demonstrates one sequential result, same-key replay and
+eventual propagation; independent-session tests and the PITR drill remain the
+evidence for contention and recovery. The Rails runner must disable query
+caching while polling rows changed by external publishers and consumers.
+
 The shortest useful model is: PostgreSQL decides the auction; transport and
 projections distribute or recover that decision. Three different time problems
 make this tangible: concurrent writers contest the present, a lost HTTP response

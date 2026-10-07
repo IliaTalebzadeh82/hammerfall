@@ -41,11 +41,12 @@ The current code uses auction-local committed sequence, post-lock database time,
 With Docker Engine and Compose:
 
 ```sh
-cp .env.example .env
+test -f .env || cp .env.example .env
 docker compose up --build --wait
+./scripts/showcase
 ```
 
-Open [localhost:3000](http://localhost:3000); Rails liveness is [localhost:3001/up](http://localhost:3001/up). Port 3001 reaches a local proxy over two Rails API containers. First startup downloads dependencies. [Running locally](docs/running-locally.md) covers native setup, verification, port overrides and shutdown. A guided, reproducible interview demo is planned for Phase 23 Session 2; the existing [combined policy smoke](apps/api/script/phase21_final.rb) is retained evidence, not yet that demo.
+The showcase takes roughly 40 seconds on a warm stack and prints a concise result; see the [demo guide](docs/demo.md) for steps, limits and troubleshooting. Open [localhost:3000](http://localhost:3000); Rails liveness is [localhost:3001/up](http://localhost:3001/up). Port 3001 reaches a local proxy over two Rails API containers. First startup downloads dependencies. [Running locally](docs/running-locally.md) covers native setup, verification, port overrides and shutdown.
 
 ## Engineering case study and conversation
 
