@@ -16,13 +16,12 @@ retained-outbox republish, Redis rebuild, Sidekiq regeneration, traffic fencing,
 real alert firing/clearing, operator-authorized diagnosis/repair, the integrated
 game day and release compatibility/drain boundaries. Full local backend,
 frontend, ordinary Compose, browser, migration and static/security gates
-passed, as did hosted CI on the closure candidate. The final completion SHA
-has the same CI gate. No production Cloud SQL/managed Kafka
+passed, as did hosted CI on the Phase 22 completion SHA. No production Cloud SQL/managed Kafka
 restore, deployment or production-grade operating program exists; see
 [Phase 22](phases/phase-22.md) and its [evidence](operations/phase-22-final.md).
 No professional penetration test or live cloud deployment was performed.
 Local runbooks cover specific failures.
-Phase 21 adds persisted stepped increments, hidden reserve and regular/rapid
+Phase 21 added persisted stepped increments, hidden reserve and regular/rapid
 closing. These policies require one PostgreSQL authority and compatible
 snapshot readers during rollout. The rapid window increases sensitivity to
 request/lock latency without promising FIFO fairness or an exact closer SLA.
@@ -75,10 +74,10 @@ permanent deduplication or authentication. Retained outcomes add storage and loc
 lifetime; cleanup and API snapshot compatibility need operational ownership. No
 performance improvement is claimed without measurement. See ADR-006.
 
-Phase 6 now provides a working browser auction UI with session-based retry recovery
-and real-API browser evidence. Phase 20 adds authentication and authorization, but
+Phase 6 provided a working browser auction UI with session-based retry recovery
+and real-API browser evidence. Phase 20 added authentication and authorization, but
 the service is not ready for real-money use. Reads become stale between explicit,
-visibility, command and expiry refreshes; Phase 7 also adds best-effort Cable
+visibility, command and expiry refreshes; Phase 7 also added best-effort Cable
 invalidations. Browser storage can be lost and clocks can move. The one-hour client
 retry horizon is conservative, not a durability SLA.
 Separate auction/history GETs are not one consistent snapshot. No exhaustive

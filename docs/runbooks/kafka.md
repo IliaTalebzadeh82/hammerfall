@@ -98,8 +98,10 @@ the Phase 9 historical rows were not backfilled as domain events.
 ## Limits
 
 The local topic has three partitions and replication factor one. There is no
-TLS/authentication, multi-broker durability, external schema registry, alerting,
-capacity evidence, fixed delivery deadline or exactly-once guarantee. A
+TLS/authentication, multi-broker durability, external schema registry,
+broker-specific paging, capacity evidence, fixed delivery deadline or
+exactly-once guarantee. The local outbox-age alert covers delayed publication,
+but no staffed paging path exists. A
 consumer receipt protects only its own PostgreSQL effect; future consumers
 need separate group identities, receipts, schemas and replay policy. Phase 11's
 separate `hammerfall.projection.v1` group writes a disposable Redis public

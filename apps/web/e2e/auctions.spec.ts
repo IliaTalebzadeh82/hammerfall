@@ -139,9 +139,7 @@ test("browse, manual bid, private maximum, stale rejection and response-loss rec
     page.getByRole("status").filter({ hasText: "Your bid was accepted" }),
   ).toBeVisible();
   await expect(page.locator("tbody tr")).toHaveCount(1);
-  await expect(
-    page.getByText("Your selected bidder is currently leading."),
-  ).toBeVisible();
+  await expect(page.getByText("You are currently leading.")).toBeVisible();
   await page.getByLabel("Your maximum (EUR)").fill("9876.54");
   await page.getByRole("button", { name: "Set binding maximum" }).click();
   await expect(

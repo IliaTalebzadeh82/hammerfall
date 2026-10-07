@@ -204,7 +204,7 @@ export function AuctionDetail({ id }: { id: number }) {
                     auction.current_leader_id !== null
                     ? "Closed without a sale; highest bidder retained."
                     : "Closed without a winning bid"
-                  : `Winner · ${bidderName(auction.winner_id, session.users)}${auction.winner_id === session.actorId ? " (selected bidder)" : ""}`}
+                  : `Winner · ${bidderName(auction.winner_id, session.users)}${auction.winner_id === session.actorId ? " (you)" : ""}`}
               </p>
             ) : (
               auction.status !== "cancelled" && (
@@ -212,7 +212,7 @@ export function AuctionDetail({ id }: { id: number }) {
                   {auction.current_leader_id === null
                     ? "No bids have been accepted yet."
                     : auction.current_leader_id === session.actorId
-                      ? "Your selected bidder is currently leading."
+                      ? "You are currently leading."
                       : `Current leader · ${bidderName(auction.current_leader_id, session.users)}`}
                 </p>
               )

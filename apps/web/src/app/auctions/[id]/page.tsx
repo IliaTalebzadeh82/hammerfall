@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AuctionDetail } from "@/components/auction/auction-detail";
+export const metadata: Metadata = { title: "Auction detail | Hammerfall" };
 export default async function AuctionPage({
   params,
 }: {

@@ -112,8 +112,8 @@ export function AuctionList() {
         <div className="empty-state">
           <h2>No auctions available</h2>
           <p>
-            There are no auctions to browse yet. Check back after demo data has
-            been added.
+            There are no auctions to browse yet. Check back when auctions are
+            available.
           </p>
         </div>
       ) : (

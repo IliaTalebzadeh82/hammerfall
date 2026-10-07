@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -200,23 +199,6 @@
 .actor-control label {
   font-size: 12px;
   font-weight: 600;
-}
-.actor-control select {
-  min-height: 42px;
-  max-width: 260px;
-  min-width: 160px;
-  border: 1px solid var(--input);
-  padding: 8px 30px 8px 12px;
-  background: #fff;
-  border-radius: 4px;
-  font-size: 13px;
-}
-.demo-strip {
-  background: #eeeee7;
-  color: #535f53;
-  font-size: 11px;
-  line-height: 1.6;
-  padding: 8px 0;
 }
 .main-content {
   padding-block: 52px 88px;
@@ -791,16 +773,8 @@ select:focus-visible {
     max-width: none;
     gap: 8px;
   }
-  .actor-control select {
-    flex: 1;
-    max-width: 100%;
-    min-width: 0;
-  }
   .actor-control label {
     font-size: 11px;
-  }
-  .demo-strip {
-    font-size: 10px;
   }
   .main-content {
     padding-block: 32px 55px;

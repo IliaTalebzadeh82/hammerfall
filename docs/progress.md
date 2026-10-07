@@ -2640,3 +2640,36 @@ records the proposed replacement. No root license is present and no licensing
 decision was assumed. Final deep audit, full regression, ordinary Compose,
 browser, showcase, final documentation and exact-completion-SHA hosted CI remain;
 Phase 24 is not complete.
+
+## 2026-10-07 — Phase 24 Session 2 integration checkpoint
+
+The deep audit completed the frontend, dependency, test-isolation, runbook,
+dashboard, schema/query, infrastructure-reference, demo and privacy/claim
+dimensions. The [ExecPlan](plans/phase-24-execplan.md) holds findings P24-001–026,
+decisions and exact evidence. An initial local suite exposed a test database
+pool of three against ten concurrent sessions; `scripts/check` now uses CI's
+pool of 15. The first frontend build after removing vulnerable unused `shadcn`
+found its remaining CSS import; removing that import and updating compatible
+`sharp`/`source-map-js` packages brought `npm audit` to zero vulnerabilities.
+The final full gate passed 561 RSpec examples with zero failures and four
+optional pending (seed 22690), 78 frontend tests, Ruby/frontend lint, security,
+typecheck and build checks. Local and hosted web gates now run npm audit.
+
+The ordinary Compose rebuild initially marked web unhealthy while an existing
+node_modules volume installed the new lockfile. With a 180-second web startup
+grace, the same `up --build --wait --wait-timeout 360` passed. CI-equivalent
+Kafka/API/proxy/concurrency/cross-replica/auth/prune integration passed. The
+showcase initially hit a residual 60-second privileged rate limit after its
+30-second fixture deadline; a 90-second fixture and bounded wait preserved the
+late-bid demonstration. Two consecutive runs then passed in about 102 seconds,
+with €100 opening, €650 closing price, +10-second extension, historical replay
+and PostgreSQL/Kafka/Redis revision agreement. The full authenticated browser
+suite passed nine cases with one existing opt-in chaos skip. ShellCheck/Bash,
+Compose/Prometheus/Kubernetes/Terraform static checks and 1,075 local Markdown
+links/anchors passed. Terraform provider initialization was blocked by registry
+access; the GCP reference was not deployed. No auction rule or schema changed.
+
+No Critical or High finding remains. Final adversarial review, completion docs,
+post-documentation hygiene and hosted CI on the exact completion SHA remain;
+Phase 24 is not complete. GitHub repository description cleanup is deferred for
+unavailable settings access, and no repository license was assumed.

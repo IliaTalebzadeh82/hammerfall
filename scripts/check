@@ -13,6 +13,9 @@ fi
 docker compose config --quiet
 (
   cd apps/api
+  # Ten real concurrent command sessions plus the coordinator require the
+  # same test pool budget as hosted CI; development defaults are smaller.
+  export RAILS_MAX_THREADS=15 OTEL_ENABLED=false
   bundle exec rubocop
   bundle exec brakeman --quiet --no-pager --exit-on-warn --exit-on-error
   bin/bundler-audit
@@ -25,6 +28,7 @@ docker compose config --quiet
 )
 (
   cd apps/web
+  npm audit --audit-level=high
   npm run lint
   npm run format:check
   npm run typecheck

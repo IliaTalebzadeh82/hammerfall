@@ -264,7 +264,8 @@ export function errorMessage(body?: ApiErrorBody): string {
     auction_not_open: "This auction is not open for bidding yet.",
     invalid_auction_state: "This auction is not accepting new bids.",
     auction_not_found: "This auction could not be found.",
-    user_not_found: "This demo bidder no longer exists. Choose another bidder.",
+    user_not_found:
+      "Your account could not be found. Sign in again before bidding.",
     seller_self_bid: "Sellers cannot bid on their own auction.",
     idempotency_key_conflict:
       "This attempt conflicts with an earlier request. Nothing was resubmitted. Refresh and review before starting a new attempt.",

@@ -1,4 +1,4 @@
-# Frontend — Phase 21 reserve slice
+# Frontend
 
 Hammerfall is a text-focused auction interface backed entirely by Rails. It uses
 Next.js App Router, React, TypeScript, Tailwind v4 and shadcn Base UI primitives.
@@ -40,7 +40,7 @@ an uncertain outcome. Retry safely uses the same key and payload, including afte
 closure. Refreshing public state alone cannot resolve an unknown command outcome.
 Abandonment requires an explicit warning step and does not cancel server work.
 
-Success or valid terminal 400/404/409/422 clears the saved record and refreshes
+Success or valid terminal 400/404/409/413/422/429 clears the saved record and refreshes
 auction plus history. Idempotency-Replayed recovers the previous result, followed
 by those fresh reads. A 409 never generates another key automatically. Known
 errors explain low bids, binding maximum decreases, noncompetitive maxima, deadlines,
@@ -94,8 +94,8 @@ and safe recovery, closing, seller protection, cross-client Cable recovery and
 390/768/1440 layouts with long titles and large prices. See the
 [Phase 20 final review](security/phase-20-final.md) for actual results and limits.
 
-Phase 7 adds actual server-pushed invalidations and reconnect recovery while
-preserving these client command guarantees. See [realtime](realtime.md) and ADR-008.
+Server-pushed invalidations and reconnect recovery preserve these client
+command guarantees. See [realtime](realtime.md) and ADR-008.
 Connection status is separate from REST errors and command state; disconnected
 clients can still bid. One owned consumer is cleaned up on detail unmount. Listing
 pages retain explicit REST refresh and do not open auction subscriptions.

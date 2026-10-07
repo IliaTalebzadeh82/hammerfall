@@ -46,7 +46,7 @@ docker compose up --build --wait
 ./scripts/showcase
 ```
 
-The showcase takes roughly 40 seconds on a warm stack and prints a concise result; see the [demo guide](docs/demo.md) for steps, limits and troubleshooting. Open [localhost:3000](http://localhost:3000); Rails liveness is [localhost:3001/up](http://localhost:3001/up). Port 3001 reaches a local proxy over two Rails API containers. First startup downloads dependencies. [Running locally](docs/running-locally.md) covers native setup, verification, port overrides and shutdown.
+The showcase takes roughly 100 seconds on a warm stack and prints a concise result; see the [demo guide](docs/demo.md) for steps, limits and troubleshooting. Open [localhost:3000](http://localhost:3000); Rails liveness is [localhost:3001/up](http://localhost:3001/up). Port 3001 reaches a local proxy over two Rails API containers. First startup downloads dependencies. [Running locally](docs/running-locally.md) covers native setup, verification, port overrides and shutdown.
 
 ## Engineering case study and conversation
 

@@ -15,7 +15,8 @@ creates a uniquely labelled auction. It authenticates an operator and two
 bidders. Fixture creation, scheduling and activation use HTTP; all bidding,
 retry and reads also use the real Rails APIs on two replicas. Internal
 PostgreSQL checks are labelled separately in the script. The run normally
-waits about 40 seconds for the late window and autonomous close, then waits
+waits about 100 seconds for the late window and autonomous close when no
+rate-limit cooldown is needed, then waits
 boundedly for Kafka audit receipts and the Redis public projection.
 
 Expect six short steps and `PASS`: €100 opening; Alice's private ceiling makes

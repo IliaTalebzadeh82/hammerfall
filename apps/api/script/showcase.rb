@@ -64,7 +64,7 @@ title = "Hammerfall engineering showcase #{now.utc.strftime('%Y%m%dT%H%M%S')} #{
 data = operator.expect(:post, "/api/v1/auctions", status: 201, base: a, body: { auction: {
   title: title, starting_price: 10_000, minimum_increment: 500,
   increment_policy: "stepped", reserve_price: 50_000, closing_policy: "rapid",
-  starts_at: (now - 60).iso8601(6), ends_at: (now + 30).iso8601(6)
+  starts_at: (now - 60).iso8601(6), ends_at: (now + 90).iso8601(6)
 } }).fetch("data")
 id = data.fetch("id")
 path = "/api/v1/auctions/#{id}"
@@ -75,7 +75,7 @@ check!(initial.values_at("status", "current_price", "reserve_status", "closing_p
   [ "active", 10_000, "not_met", "rapid" ], "initial public state")
 check!(initial.fetch("minimum_increment") == 500, "initial stepped increment")
 puts "[1/6] Fixture prepared (auction #{id}; isolated retained row)"
-puts "      Public view: active, #{amount(initial.fetch('current_price'))}; reserve not met; next bid #{amount(10_000 + initial.fetch('minimum_increment'))}; rapid closing"
+puts "      Public view: active, #{amount(initial.fetch('current_price'))}; reserve not met; opening bid #{amount(initial.fetch('starting_price'))}; rapid closing"
 puts "      Public deadline #{Time.iso8601(initial.fetch('ends_at')).utc.iso8601(3)}; revision #{initial.fetch('public_revision')}"
 
 # BEHAVIOR UNDER DEMONSTRATION: authenticated commands through real Rails HTTP.
@@ -88,7 +88,7 @@ puts "[2/6] Alice authorized a private ceiling"
 puts "      Public view: #{amount(after_alice.fetch('current_price'))}; reserve met; private ceiling absent from response"
 
 original_deadline = Time.iso8601(after_alice.fetch("ends_at"))
-wait_until(25, "late bidding window missed") do
+wait_until(90, "late bidding window missed") do
   remaining = original_deadline - AuctionClock.now
   check!(remaining > 3, "late bidding window missed")
   remaining <= 12

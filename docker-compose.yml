@@ -341,7 +341,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 30s
+      # An existing node_modules volume may need a full npm ci after a lockfile change.
+      start_period: 180s
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.136.0

@@ -976,3 +976,16 @@ SQL count results while other processes changed those rows. Wrapping the
 convergence reads in `ApplicationRecord.uncached` exposed the current database
 state; three subsequent isolated auctions and a final output check passed.
 This is a test-harness observation, not a change to auction command semantics.
+
+## 2026-10-07 — Local parity and demo time budgets are executable contracts
+
+The full local regression ran ten independent PostgreSQL sessions under a
+three-connection test pool, causing four checkout timeouts while CI's larger
+pool had passed. Matching CI's 15-connection pool retained the concurrency
+assertions and produced a clean full run. Removing the unused `shadcn` CLI
+also required removing its CSS import: unit checks alone missed the reference,
+while the production build caught it. A persistent Compose node_modules volume
+needed enough health-check grace for a fresh install. Finally, an authenticated
+showcase fixture must budget for a prior 60-second rate-limit cooldown; its
+30-second deadline expired before activation could retry. These were test and
+demonstration envelope failures, with the auction command protocol unchanged.
