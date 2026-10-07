@@ -1180,3 +1180,16 @@ trace exports sometimes received 404. Distinct recovery service names removed
 the DNS collision for Collector, Redis and Prometheus. The failure did not
 alter auction authority, but it made the supposedly isolated exercise affect
 ordinary observability.
+
+## Phase 23 — An evidence-backed engineering argument
+
+The shortest useful model is: PostgreSQL decides the auction; transport and
+projections distribute or recover that decision. Three different time problems
+make this tangible: concurrent writers contest the present, a lost HTTP response
+makes a committed past ambiguous to the client, and PITR can make Kafka/Redis
+remember a future PostgreSQL discarded. The [case study](case-study.md) and
+[walkthrough](walkthrough.md) connect each to a specific experiment and a limit.
+A clean local 600-contender burst demonstrates that run's authority check, not a
+production user count; an isolated PITR game day demonstrates a procedure, not
+managed-cloud disaster recovery. The [dated public Catawiki comparison](catawiki-alignment.md)
+keeps observed product behavior separate from Hammerfall design choices.

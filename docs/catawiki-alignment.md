@@ -1,0 +1,33 @@
+# Public Catawiki behavior and Hammerfall's approximation
+
+Research refreshed **2026-10-07** from Catawiki's public pages. This comparison is about externally described product behavior. Catawiki's internal transaction, storage, queue and deployment design is unknown here. Hammerfall is an independent engineering study, not a Catawiki clone or capacity model.
+
+## Behavior compared
+
+| Public Catawiki behavior | Hammerfall approximation | Important difference |
+| --- | --- | --- |
+| The next minimum depends on the current highest bid; the published bands are below. Catawiki says experiments can vary increments on some lots. [Help Centre](https://www.catawiki.com/en/help/bidding-basics/how-is-the-next-minimum-bid-calculated) | Opt-in `BidIncrementPolicy` selects a band after the auction lock; old fixed-increment auctions remain supported. [ADR-018](adr/018-stepped-bid-increments.md) | One fixed local schedule; no lot experiment assignment. |
+| A private maximum triggers automatic counterbids within its ceiling. A ceiling below the next normal increment can still be used. Equal maxima favor the one placed first. [Max bids](https://www.catawiki.com/en/help/max-bids/what-is-a-max-bid-and-how-does-it-work), [equal bids](https://www.catawiki.com/en/help/bidding-basics/there-are-two-identical-highest-bids-how-is-that-possible) | Durable private maxima, priority and synchronous proxy settlement in one PostgreSQL transaction. [ADR-004](adr/004-proxy-bidding.md) | Catawiki's internal representation is unknown. Hammerfall uses integer EUR cents and does not model multi-currency conversion. |
+| Reserve is hidden; a below-reserve bid enters history. A maximum below reserve is fully placed, while one above reserve initially reaches reserve; unmet reserve means no sale. [Reserve help](https://www.catawiki.com/en/help/reserve-prices/i-d-like-to-place-a-bid-on-an-object-with-a-reserve-price-what-does-this-mean-and-how-do-i-know-what-the-reserve-price-is) | Private reserve and public `none`/`not_met`/`met` status; below-reserve history can exist; no winner on unmet close. [ADR-019](adr/019-hidden-reserve-policy.md) | Catawiki allows sellers to lower or remove an active reserve under conditions; Hammerfall freezes it after draft. [Editing help](https://www.catawiki.com/en/help/during-auction-changes-to-removal-of-lots/can-i-edit-my-reserve-price) |
+| A bid in the final 60 seconds of a regular auction adds 90 seconds. [Timing help](https://www.catawiki.com/en/help/bidding-basics/why-are-bidding-times-for-some-lots-occasionally-made-longer) | `regular` closing policy uses final-60/+90 under the auction lock. [ADR-020](adr/020-auction-closing-policies.md) | Only the published timing effect is approximated; Catawiki's internal clock/ordering design is unknown. |
+| A bid in the final 15 seconds of Catawiki Live adds 10 seconds. Live includes a seller-hosted stream and chat. [Timing help](https://www.catawiki.com/en/help/bidding-basics/why-are-bidding-times-for-some-lots-occasionally-made-longer), [Live buyer help](https://www.catawiki.com/en/help/bidding-on-catawiki/catawiki-live-for-buyers) | `rapid` closing policy uses final-15/+10. | Deadline policy only: no livestream, chat, presentation order or payment admission. |
+
+The published current-bid bands (EUR) and increments are: €1–10 +€1; €11–100 +€5; €101–200 +€10; €201–500 +€20; €501–1,000 +€50; €1,001–2,000 +€100; €2,001–5,000 +€200; €5,001–10,000 +€500; €10,001–20,000 +€1,000; €20,001–50,000 +€2,000; €50,001–100,000 +€5,000; €100,001–200,000 +€10,000; €200,001–500,000 +€20,000; above €500,000 +€50,000. Catawiki explicitly says some lots may differ during bidding-experience experiments. [Help Centre, accessed 2026-10-07](https://www.catawiki.com/en/help/bidding-basics/how-is-the-next-minimum-bid-calculated).
+
+Catawiki's [About page](https://www.catawiki.com/en/help/about) currently describes more than 75,000 objects and 600 auctions each week, over 10 million unique monthly visitors, 60+ markets and 17 languages. These are Catawiki's public marketplace context figures, **not** Hammerfall traffic or capacity measurements. Payment, escrow, seller review, category restrictions and cross-currency bidding are beyond Hammerfall's auction core. Catawiki's [bid-reservation help](https://www.catawiki.com/en/help/bidding-basics/what-is-a-bid-reservation) illustrates a payment-admission concern that Hammerfall does not implement.
+
+## Source register
+
+All sources below are first-party Catawiki pages accessed **2026-10-07**. Page contents and marketplace figures can change; this dated comparison should be refreshed before external use.
+
+| Title | URL | Accessed | Claim supported | Type |
+| --- | --- | --- | --- | --- |
+| How is the next minimum bid calculated? | https://www.catawiki.com/en/help/bidding-basics/how-is-the-next-minimum-bid-calculated | 2026-10-07 | Current bands and experiment caveat | First-party Help Centre |
+| What is a max bid and how does it work? | https://www.catawiki.com/en/help/max-bids/what-is-a-max-bid-and-how-does-it-work | 2026-10-07 | Ceiling, counterbid, partial increment, tie and late extension | First-party Help Centre |
+| There are two identical highest bids | https://www.catawiki.com/en/help/bidding-basics/there-are-two-identical-highest-bids-how-is-that-possible | 2026-10-07 | Earlier max priority and currency-display nuance | First-party Help Centre |
+| I'd like to place a bid on an object with a reserve price | https://www.catawiki.com/en/help/reserve-prices/i-d-like-to-place-a-bid-on-an-object-with-a-reserve-price-what-does-this-mean-and-how-do-i-know-what-the-reserve-price-is | 2026-10-07 | Hidden reserve, below-reserve bid, max crossing reserve, unsold | First-party Help Centre |
+| Can I edit my reserve price? | https://www.catawiki.com/en/help/during-auction-changes-to-removal-of-lots/can-i-edit-my-reserve-price | 2026-10-07 | Active lower/remove conditions | First-party Help Centre |
+| Why are bidding times for some lots occasionally made longer? | https://www.catawiki.com/en/help/bidding-basics/why-are-bidding-times-for-some-lots-occasionally-made-longer | 2026-10-07 | Regular and Live extension windows | First-party Help Centre |
+| Catawiki Live for Buyers | https://www.catawiki.com/en/help/bidding-on-catawiki/catawiki-live-for-buyers | 2026-10-07 | Live stream/chat scope and 15/10 extension | First-party Help Centre |
+| About Catawiki | https://www.catawiki.com/en/help/about | 2026-10-07 | Marketplace context numbers/categories | First-party corporate/help page |
+| What is a bid reservation? | https://www.catawiki.com/en/help/bidding-basics/what-is-a-bid-reservation | 2026-10-07 | Deferred payment/bid-admission scope | First-party Help Centre |

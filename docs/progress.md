@@ -2568,3 +2568,22 @@ full regression, migration and static/security gates are recorded above and
 in the [final operations report](operations/phase-22-final.md). Phase 22 is
 complete once this final completion-status commit itself passes hosted CI on
 its exact SHA; the closure response records that run. Phase 23 has not started.
+
+## 2026-10-07 — Phase 23 Session 1 case-study milestone
+
+Phase 23 was explicitly authorized after Phase 22 completion. Current first-party
+Catawiki Help Centre/About pages were refreshed for increments, maximum bids,
+reserve, regular/Live extension and marketplace context. The dated
+[alignment](catawiki-alignment.md) separates public behavior from Hammerfall's
+implementation and records active reserve editing as an explicit difference.
+
+The [case study](case-study.md) selects exactly three flagship experiments:
+final-second concurrent bidding, committed-command/lost-response replay, and
+PITR with ahead Kafka/Redis. It links targeted tests, ADRs and final reports,
+including local load and recovery limits. The [README](../README.md) is the
+front door; the [walkthrough](walkthrough.md) supplies a 60-second opening and
+10–15 minute sequence; the [interview guide](interview-guide.md) covers trade-offs
+and measured triggers for scale changes. The [Phase 23 plan](plans/phase-23-execplan.md)
+indexes claims, public sources, verification and Session 2 demo work. No product
+code or schema changed. Session 2 still owns the reproducible showcase, live
+demo proof, reader-time test, final audit and phase closure.

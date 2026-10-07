@@ -954,3 +954,15 @@ risk. Giving the recovery services distinct names removed those aliases;
 with both Collectors running, the ordinary endpoint again had one address and
 returned 200 for traces and metrics. The isolated alert game-day evidence was
 valid, but the shared network itself was a failure surface worth reviewing.
+
+## 2026-10-07 — Compressing the case study around three kinds of time
+
+A technology tour obscured the most distinctive evidence. The concurrent
+auction-lock tests concern competing decisions in the present; idempotent retry
+concerns a client uncertain about a committed past; the Phase 22 PITR drill
+concerns derived systems still holding a discarded future. This framing explains
+why PostgreSQL authority, immutable command identity and timeline-aware recovery
+are separate obligations. Refreshed Catawiki public help also exposed a concrete
+product gap: an active seller reserve can be lowered/removed there, while
+Hammerfall freezes it after draft. The dated comparison records that gap without
+inferring Catawiki's internals.

@@ -1,122 +1,61 @@
 # Hammerfall
 
-Hammerfall is an auction engineering project exploring correctness under
-high-contention bidding. Its central question is how to guarantee one authoritative
-outcome while concurrent requests, application instances, asynchronous consumers,
-and real-time clients may observe different versions of state.
+Hammerfall is an auction engineering case study about preserving one valid outcome when bids race near closing, an HTTP response disappears after commit, and downstream systems disagree after recovery. **PostgreSQL decides the auction; Rails owns the rules.** Next.js, Sidekiq, Kafka, Redis and Action Cable present or distribute committed state. The work is backed by independent PostgreSQL-session tests, local multi-replica/transport exercises and an isolated point-in-time recovery drill. It is an independent reference architecture, not a Catawiki clone or a production capacity claim.
 
-**Completed through Phase 21; Phase 22 has not started.**
-Phase 21 adds stepped increments, hidden reserve and persisted regular/rapid
-closing through the existing PostgreSQL command path. See the
-[marketplace policy report](docs/marketplace/phase-21-final.md) for scope and evidence.
-Phase 20 adds authenticated first-party identities, authorization, seller self-bid
-protection, bounded request and rate controls, versioned keyed idempotency digests,
-authenticated realtime admission and verified multi-instance behavior while retaining
-PostgreSQL auction authority. Phase 18 verified local Kubernetes orchestration, and Phase 19 added a
-default-disabled Terraform/GCP reference without cloud deployment. See
-[local Kubernetes setup](k8s/README.md) and the [latest handoff](docs/handoffs/latest.md)
-for their scope and limits.
+## Why this exists
 
-Browse real auctions, inspect public bid
-history, sign in with a local demo identity, and submit manual or private maximum bids.
-The responsive Next.js interface preserves stable client intentions for safe retry
-after lost responses, including tab reload. Rails/PostgreSQL still owns price,
-leader, deadline extensions and final winner. Auction details receive PostgreSQL-backed
-Action Cable invalidations, dispatched through a PostgreSQL outbox and Sidekiq,
-and recover current state through REST on confirmation/reconnect. The outbox
-preserves committed publication intent across API crash and Redis outage. A
-separate Kafka publisher carries public domain events from the same committed
-outbox to an idempotent audit consumer and a separate public Redis projection
-consumer. The explicit eventual public-state endpoint can use Redis or fall
-back to PostgreSQL. A scheduled checker compares Redis with authoritative
-PostgreSQL public state and safely repairs missing or older projections;
-ambiguous state needs operator review. Bounded PostgreSQL leases prevent
-scheduled scan overlap. Kafka, Redis and scheduler state do not decide auction outcomes.
-OpenTelemetry carries bounded trace context across HTTP, Sidekiq and Kafka.
-An optional local Collector, Prometheus, Tempo and Grafana stack exposes
-metrics, distributed traces and an operations dashboard; Rails emits structured
-boundary logs. Telemetry loss does not decide auction outcomes. See the
-[observability contract](docs/observability.md) and
-[runbook](docs/runbooks/observability.md) for signal limits and local inspection.
-[ADR-010](docs/adr/010-transactional-public-outbox.md) and
-[ADR-011](docs/adr/011-kafka-domain-events.md) document the retained publisher
-row locks across external delivery and their unmeasured scaling cost. The API
-has a 32 KiB pre-parse body guard and versioned HMAC digests for new idempotency
-claims; [security](docs/security.md) describes the guarantees and accepted limits.
-It is not a public production service.
-[Realtime](docs/realtime.md) documents the remaining delivery limits. Start future work with
-[AGENTS.md](AGENTS.md), the [latest handoff](docs/handoffs/latest.md), the relevant
-[phase specification](docs/phases/), and the [context map](docs/context-map.md).
-[Progress](docs/progress.md) records actual verification; the original master prompt
-is [archived for audit](docs/archive/masterprompt-original.md).
+A bid changes more than a number. Current price, private maximum, reserve, ordering, deadline extension and eventual winner must agree even when requests and the closer race. A transaction protects persisted writes, but clients and derived systems can still have ambiguous or outdated knowledge. The [engineering case study](docs/case-study.md) explains the design through three failure stories and their retained evidence.
+
+## Three hard problems
+
+| Question | Hammerfall decision | Evidence and limit |
+| --- | --- | --- |
+| What if bidders contend in the final seconds? | Lock one PostgreSQL auction row; decide from fresh state and post-lock database time. | [Independent-session tests](apps/api/spec/integration/concurrent_bidding_spec.rb) and [local burst](docs/benchmarks/phase-14-session-2.md#closing-storm-and-final-ten-second-challenge). One hot auction serializes; local bursts are not capacity ratings. |
+| What if a bid commits but its HTTP response is lost? | Reuse actor/key/payload; replay the stored historical outcome, then GET current state. | [Lost-response spec](apps/api/spec/requests/idempotency_spec.rb) and [A/B replica proof](docs/security/phase-20-final.md#final-verification). Replay depends on retained records and client key discipline. |
+| What if recovery rewinds PostgreSQL while Kafka/Redis still show the future? | Fence writers, quarantine old broker history, rebuild derived state and replay retained outbox events. | [Isolated PITR game day](docs/operations/phase-22-final.md#integrated-local-game-day). Procedural fencing and nonzero RPO remain explicit limits. |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Client[Browser / Next.js] -->|command + key| API[Rails replicas]
+  API -->|lock, DB time, transaction| PG[(PostgreSQL: auction authority<br/>and committed outbox)]
+  PG --> Publisher[Outbox publishers]
+  Publisher --> Kafka[Kafka: transport]
+  Publisher --> Cable[Sidekiq / Cable: invalidation]
+  Kafka --> Redis[(Redis: derived public projection)]
+  Kafka --> Audit[PostgreSQL audit receipts]
+  Cable -->|revision hint; fetch again| Client
+  Client -->|fresh GET| API
+  PG -->|rebuild after recovery| Redis
+```
+
+A command's price, leader, deadline, bid history, private maximum and outbox intent settle in PostgreSQL. Kafka delivery is at least once; Redis can be rebuilt; a Cable message is a cue to fetch, not a command result. The [case-study diagram and explanation](docs/case-study.md#architecture-in-one-picture) include the recovery path. [Consistency model](docs/consistency-model.md) and [ADRs](docs/adr/) define the exact boundary.
+
+## Guarantees and evidence
+
+The current code uses auction-local committed sequence, post-lock database time, transactional proxy resolution, explicit winner finalization, scoped command idempotency and durable outbox intent. These are bounded by the documented command paths and database constraints; they do not imply FIFO fairness, uninterrupted HTTP availability or exactly-once transport. [Invariants](docs/invariants.md) and the [claim/evidence inventory](docs/plans/phase-23-execplan.md#claim-and-evidence-inventory) give the precise proof and limits. The [Phase 21 combined scenario](docs/marketplace/phase-21-final.md#combined-scenario-and-failure-behavior) exercises stepped increments, reserve, rapid close, replica replay, Kafka/Redis and reconciliation together.
 
 ## Run locally
 
-With Docker Engine and Compose installed:
+With Docker Engine and Compose:
 
 ```sh
 cp .env.example .env
 docker compose up --build --wait
 ```
 
-Open [the frontend](http://localhost:3000). Rails liveness is at
-[localhost:3001/up](http://localhost:3001/up). First startup downloads dependencies.
-Port 3001 reaches a local proxy that balances two Rails API containers.
-See [running locally](docs/running-locally.md) for native development, verification,
-port overrides, dependency updates, and shutdown.
+Open [localhost:3000](http://localhost:3000); Rails liveness is [localhost:3001/up](http://localhost:3001/up). Port 3001 reaches a local proxy over two Rails API containers. First startup downloads dependencies. [Running locally](docs/running-locally.md) covers native setup, verification, port overrides and shutdown. A guided, reproducible interview demo is planned for Phase 23 Session 2; the existing [combined policy smoke](apps/api/script/phase21_final.rb) is retained evidence, not yet that demo.
 
-## Repository
+## Engineering case study and conversation
 
-- `apps/api`: Rails API, ActiveRecord/PostgreSQL, RSpec, RuboCop, Brakeman.
-- `apps/web`: Next.js App Router, TypeScript, Tailwind, shadcn/ui, Vitest.
-- `infrastructure`: development Dockerfiles and local API proxy; root Compose coordinates PostgreSQL,
-  Redis, Kafka, two API instances, web, Sidekiq, two outbox publishers, Kafka audit and projection consumers,
-  reconciliation scheduler and auction closer.
-- `scripts`: shared local verification.
-- `docs`: architecture, decisions, learning notes, and progress.
-- `infrastructure/observability`: optional local Collector, Prometheus, Tempo
-  and provisioned Grafana dashboard.
-- `load-tests`: pinned k6 scenarios, environment capture and authoritative
-  PostgreSQL post-run verification. See the [local benchmark evidence](docs/benchmarks/README.md).
+- [Case study](docs/case-study.md): three problems, decisions, experiments, actual results and limits.
+- [10–15 minute walkthrough](docs/walkthrough.md), including a 60-second opening.
+- [Interview guide](docs/interview-guide.md): alternatives, scale triggers and discussion prompts.
+- [Catawiki public-behavior comparison](docs/catawiki-alignment.md): dated first-party sources and explicit differences. Catawiki's internal architecture is unknown here.
 
-## Correctness and architecture
+## Stack and scope
 
-The [invariants](docs/invariants.md) distinguish implemented concurrency guarantees
-from future event-delivery requirements. Rails owns business logic and
-PostgreSQL owns persisted state. Money uses integer EUR cents. Bid insertion and
-current-price update are atomic; explicit close assigns the winner. [ADR-003](docs/adr/003-auction-concurrency-control.md) explains serialization and
-the hot-auction bottleneck. Next.js presents public GET state and never optimistically decides price or leader.
-See [frontend](docs/frontend.md), [architecture](docs/architecture.md), [domain model](docs/domain-model.md), and
-[ADR-001](docs/adr/001-modular-monolith.md) for the modular-monolith decision.
+`apps/api` is a modular Rails application with ActiveRecord/PostgreSQL, RSpec and a closer role. `apps/web` is Next.js/TypeScript. Local Compose includes Redis/Sidekiq, Kafka publishers and consumers, two API replicas, reconciliation and optional observability. [Code map](docs/code-map.md) routes commands and tests. [Learning guide](docs/learning-guide.md) and [ADRs](docs/adr/) preserve deeper reasoning; [progress](docs/progress.md) preserves phase history.
 
-Phase 20's boundary and evidence are in the [final review](docs/security/phase-20-final.md).
-See [API usage](docs/api.md) and
-[ADR-002](docs/adr/002-core-auction-state.md) for the domain choices.
-
-## Verification and learning
-
-After native dependencies are installed and PostgreSQL is running:
-
-```sh
-./scripts/check
-```
-
-CI checks Ruby lint/security/tests, frontend lint/format/types/tests/build, and
-Compose startup, HTTP smoke tests and real-API Playwright browser scenarios. [Version choices](docs/tooling.md), [code map](docs/code-map.md),
-and [learning guide](docs/learning-guide.md) explain the foundation.
-
-## Cloud reference
-
-[Phase 19's Terraform/GCP reference](docs/cloud/phase-19-final.md) defines a
-gated GKE Autopilot, Cloud SQL, Redis and managed Kafka topology with a GKE
-workload overlay, managed-service client contracts and a [cost model](docs/cloud/cost-estimate.md).
-It is locally and statically validated; no live GCP deployment or managed-service
-connection has been performed.
-
-## Later engineering work
-
-[Failure scenarios](docs/failure-model.md), [job/Redis runbook](docs/runbooks/sidekiq-redis.md), [Kafka runbook](docs/runbooks/kafka.md), [projection recovery](docs/runbooks/redis-projection.md), [reconciliation operations](docs/runbooks/projection-reconciliation.md), [consistency](docs/consistency-model.md),
-[event contracts](docs/event-model.md), [benchmarks](docs/load-testing.md), and
-[observability](docs/observability.md) describe current limits and future work. The
-local benchmark results are comparative evidence, not production capacity. See [security](docs/security.md) and
-[production readiness](docs/production-readiness.md) for current limits.
+This repository does not implement payments, bid reservations, active reserve lowering, livestream/chat, full Catawiki marketplace policy or multi-currency bidding. The [local Kubernetes exercise](docs/kubernetes/phase-18-final.md) and [Terraform/GCP reference](docs/cloud/phase-19-final.md) are locally/static-validated, without a live GCP deployment. Local load comparisons and the isolated recovery drill establish their recorded outcomes only; production capacity, Cloud SQL/managed Kafka DR, production RPO/RTO and multi-region availability remain unverified. [Production-readiness limits](docs/production-readiness.md) and the [latest handoff](docs/handoffs/latest.md) state the current verification boundary.

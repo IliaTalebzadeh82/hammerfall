@@ -1,5 +1,15 @@
 # Code map
 
+## Phase 23 case-study route
+
+Start at the [case study](case-study.md) for the authority model and three
+experiments, then use its direct test/report links. The [walkthrough](walkthrough.md)
+orders the code conversation: `Auction#place_bid!` and `#close!`,
+`Bidding::ProxyResolver`, `Idempotency::Executor`, outbox publishers and
+consumers, then the Phase 22 recovery fixture. The sections below give the
+path-level map. Phase 23 changes documentation only; it does not change the
+command or event contract.
+
 ## Phase 21 rapid closing slice
 
 `Auction#closing_policy` is a persisted draft term. `ClosingPolicy` supplies
